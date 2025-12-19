@@ -3,28 +3,30 @@ const path = require("path");
 
 exports.handler = async (event) => {
     if (event.httpMethod !== "POST") {
-        return {
-            statusCode: 405,
-            body: "Method Not Allowed"
-        };
+        return { statusCode: 405, body: "Method Not Allowed" };
     }
 
     const { username, password } = JSON.parse(event.body);
 
-    // Path to CSV file (read-only)
     const filePath = path.join(__dirname, "../../data/users.csv");
 
     try {
         const csvData = fs.readFileSync(filePath, "utf8");
 
-        const lines = csvData.split("\n").slice(1); // skip header
+        const lines = csvData
+            .split("\n")
+            .map(line => line.replace("\r", "").trim())
+            .slice(1); // skip header
 
-        for (let line of lines) {
-            if (!line.trim()) continue;
+        for (const line of lines) {
+            if (!line) continue;
 
-            const [csvUser, csvPass] = line.trim().split(",");
+            const [csvUser, csvPass] = line.split(",");
 
-            if (csvUser === username && csvPass === password) {
+            if (
+                csvUser.trim() === username.trim() &&
+                csvPass.trim() === password.trim()
+            ) {
                 return {
                     statusCode: 200,
                     body: JSON.stringify({ success: true })
@@ -41,7 +43,7 @@ exports.handler = async (event) => {
         };
 
     } catch (err) {
-        console.error(err);
+        console.error("LOGIN ERROR:", err);
 
         return {
             statusCode: 500,
