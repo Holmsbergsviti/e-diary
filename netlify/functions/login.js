@@ -8,18 +8,21 @@ exports.handler = async (event) => {
 
     const { username, password } = JSON.parse(event.body);
 
-    const filePath = path.join(__dirname, "../../data/users.csv");
+    // IMPORTANT: robust path
+    const filePath = path.join(process.cwd(), "data", "users.csv");
 
     try {
-        const csvData = fs.readFileSync(filePath, "utf8");
+        let csvData = fs.readFileSync(filePath, "utf8");
 
-        const lines = csvData
-            .split("\n")
-            .map(line => line.replace("\r", "").trim())
-            .slice(1); // skip header
+        // 🔥 FIX ALL COMMON CSV ISSUES
+        csvData = csvData
+            .replace(/^\uFEFF/, "") // remove UTF-8 BOM
+            .replace(/\r/g, "");     // remove Windows CR
+
+        const lines = csvData.split("\n").slice(1); // skip header
 
         for (const line of lines) {
-            if (!line) continue;
+            if (!line.trim()) continue;
 
             const [csvUser, csvPass] = line.split(",");
 
@@ -38,7 +41,7 @@ exports.handler = async (event) => {
             statusCode: 401,
             body: JSON.stringify({
                 success: false,
-                message: "Wrong username or password"
+                message: "Invalid username or password"
             })
         };
 
