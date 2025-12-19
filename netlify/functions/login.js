@@ -8,18 +8,17 @@ exports.handler = async (event) => {
 
     const { username, password } = JSON.parse(event.body);
 
-    // IMPORTANT: robust path
-    const filePath = path.join(process.cwd(), "data", "users.csv");
+    // ✅ CSV NEXT TO FUNCTION
+    const filePath = path.join(__dirname, "users.csv");
 
     try {
         let csvData = fs.readFileSync(filePath, "utf8");
 
-        // 🔥 FIX ALL COMMON CSV ISSUES
         csvData = csvData
-            .replace(/^\uFEFF/, "") // remove UTF-8 BOM
-            .replace(/\r/g, "");     // remove Windows CR
+            .replace(/^\uFEFF/, "") // remove BOM
+            .replace(/\r/g, "");
 
-        const lines = csvData.split("\n").slice(1); // skip header
+        const lines = csvData.split("\n").slice(1);
 
         for (const line of lines) {
             if (!line.trim()) continue;
