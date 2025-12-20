@@ -12,7 +12,7 @@ ALLOWED_HOSTS = [
 
 INSTALLED_APPS = [
     'corsheaders',
-    'api',
+    'backend.api.apps.ApiConfig',
 ]
 
 MIDDLEWARE = [
