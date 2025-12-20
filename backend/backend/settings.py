@@ -6,29 +6,21 @@ SECRET_KEY = "dev-secret-key"
 DEBUG = False
 
 ALLOWED_HOSTS = [
-    ".onrender.com"
+    "e-diary-backend-lwpj.onrender.com",
 ]
 
-
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-
     'corsheaders',
     'api',   # ✅ JUST THIS
 ]
 
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
-    'django.middleware.common.CommonMiddleware',
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.common.CommonMiddleware",
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True  # DEV ONLY
+CORS_ALLOWED_ORIGINS = ["https://chartwell-e-diary.netlify.app/"]
 
 ROOT_URLCONF = 'backend.urls'
 

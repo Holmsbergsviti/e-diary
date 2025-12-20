@@ -1,8 +1,22 @@
+from .db import users
+import bcrypt
+import os
 import json
 import bcrypt
 from django.http import JsonResponse
+from pymongo import MongoClient
+
+MONGO_URI = os.environ.get("MONGO_URI")
+
+if not MONGO_URI:
+    raise Exception("MONGO_URI is not set")
+
+client = MongoClient(MONGO_URI)
+db = client["ediary"]
+users = db["users"]
+
+
 from django.views.decorators.csrf import csrf_exempt
-from .db import users
 
 @csrf_exempt
 def login(request):
@@ -19,6 +33,6 @@ def login(request):
         return JsonResponse({"message": "Invalid credentials"}, status=401)
 
     if bcrypt.checkpw(password.encode(), user["password"]):
-        return JsonResponse({"message": "Login successful"}, status=200)
-
-    return JsonResponse({"message": "Invalid credentials"}, status=401)
+        return JsonResponse({"success": True})
+    else:
+        return JsonResponse({"message": "Invalid credentials"}, status=401)
