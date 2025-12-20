@@ -1,0 +1,24 @@
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f4f4;
+}
+
+.center-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 100px;
+}
+
+form {
+    background: white;
+    padding: 20px;
+    width: 260px;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+}
+
+input, button {
+    margin-top: 10px;
+    padding: 8px;
+}

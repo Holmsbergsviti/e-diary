@@ -8,7 +8,7 @@
             "type": "chrome",
             "request": "launch",
             "name": "Launch Chrome against localhost",
-            "url": "file:///home/cipherghost/Documents/GitHub/e-diary/Index.html",
+            "url": "file:///home/cipherghost/Documents/GitHub/e-diary/frontend/index.html",
             "webRoot": "${workspaceFolder}"
         }
     ]
