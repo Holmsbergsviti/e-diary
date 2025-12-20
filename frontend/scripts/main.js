@@ -1,30 +1,31 @@
 document.getElementById("loginForm").addEventListener("submit", async (e) => {
-    e.preventDefault(); // 🔥 stops page reload
+    e.preventDefault();
 
     const username = document.getElementById("username").value;
     const password = document.getElementById("password").value;
 
-    console.log("SENDING:", username, password); // DEBUG
-
     try {
-        const res = await fetch("/.netlify/functions/login", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ username, password })
-        });
+        const res = await fetch(
+            "https://e-diary-backend-lwpj.onrender.com/api/login/",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ username, password }),
+            }
+        );
 
         const data = await res.json();
-        console.log("RESPONSE:", data); // DEBUG
 
-        if (data.success) {
+        if (res.ok) {
             alert("Login successful ✅");
+            // later: save token / redirect
         } else {
             alert(data.message || "Login failed ❌");
         }
     } catch (err) {
         console.error(err);
-        alert("Network error");
+        alert("Backend unreachable ❌");
     }
 });

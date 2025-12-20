@@ -1,2 +1,5 @@
 # Local Netlify folder
-.netlify
+test.py
+.vscode
+README.md
+createUsers.py
