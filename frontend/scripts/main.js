@@ -1,31 +1,14 @@
-document.getElementById("loginForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
+const email = document.getElementById("username").value;
+const password = document.getElementById("password").value;
 
-    const username = document.getElementById("username").value;
-    const password = document.getElementById("password").value;
-
-    try {
-        const res = await fetch(
-            "https://e-diary-backend-lwpj.onrender.com/api/login/",
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ username, password }),
-            }
-        );
-
-        const data = await res.json();
-
-        if (res.ok) {
-            alert("Login successful ✅");
-            // later: save token / redirect
-        } else {
-            alert(data.message || "Login failed ❌");
-        }
-    } catch (err) {
-        console.error(err);
-        alert("Backend unreachable ❌");
-    }
+const { data, error } = await supabase.auth.signInWithPassword({
+  email,
+  password
 });
+
+if (error) {
+  alert("Wrong credentials ❌");
+} else {
+  alert("Login successful ✅");
+  console.log("SESSION:", data.session);
+}
