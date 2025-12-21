@@ -4,3 +4,6 @@ test.py
 README.md
 createUsers.py
 .vscode/launch.json
+.env
+__pycache__/
+node_modules/
