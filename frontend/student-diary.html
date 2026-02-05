@@ -1,0 +1,36 @@
+<div id="dashboard-container" class="container py-5">
+    
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">Dashboard</h1>
+            <p class="text-muted" id="welcome-header">Loading...</p> 
+        </div>
+        </div>
+
+    <div class="row mb-4">  
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div id="total-assignments" class="h5 mb-0 font-weight-bold text-gray-800">0</div>
+            </div>
+        </div>
+
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div id="total-students" class="h5 mb-0 font-weight-bold text-gray-800">0</div>
+            </div>
+        </div>
+        
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div id="pending-grades" class="h5 mb-0 font-weight-bold text-gray-800">0</div>
+            </div>
+        </div>
+    </div>
+
+    <h4 class="mb-3">My Scheduled Classes</h4>
+    <div class="row" id="assignments-grid">
+        <p>Loading assignments...</p> 
+    </div>
+</div>
+
+<script type="module" src="scripts/dashboard.js"></script>

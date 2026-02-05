@@ -1,6 +1,9 @@
+# backend/api/urls.py (Add this path)
+
 from django.urls import path
-from .views import login
+from . import views
 
 urlpatterns = [
-    path("login/", login),
+    # ... existing paths ...
+    path('teacher/dashboard/', views.teacher_dashboard_data, name='api_teacher_dashboard'),
 ]
