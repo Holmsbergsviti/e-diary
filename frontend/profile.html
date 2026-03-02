@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="images/icon.png">
+    <link rel="stylesheet" href="styles/shared.css">
+    <title>Profile – Chartwell E-Diary</title>
+</head>
+<body>
+
+<nav class="topnav">
+    <span class="topnav-brand">Chartwell E-Diary</span>
+    <div class="topnav-right">
+        <span id="navUserName"></span>
+        <button id="logoutBtn">Log out</button>
+    </div>
+</nav>
+
+<div class="page-layout">
+    <aside class="sidebar">
+        <a href="dashboard.html"><span class="icon">🏠</span> Dashboard</a>
+        <a href="schedule.html"><span class="icon">📅</span> Schedule</a>
+        <a href="grades.html"><span class="icon">📊</span> Grades</a>
+        <a href="profile.html" class="active"><span class="icon">👤</span> Profile</a>
+    </aside>
+
+    <main class="content">
+        <div class="card" style="max-width:480px;">
+            <div class="card-title">👤 My Profile</div>
+            <div id="profileContainer"><p class="loading">Loading…</p></div>
+        </div>
+    </main>
+</div>
+
+<script src="scripts/auth.js"></script>
+<script src="scripts/profile.js"></script>
+</body>
+</html>

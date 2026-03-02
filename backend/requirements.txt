@@ -1,0 +1,6 @@
+Django>=4.2
+supabase>=2.0
+bcrypt>=4.1
+PyJWT>=2.8
+django-cors-headers>=4.3
+gunicorn

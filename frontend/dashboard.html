@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="images/icon.png">
+    <link rel="stylesheet" href="styles/shared.css">
+    <title>Dashboard – Chartwell E-Diary</title>
+</head>
+<body>
+
+<nav class="topnav">
+    <span class="topnav-brand">Chartwell E-Diary</span>
+    <div class="topnav-right">
+        <span id="navUserName"></span>
+        <button id="logoutBtn">Log out</button>
+    </div>
+</nav>
+
+<div class="page-layout">
+    <aside class="sidebar">
+        <a href="dashboard.html" class="active"><span class="icon">🏠</span> Dashboard</a>
+        <a href="schedule.html"><span class="icon">📅</span> Schedule</a>
+        <a href="grades.html"><span class="icon">📊</span> Grades</a>
+        <a href="profile.html"><span class="icon">👤</span> Profile</a>
+    </aside>
+
+    <main class="content">
+        <div class="stat-row" id="statRow">
+            <div class="stat-card">
+                <div class="stat-value" id="statAvg">–</div>
+                <div class="stat-label">Average grade</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statCount">–</div>
+                <div class="stat-label">Grades this term</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">📢 Announcements</div>
+            <div id="announcementsContainer"><p class="loading">Loading…</p></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">📊 Recent Grades</div>
+            <div id="recentGradesContainer"><p class="loading">Loading…</p></div>
+        </div>
+    </main>
+</div>
+
+<script src="scripts/auth.js"></script>
+<script src="scripts/dashboard.js"></script>
+</body>
+</html>
