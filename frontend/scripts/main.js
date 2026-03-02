@@ -1,31 +1,38 @@
+const API_BASE = "https://e-diary-backend-lwpj.onrender.com/api";
+
 document.getElementById("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const username = document.getElementById("username").value;
+    const username = document.getElementById("username").value.trim();
     const password = document.getElementById("password").value;
+    const errorMsg = document.getElementById("errorMsg");
+    const submitBtn = document.getElementById("submitBtn");
+
+    errorMsg.textContent = "";
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Logging in…";
 
     try {
-        const res = await fetch(
-            "https://e-diary-backend-lwpj.onrender.com/api/login/",
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ username, password }),
-            }
-        );
+        const res = await fetch(`${API_BASE}/login/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password }),
+        });
 
         const data = await res.json();
 
         if (res.ok) {
-            alert("Login successful ✅");
-            // later: save token / redirect
+            localStorage.setItem("token", data.token);
+            localStorage.setItem("user", JSON.stringify(data.user));
+            window.location.href = "dashboard.html";
         } else {
-            alert(data.message || "Login failed ❌");
+            errorMsg.textContent = data.message || "Login failed.";
         }
     } catch (err) {
         console.error(err);
-        alert("Backend unreachable ❌");
+        errorMsg.textContent = "Could not reach the server. Please try again.";
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "LOG IN";
     }
 });

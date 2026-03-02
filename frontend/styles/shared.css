@@ -1,0 +1,267 @@
+/* ============================================================
+   Shared layout styles (nav, sidebar, page scaffold)
+   ============================================================ */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #f0f2f5;
+    color: #1a2a3a;
+    min-height: 100vh;
+}
+
+/* ---- Top nav ---- */
+.topnav {
+    background: #1a2a3a;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.topnav-brand {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.topnav-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 0.9rem;
+}
+
+#logoutBtn {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.4);
+    color: #fff;
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background 0.2s;
+}
+
+#logoutBtn:hover {
+    background: rgba(255,255,255,0.15);
+}
+
+/* ---- Sidebar + content ---- */
+.page-layout {
+    display: flex;
+    min-height: calc(100vh - 56px);
+}
+
+.sidebar {
+    width: 200px;
+    background: #fff;
+    border-right: 1px solid #e5e7eb;
+    padding: 20px 0;
+    flex-shrink: 0;
+}
+
+.sidebar a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    color: #374151;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: background 0.15s;
+}
+
+.sidebar a:hover,
+.sidebar a.active {
+    background: #eff6ff;
+    color: #2563eb;
+    font-weight: 600;
+}
+
+.sidebar a .icon {
+    font-size: 1.1rem;
+}
+
+.content {
+    flex: 1;
+    padding: 28px;
+    overflow-x: auto;
+}
+
+/* ---- Cards ---- */
+.card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+    padding: 20px 24px;
+    margin-bottom: 20px;
+}
+
+.card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1a2a3a;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+/* ---- Tables ---- */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+th {
+    background: #f9fafb;
+    text-align: left;
+    padding: 10px 12px;
+    font-weight: 600;
+    color: #6b7280;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+tr:last-child td {
+    border-bottom: none;
+}
+
+tr:hover td {
+    background: #f9fafb;
+}
+
+/* ---- Grade badge ---- */
+.grade-badge {
+    display: inline-block;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    line-height: 28px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #fff;
+}
+
+/* Grade badge colours – 5-point scale where 5 is highest, 1 is lowest */
+.grade-5 { background: #16a34a; } /* excellent */
+.grade-4 { background: #2563eb; } /* good */
+.grade-3 { background: #d97706; } /* satisfactory */
+.grade-2 { background: #dc2626; } /* insufficient */
+.grade-1 { background: #7f1d1d; } /* very poor */
+
+/* ---- Loading / empty state ---- */
+.loading {
+    color: #6b7280;
+    font-style: italic;
+    padding: 20px 0;
+}
+
+.empty-state {
+    text-align: center;
+    color: #9ca3af;
+    padding: 40px 20px;
+}
+
+/* ---- Announcement item ---- */
+.announcement {
+    padding: 12px 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.announcement:last-child { border-bottom: none; }
+
+.announcement-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.announcement-meta {
+    font-size: 0.78rem;
+    color: #9ca3af;
+    margin-bottom: 6px;
+}
+
+.announcement-body {
+    font-size: 0.88rem;
+    color: #4b5563;
+    line-height: 1.5;
+}
+
+/* ---- Dashboard stat cards ---- */
+.stat-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.stat-card {
+    flex: 1;
+    min-width: 140px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+    padding: 18px 20px;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #2563eb;
+}
+
+.stat-label {
+    font-size: 0.78rem;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+/* ---- Schedule timetable ---- */
+.timetable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.timetable th,
+.timetable td {
+    border: 1px solid #e5e7eb;
+    padding: 8px 10px;
+    text-align: center;
+    min-width: 90px;
+}
+
+.timetable th {
+    background: #f9fafb;
+}
+
+.timetable td.lesson {
+    background: #eff6ff;
+    color: #1e40af;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.lesson-room {
+    font-size: 0.75rem;
+    color: #6b7280;
+    font-weight: normal;
+}

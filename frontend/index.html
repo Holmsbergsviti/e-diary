@@ -9,22 +9,30 @@
 </head>
 <body>
 
-<div class="center-container">
-    <form class="center-form" id="loginForm">
-        <div>
-            <label for="username">Login*</label><br>
-            <input type="text" id="username" required>
+<div class="login-wrapper">
+    <div class="login-card">
+        <div class="login-header">
+            <img src="images/icon.png" alt="Chartwell logo" class="login-logo">
+            <h1>E-Diary</h1>
+            <p class="login-subtitle">Chartwell International School</p>
         </div>
 
-        <div>
-            <label for="password">Password*</label><br>
-            <input type="password" id="password" required>
-        </div>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" autocomplete="username" required>
+            </div>
 
-        <div class="login-button">
-            <button type="submit">LOG IN</button>
-        </div>
-    </form>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" autocomplete="current-password" required>
+            </div>
+
+            <div id="errorMsg" class="error-msg" aria-live="polite"></div>
+
+            <button type="submit" id="submitBtn">LOG IN</button>
+        </form>
+    </div>
 </div>
 
 <script src="scripts/main.js"></script>
