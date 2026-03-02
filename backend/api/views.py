@@ -49,7 +49,7 @@ def login(request):
     if not username or not password:
         return JsonResponse({"message": "Username and password required"}, status=400)
 
-    result = supabase.table("users").select("*").eq("username", username).single().execute()
+    result = supabase.table("users").select("*").eq("username", username).maybe_single().execute()
     user = result.data
 
     if not user:
@@ -83,7 +83,7 @@ def me(request):
 
     result = supabase.table("users").select(
         "id, username, full_name, role, class_name, email"
-    ).eq("id", payload["sub"]).single().execute()
+    ).eq("id", payload["sub"]).maybe_single().execute()
     user = result.data
 
     if not user:
