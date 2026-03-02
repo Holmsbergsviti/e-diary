@@ -59,7 +59,7 @@ MIDDLEWARE = [
 # CORS (Netlify → Render)
 # --------------------------------------------------
 CORS_ALLOWED_ORIGINS = [
-    "https://chartwell-e-diary.netlify.app/",
+    "https://chartwell-e-diary.netlify.app",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -83,12 +83,10 @@ DATABASES = {
 }
 
 # --------------------------------------------------
-# MONGODB (CUSTOM)
+# SUPABASE
 # --------------------------------------------------
-MONGO_URI = os.environ.get("MONGO_URI")
-
-if not MONGO_URI:
-    raise RuntimeError("MONGO_URI environment variable is not set")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 
 # --------------------------------------------------
 # PASSWORD VALIDATION (not used, but Django wants it)
