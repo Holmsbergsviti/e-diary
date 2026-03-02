@@ -19,10 +19,27 @@ function logout() {
     window.location.href = "index.html";
 }
 
-// Redirect to login if not authenticated
+function isTokenExpired() {
+    const token = getToken();
+    if (!token) return true;
+    try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        return typeof payload.exp === "number" && payload.exp * 1000 < Date.now();
+    } catch (e) {
+        console.warn("Could not parse JWT payload:", e);
+        return true;
+    }
+}
+
+// Redirect to login if not authenticated or session has expired
 function requireAuth() {
-    if (!getToken()) {
+    const token = getToken();
+    if (!token) {
         window.location.href = "index.html";
+        return false;
+    }
+    if (isTokenExpired()) {
+        logout();
         return false;
     }
     return true;
