@@ -1,5 +1,5 @@
 // Shared authentication utilities
-const API_BASE = "https://e-diary-backend-lwpj.onrender.com/api";
+const API_BASE = "https://e-diary-backend-qsly.onrender.com/api";
 
 function getToken() {
     return localStorage.getItem("token");
