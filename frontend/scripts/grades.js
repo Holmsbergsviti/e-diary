@@ -1,11 +1,13 @@
-// ---------- helper: percentage → CSS class ----------
-function gradeClass(pct) {
-    if (pct == null) return "";
-    if (pct >= 80) return "grade-excellent";
-    if (pct >= 60) return "grade-good";
-    if (pct >= 50) return "grade-satisfactory";
-    if (pct >= 30) return "grade-poor";
-    return "grade-fail";
+// ---------- helper: letter mark → CSS class ----------
+function markClass(mark) {
+    if (!mark) return "";
+    const m = mark.toUpperCase().charAt(0);
+    if (m === "A") return "grade-a";
+    if (m === "B") return "grade-b";
+    if (m === "C") return "grade-c";
+    if (m === "D") return "grade-d";
+    if (m === "E") return "grade-e";
+    return "grade-u";
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -26,12 +28,6 @@ async function loadGrades() {
             return;
         }
 
-        // Stats (only grades with a percentage)
-        const withPct = grades.filter(g => g.percentage != null);
-        const avg = withPct.length
-            ? (withPct.reduce((s, g) => s + Number(g.percentage), 0) / withPct.length).toFixed(1)
-            : "\u2013";
-        document.getElementById("statAvg").textContent = avg + (withPct.length ? "%" : "");
         document.getElementById("statTotal").textContent = grades.length;
 
         // Group by subject
@@ -43,32 +39,19 @@ async function loadGrades() {
 
         let html = "";
         for (const [subject, items] of Object.entries(bySubject)) {
-            const subWithPct = items.filter(g => g.percentage != null);
-            const subAvg = subWithPct.length
-                ? (subWithPct.reduce((s, g) => s + Number(g.percentage), 0) / subWithPct.length).toFixed(1)
-                : "\u2013";
             html += `
                 <div class="card">
-                    <div class="card-title">
-                        ${escHtml(subject)}
-                        <span style="font-weight:400;color:#6b7280;font-size:0.85rem;margin-left:8px;">avg: ${subAvg}${subWithPct.length ? "%" : ""}</span>
-                    </div>
+                    <div class="card-title">${escHtml(subject)}</div>
                     <table>
                         <thead>
                             <tr>
-                                <th>Grade</th>
-                                <th>Assessment</th>
-                                <th>Date</th>
-                                <th>Code</th>
+                                <th>Mark</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${items.map(g => `
                                 <tr>
-                                    <td><span class="grade-badge ${gradeClass(g.percentage)}">${g.percentage != null ? g.percentage + "%" : "\u2013"}</span></td>
-                                    <td>${escHtml(g.assessment_name)}</td>
-                                    <td>${formatDate(g.date)}</td>
-                                    <td>${escHtml(g.grade_code || "")}</td>
+                                    <td><span class="grade-badge ${markClass(g.mark)}">${escHtml(g.mark || "\u2013")}</span></td>
                                 </tr>
                             `).join("")}
                         </tbody>

@@ -1,10 +1,14 @@
 from pathlib import Path
 import os
+from dotenv import load_dotenv
 
 # --------------------------------------------------
 # BASE
 # --------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load .env from the backend root
+load_dotenv(BASE_DIR / ".env")
 
 # --------------------------------------------------
 # SECURITY

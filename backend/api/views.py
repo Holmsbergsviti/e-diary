@@ -5,7 +5,7 @@ from jwt.exceptions import PyJWTError
 from datetime import datetime, timedelta, timezone
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from .supabase_client import supabase, table
+from .supabase_client import supabase
 
 JWT_SECRET = os.environ.get("JWT_SECRET", "dev-jwt-secret-change-this")
 JWT_ALGORITHM = "HS256"
@@ -38,44 +38,45 @@ def _verify_token(request) -> dict | None:
 
 
 # ------------------------------------------------------------------
-# Profile helper – determine role by checking profile tables
+# Profile helper – figure out role from the public tables
 # ------------------------------------------------------------------
 
 def _get_profile(user_id: str) -> tuple:
-    """Return (role, profile_dict) or (None, None)."""
+    """
+    Return (role, profile_dict) for the given auth user id.
 
-    # Admin?
-    result = table("admins").select("*").eq("id", user_id).maybe_single().execute()
-    if result.data:
-        return "admin", result.data
-
+    Checks public.teachers then public.students.
+    The students table is denormalised – one row per subject – so we
+    grab the first row for name / year info.
+    """
     # Teacher?
-    result = (
-        table("teachers")
-        .select("*, classes(class_name)")
-        .eq("id", user_id)
-        .maybe_single()
+    teacher = (
+        supabase.table("teachers")
+        .select("*")
+        .eq("user_id", user_id)
+        .limit(1)
         .execute()
     )
-    if result.data:
-        profile = result.data
-        cls = profile.pop("classes", None) or {}
-        profile["class_name"] = cls.get("class_name", "")
-        return "teacher", profile
+    if teacher.data:
+        t = teacher.data[0]
+        return "teacher", {
+            "full_name": f"Teacher (id {t['id']})",
+            "class_name": f"{t.get('class_teacher_grade', '')}{t.get('class_teacher_letter', '')}".strip(),
+        }
 
     # Student?
-    result = (
-        table("students")
-        .select("*, classes(class_name)")
-        .eq("id", user_id)
-        .maybe_single()
+    student = (
+        supabase.table("students")
+        .select("*")
+        .eq("user_id", user_id)
+        .limit(1)
         .execute()
     )
-    if result.data:
-        profile = result.data
-        cls = profile.pop("classes", None) or {}
-        profile["class_name"] = cls.get("class_name", "")
-        return "student", profile
+    if student.data:
+        s = student.data[0]
+        full_name = f"{s['Name']} {s['Surname']}"
+        class_name = f"{s.get('year', '')}{s.get('Letter', '')}".strip()
+        return "student", {"full_name": full_name, "class_name": class_name}
 
     return None, None
 
@@ -116,10 +117,11 @@ def login(request):
 
     # Determine role from profile tables
     role, profile = _get_profile(user_id)
-    if not role or not profile:
-        return JsonResponse({"message": "User profile not found"}, status=404)
+    if not role:
+        # No profile row yet – default to student with basic info
+        role = "student"
+        profile = {"full_name": user_email.split("@")[0], "class_name": ""}
 
-    full_name = f"{profile['name']} {profile['surname']}"
     token = _make_token(user_id, role, user_email)
 
     return JsonResponse({
@@ -127,7 +129,7 @@ def login(request):
         "user": {
             "id": user_id,
             "email": user_email,
-            "full_name": full_name,
+            "full_name": profile["full_name"],
             "role": role,
             "class_name": profile.get("class_name", ""),
         },
@@ -147,20 +149,24 @@ def me(request):
     user_id = payload["sub"]
     role, profile = _get_profile(user_id)
 
-    if not role or not profile:
-        return JsonResponse({"message": "User not found"}, status=404)
+    if not role:
+        role = "student"
+        profile = {
+            "full_name": payload.get("email", "").split("@")[0],
+            "class_name": "",
+        }
 
     return JsonResponse({
         "id": user_id,
         "email": payload.get("email", ""),
-        "full_name": f"{profile['name']} {profile['surname']}",
+        "full_name": profile["full_name"],
         "role": role,
         "class_name": profile.get("class_name", ""),
     })
 
 
 # ------------------------------------------------------------------
-# Grades
+# Grades – read from denormalised students table
 # ------------------------------------------------------------------
 
 @csrf_exempt
@@ -169,62 +175,69 @@ def grades(request):
     if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
 
+    # Each student row contains a Subject FK and a Mark
     result = (
-        table("grades")
-        .select("id, assessment_name, percentage, grade_code, date_taken, subjects(name)")
-        .eq("student_id", payload["sub"])
-        .order("date_taken", desc=True)
+        supabase.table("students")
+        .select("id, Subject, Mark")
+        .eq("user_id", payload["sub"])
         .execute()
     )
 
+    # Build a subject-id → name lookup
+    subj_result = supabase.table("subjects").select("Subject ID, name").execute()
+    subj_map = {s["Subject ID"]: s["name"] for s in (subj_result.data or [])}
+
     rows = []
     for row in (result.data or []):
-        subject = (row.get("subjects") or {}).get("name", "")
+        subj_name = subj_map.get(row.get("Subject"), f"Subject {row.get('Subject', '?')}")
         rows.append({
             "id": row["id"],
-            "subject": subject,
-            "assessment_name": row["assessment_name"],
-            "percentage": row.get("percentage"),
-            "grade_code": row.get("grade_code", ""),
-            "date": row["date_taken"],
+            "subject": subj_name,
+            "mark": row.get("Mark", ""),
         })
 
     return JsonResponse({"grades": rows})
 
 
 # ------------------------------------------------------------------
-# Attendance
+# Diary entries
 # ------------------------------------------------------------------
 
 @csrf_exempt
-def attendance(request):
+def diary_entries(request):
     payload = _verify_token(request)
     if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
 
-    result = (
-        table("attendance")
-        .select("id, date_recorded, status, classes(class_name)")
-        .eq("student_id", payload["sub"])
-        .order("date_recorded", desc=True)
-        .execute()
-    )
+    if request.method == "GET":
+        result = (
+            supabase.table("diary_entries")
+            .select("*")
+            .eq("user_id", payload["sub"])
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return JsonResponse({"entries": result.data or []})
 
-    rows = []
-    for row in (result.data or []):
-        class_name = (row.get("classes") or {}).get("class_name", "")
-        rows.append({
-            "id": row["id"],
-            "date": row["date_recorded"],
-            "status": row["status"],
-            "class_name": class_name,
-        })
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"message": "Invalid JSON"}, status=400)
 
-    return JsonResponse({"attendance": rows})
+        entry = {
+            "user_id": payload["sub"],
+            "title": data.get("title", ""),
+            "content": data.get("content", ""),
+        }
+        result = supabase.table("diary_entries").insert(entry).execute()
+        return JsonResponse({"entry": result.data[0] if result.data else {}}, status=201)
+
+    return JsonResponse({"message": "Method not allowed"}, status=405)
 
 
 # ------------------------------------------------------------------
-# Schedule (no table in current schema – returns empty list)
+# Schedule – no schedule table exists yet; return empty
 # ------------------------------------------------------------------
 
 @csrf_exempt
@@ -237,7 +250,7 @@ def schedule(request):
 
 
 # ------------------------------------------------------------------
-# Announcements (no table in current schema – returns empty list)
+# Announcements – no announcements table exists; return empty
 # ------------------------------------------------------------------
 
 @csrf_exempt

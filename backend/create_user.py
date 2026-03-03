@@ -1,13 +1,19 @@
 """
-Utility script: create a user via Supabase Auth and insert their
-profile into the appropriate ediary_schema table.
+Utility script: create a user via Supabase Auth and optionally insert
+a profile row into the students or teachers table.
 
 Usage:
     SUPABASE_URL=... SUPABASE_SERVICE_KEY=... python create_user.py
 
+Or with a .env file in the same directory.
 Edit the variables below before running.
 """
 import os
+from dotenv import load_dotenv
+from pathlib import Path
+
+load_dotenv(Path(__file__).resolve().parent / ".env")
+
 from supabase import create_client
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
@@ -18,12 +24,10 @@ EMAIL = "student1@example.com"
 PASSWORD = "changeme"
 NAME = "Alice"
 SURNAME = "Smith"
-ROLE = "student"       # student | teacher | admin
-CLASS_ID = None        # UUID string of the class, or None (students only)
+ROLE = "student"       # student | teacher
+YEAR = 12              # students only – year group
+LETTER = "A"           # students only – class letter
 # ─────────────────────────────────────────────
-
-SCHEMA = "ediary_schema"
-ROLE_TABLE = {"student": "students", "teacher": "teachers", "admin": "admins"}
 
 supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
@@ -37,17 +41,19 @@ user_id = str(auth_response.user.id)
 print(f"Auth user created: {user_id} ({EMAIL})")
 
 # 2. Insert profile row
-profile_table = ROLE_TABLE[ROLE]
-profile_data = {"id": user_id, "name": NAME, "surname": SURNAME}
-
-if ROLE == "student" and CLASS_ID:
-    profile_data["class_id"] = CLASS_ID
-
-result = (
-    supabase.schema(SCHEMA)
-    .table(profile_table)
-    .insert(profile_data)
-    .execute()
-)
-print(f"Profile created in {profile_table}:", result.data)
+if ROLE == "student":
+    result = supabase.table("students").insert({
+        "Name": NAME,
+        "Surname": SURNAME,
+        "user_id": user_id,
+        "year": YEAR,
+        "Letter": LETTER,
+        "Subject": 0,
+    }).execute()
+    print("Student profile created:", result.data)
+elif ROLE == "teacher":
+    result = supabase.table("teachers").insert({
+        "user_id": user_id,
+    }).execute()
+    print("Teacher profile created:", result.data)
 

@@ -5,14 +5,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     await Promise.all([loadAnnouncements(), loadRecentGrades()]);
 });
 
-// ---------- helper: percentage → CSS class ----------
-function gradeClass(pct) {
-    if (pct == null) return "";
-    if (pct >= 80) return "grade-excellent";
-    if (pct >= 60) return "grade-good";
-    if (pct >= 50) return "grade-satisfactory";
-    if (pct >= 30) return "grade-poor";
-    return "grade-fail";
+// ---------- helper: letter mark -> CSS class ----------
+function markClass(mark) {
+    if (!mark) return "";
+    const m = mark.toUpperCase().charAt(0);
+    if (m === "A") return "grade-a";
+    if (m === "B") return "grade-b";
+    if (m === "C") return "grade-c";
+    if (m === "D") return "grade-d";
+    if (m === "E") return "grade-e";
+    return "grade-u";
 }
 
 async function loadAnnouncements() {
@@ -28,7 +30,7 @@ async function loadAnnouncements() {
         container.innerHTML = items.map(a => `
             <div class="announcement">
                 <div class="announcement-title">${escHtml(a.title)}</div>
-                <div class="announcement-meta">${formatDate(a.created_at)}${a.author ? " · " + escHtml(a.author) : ""}</div>
+                <div class="announcement-meta">${formatDate(a.created_at)}${a.author ? " \u00b7 " + escHtml(a.author) : ""}</div>
                 ${a.body ? `<div class="announcement-body">${escHtml(a.body)}</div>` : ""}
             </div>
         `).join("");
@@ -49,12 +51,6 @@ async function loadRecentGrades() {
             return;
         }
 
-        // Compute stats (only grades with a percentage)
-        const withPct = grades.filter(g => g.percentage != null);
-        const avg = withPct.length
-            ? (withPct.reduce((s, g) => s + Number(g.percentage), 0) / withPct.length).toFixed(1)
-            : "–";
-        document.getElementById("statAvg").textContent = avg + (withPct.length ? "%" : "");
         document.getElementById("statCount").textContent = data.grades.length;
 
         container.innerHTML = `
@@ -62,18 +58,14 @@ async function loadRecentGrades() {
                 <thead>
                     <tr>
                         <th>Subject</th>
-                        <th>Grade</th>
-                        <th>Assessment</th>
-                        <th>Date</th>
+                        <th>Mark</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${grades.map(g => `
                         <tr>
                             <td>${escHtml(g.subject)}</td>
-                            <td><span class="grade-badge ${gradeClass(g.percentage)}">${g.percentage != null ? g.percentage + "%" : escHtml(g.grade_code || "–")}</span></td>
-                            <td>${escHtml(g.assessment_name)}</td>
-                            <td>${formatDate(g.date)}</td>
+                            <td><span class="grade-badge ${markClass(g.mark)}">${escHtml(g.mark || "\u2013")}</span></td>
                         </tr>
                     `).join("")}
                 </tbody>

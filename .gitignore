@@ -7,4 +7,5 @@ createUsers.py
 # Environment secrets
 .env
 backend/.env
-.vscode/launch.json
+.vscode/launch.json__pycache__/
+*.pyc
