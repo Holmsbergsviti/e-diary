@@ -73,6 +73,24 @@ function initNav() {
     if (logoutBtn) {
         logoutBtn.addEventListener("click", logout);
     }
+
+    // Update sidebar links based on role
+    const sidebar = document.querySelector(".sidebar");
+    if (sidebar && user) {
+        const dashHref = user.role === "teacher" ? "teacher.html" : "dashboard.html";
+        sidebar.querySelectorAll("a").forEach(a => {
+            // Rewrite dashboard links for teachers
+            if (a.getAttribute("href") === "dashboard.html" && user.role === "teacher") {
+                a.setAttribute("href", "teacher.html");
+            } else if (a.getAttribute("href") === "teacher.html" && user.role !== "teacher") {
+                a.setAttribute("href", "dashboard.html");
+            }
+            // Hide grades link for teachers (they don't have student grades)
+            if (a.getAttribute("href") === "grades.html" && user.role === "teacher") {
+                a.style.display = "none";
+            }
+        });
+    }
 }
 
 // Shared utilities used across page scripts

@@ -24,7 +24,12 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
         if (res.ok) {
             localStorage.setItem("token", data.token);
             localStorage.setItem("user", JSON.stringify(data.user));
-            window.location.href = "dashboard.html";
+            // Redirect based on role
+            if (data.user.role === "teacher") {
+                window.location.href = "teacher.html";
+            } else {
+                window.location.href = "dashboard.html";
+            }
         } else {
             errorMsg.textContent = data.message || "Login failed.";
         }

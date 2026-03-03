@@ -1,5 +1,8 @@
 from django.urls import path
-from .views import login, me, grades, subjects, diary_entries, attendance, schedule, announcements
+from .views import (
+    login, me, grades, subjects, diary_entries, attendance, schedule,
+    announcements, teacher_class_students, teacher_attendance,
+)
 
 urlpatterns = [
     path("login/", login),
@@ -10,4 +13,6 @@ urlpatterns = [
     path("attendance/", attendance),
     path("schedule/", schedule),
     path("announcements/", announcements),
+    path("teacher/class-students/", teacher_class_students),
+    path("teacher/attendance/", teacher_attendance),
 ]

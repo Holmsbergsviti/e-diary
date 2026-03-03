@@ -170,3 +170,23 @@ CREATE TABLE ediary_schema.entries (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT entries_pkey PRIMARY KEY (id)
 );
+
+-- Schedule (timetable slots)
+CREATE TABLE ediary_schema.schedule (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  teacher_id uuid NOT NULL,
+  subject_id uuid NOT NULL,
+  class_id uuid NOT NULL,
+  day_of_week smallint NOT NULL CHECK (day_of_week BETWEEN 1 AND 5),
+  period smallint NOT NULL CHECK (period BETWEEN 1 AND 8),
+  room text,
+  created_at timestamptz DEFAULT now(),
+  CONSTRAINT schedule_pkey PRIMARY KEY (id),
+  CONSTRAINT schedule_unique_slot UNIQUE (teacher_id, day_of_week, period),
+  CONSTRAINT schedule_teacher_id_fkey
+    FOREIGN KEY (teacher_id) REFERENCES ediary_schema.teachers(id),
+  CONSTRAINT schedule_subject_id_fkey
+    FOREIGN KEY (subject_id) REFERENCES ediary_schema.subjects(id),
+  CONSTRAINT schedule_class_id_fkey
+    FOREIGN KEY (class_id) REFERENCES ediary_schema.classes(id)
+);
