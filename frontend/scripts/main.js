@@ -3,7 +3,7 @@ const API_BASE = "https://e-diary-backend-lwpj.onrender.com/api";
 document.getElementById("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const username = document.getElementById("username").value.trim();
+    const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value;
     const errorMsg = document.getElementById("errorMsg");
     const submitBtn = document.getElementById("submitBtn");
@@ -16,7 +16,7 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
         const res = await fetch(`${API_BASE}/login/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password }),
+            body: JSON.stringify({ email, password }),
         });
 
         const data = await res.json();

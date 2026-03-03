@@ -3,4 +3,8 @@ test.py
 .vscode
 README.md
 createUsers.py
+
+# Environment secrets
+.env
+backend/.env
 .vscode/launch.json

@@ -5,6 +5,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     await Promise.all([loadAnnouncements(), loadRecentGrades()]);
 });
 
+// ---------- helper: percentage → CSS class ----------
+function gradeClass(pct) {
+    if (pct == null) return "";
+    if (pct >= 80) return "grade-excellent";
+    if (pct >= 60) return "grade-good";
+    if (pct >= 50) return "grade-satisfactory";
+    if (pct >= 30) return "grade-poor";
+    return "grade-fail";
+}
+
 async function loadAnnouncements() {
     const container = document.getElementById("announcementsContainer");
     try {
@@ -39,9 +49,12 @@ async function loadRecentGrades() {
             return;
         }
 
-        // Compute stats
-        const avg = (grades.reduce((s, g) => s + g.value, 0) / grades.length).toFixed(2);
-        document.getElementById("statAvg").textContent = avg;
+        // Compute stats (only grades with a percentage)
+        const withPct = grades.filter(g => g.percentage != null);
+        const avg = withPct.length
+            ? (withPct.reduce((s, g) => s + Number(g.percentage), 0) / withPct.length).toFixed(1)
+            : "–";
+        document.getElementById("statAvg").textContent = avg + (withPct.length ? "%" : "");
         document.getElementById("statCount").textContent = data.grades.length;
 
         container.innerHTML = `
@@ -50,19 +63,17 @@ async function loadRecentGrades() {
                     <tr>
                         <th>Subject</th>
                         <th>Grade</th>
-                        <th>Type</th>
+                        <th>Assessment</th>
                         <th>Date</th>
-                        <th>Note</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${grades.map(g => `
                         <tr>
                             <td>${escHtml(g.subject)}</td>
-                            <td><span class="grade-badge grade-${g.value}">${g.value}</span></td>
-                            <td>${escHtml(g.grade_type)}</td>
+                            <td><span class="grade-badge ${gradeClass(g.percentage)}">${g.percentage != null ? g.percentage + "%" : escHtml(g.grade_code || "–")}</span></td>
+                            <td>${escHtml(g.assessment_name)}</td>
                             <td>${formatDate(g.date)}</td>
-                            <td>${escHtml(g.description || "")}</td>
                         </tr>
                     `).join("")}
                 </tbody>

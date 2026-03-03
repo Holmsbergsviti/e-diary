@@ -1,5 +1,6 @@
 """
-Utility script: create a user in the Supabase 'users' table.
+Utility script: create a user via Supabase Auth and insert their
+profile into the appropriate ediary_schema table.
 
 Usage:
     SUPABASE_URL=... SUPABASE_SERVICE_KEY=... python create_user.py
@@ -7,33 +8,46 @@ Usage:
 Edit the variables below before running.
 """
 import os
-import bcrypt
 from supabase import create_client
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 
 # ── edit these ──────────────────────────────
-USERNAME = "student1"
+EMAIL = "student1@example.com"
 PASSWORD = "changeme"
-FULL_NAME = "Alice Smith"
+NAME = "Alice"
+SURNAME = "Smith"
 ROLE = "student"       # student | teacher | admin
-CLASS_ID = None        # set to the integer id of the class row, or None
-CLASS_NAME = "12A"
+CLASS_ID = None        # UUID string of the class, or None (students only)
 # ─────────────────────────────────────────────
+
+SCHEMA = "ediary_schema"
+ROLE_TABLE = {"student": "students", "teacher": "teachers", "admin": "admins"}
 
 supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-password_hash = bcrypt.hashpw(PASSWORD.encode(), bcrypt.gensalt()).decode()
+# 1. Create auth user
+auth_response = supabase.auth.admin.create_user({
+    "email": EMAIL,
+    "password": PASSWORD,
+    "email_confirm": True,
+})
+user_id = str(auth_response.user.id)
+print(f"Auth user created: {user_id} ({EMAIL})")
 
-result = supabase.table("users").insert({
-    "username": USERNAME,
-    "password_hash": password_hash,
-    "full_name": FULL_NAME,
-    "role": ROLE,
-    "class_id": CLASS_ID,
-    "class_name": CLASS_NAME,
-}).execute()
+# 2. Insert profile row
+profile_table = ROLE_TABLE[ROLE]
+profile_data = {"id": user_id, "name": NAME, "surname": SURNAME}
 
-print("User created:", result.data)
+if ROLE == "student" and CLASS_ID:
+    profile_data["class_id"] = CLASS_ID
+
+result = (
+    supabase.schema(SCHEMA)
+    .table(profile_table)
+    .insert(profile_data)
+    .execute()
+)
+print(f"Profile created in {profile_table}:", result.data)
 

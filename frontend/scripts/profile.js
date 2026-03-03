@@ -12,7 +12,6 @@ async function loadProfile() {
 
         const rows = [
             ["Full name", user.full_name],
-            ["Username", user.username],
             ["Email", user.email || "—"],
             ["Role", capitalize(user.role || "student")],
             ["Class", user.class_name || "—"],

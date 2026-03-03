@@ -84,7 +84,7 @@ WSGI_APPLICATION = "backend.wsgi.application"
 # --------------------------------------------------
 # DATABASE
 # --------------------------------------------------
-# Django DB not used (MongoDB instead)
+# Django DB not used (Supabase is the primary data store)
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",

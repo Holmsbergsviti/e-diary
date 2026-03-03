@@ -149,22 +149,21 @@ tr:hover td {
 /* ---- Grade badge ---- */
 .grade-badge {
     display: inline-block;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    line-height: 28px;
+    min-width: 40px;
+    padding: 2px 8px;
+    border-radius: 12px;
     text-align: center;
     font-weight: 700;
     font-size: 0.85rem;
     color: #fff;
 }
 
-/* Grade badge colours – 5-point scale where 5 is highest, 1 is lowest */
-.grade-5 { background: #16a34a; } /* excellent */
-.grade-4 { background: #2563eb; } /* good */
-.grade-3 { background: #d97706; } /* satisfactory */
-.grade-2 { background: #dc2626; } /* insufficient */
-.grade-1 { background: #7f1d1d; } /* very poor */
+/* Grade badge colours – percentage ranges */
+.grade-excellent    { background: #16a34a; } /* 80-100% */
+.grade-good         { background: #2563eb; } /* 60-79%  */
+.grade-satisfactory { background: #d97706; } /* 50-59%  */
+.grade-poor         { background: #dc2626; } /* 30-49%  */
+.grade-fail         { background: #7f1d1d; } /* 0-29%   */
 
 /* ---- Loading / empty state ---- */
 .loading {
