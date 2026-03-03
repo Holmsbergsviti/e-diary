@@ -130,8 +130,8 @@ def login(request):
         auth_response = supabase_auth.auth.sign_in_with_password(
             {"email": email, "password": password}
         )
-    except Exception:
-        return JsonResponse({"message": "Invalid credentials"}, status=401)
+    except Exception as exc:
+        return JsonResponse({"message": "Invalid credentials", "debug": str(exc)}, status=401)
 
     if not auth_response.user:
         return JsonResponse({"message": "Invalid credentials"}, status=401)
