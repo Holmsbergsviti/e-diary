@@ -26,9 +26,29 @@
     </aside>
 
     <main class="content">
-        <div class="card" style="max-width:480px;">
+        <div class="card" style="max-width:520px;">
             <div class="card-title">👤 My Profile</div>
             <div id="profileContainer"><p class="loading">Loading…</p></div>
+        </div>
+
+        <div class="card" style="max-width:520px;">
+            <div class="card-title">🔒 Account Settings</div>
+            <form id="accountForm" autocomplete="off">
+                <div class="form-group">
+                    <label for="newEmail">Email</label>
+                    <input type="email" id="newEmail" class="form-input" placeholder="New email address">
+                </div>
+                <div class="form-group">
+                    <label for="newPassword">New Password</label>
+                    <input type="password" id="newPassword" class="form-input" placeholder="New password (min 4 chars)">
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password</label>
+                    <input type="password" id="confirmPassword" class="form-input" placeholder="Confirm new password">
+                </div>
+                <p id="accountMsg" class="form-msg"></p>
+                <button type="submit" class="btn btn-primary" id="saveAccountBtn">Save Changes</button>
+            </form>
         </div>
     </main>
 </div>

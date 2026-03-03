@@ -24,6 +24,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     initNav();
     await loadSchedule();
+
+    // Check if redirected from schedule page with an attendance slot to open
+    const pending = sessionStorage.getItem("openAttendance");
+    if (pending) {
+        sessionStorage.removeItem("openAttendance");
+        try {
+            const slot = JSON.parse(pending);
+            openAttendanceModal(slot);
+        } catch (e) { /* ignore */ }
+    }
 });
 
 /* ---- Load schedule from API ----------------------------------- */

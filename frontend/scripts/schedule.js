@@ -18,6 +18,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 async function loadSchedule() {
     const container = document.getElementById("scheduleContainer");
+    const user = getUser();
+    const isTeacher = user && user.role === "teacher";
+
     try {
         const res = await apiFetch("/schedule/");
         const data = await res.json();
@@ -48,8 +51,13 @@ async function loadSchedule() {
             for (let d = 1; d <= 5; d++) {
                 const slot = (grid[d] || {})[p];
                 if (slot) {
-                    html += `<td class="lesson">${escHtml(slot.subject)}<br>
-                        <span class="lesson-room">${slot.room ? "Room " + escHtml(slot.room) : ""}</span>
+                    const yearLabel = (isTeacher && slot.grade_level)
+                        ? `Year ${slot.grade_level}`
+                        : (slot.room ? "Room " + escHtml(slot.room) : "");
+                    const cls = isTeacher ? "lesson clickable-lesson" : "lesson";
+                    html += `<td class="${cls}"${isTeacher ? ` data-slot='${JSON.stringify(slot)}'` : ""}>
+                        ${escHtml(slot.subject)}<br>
+                        <span class="lesson-room">${yearLabel}${isTeacher && slot.room ? " · " + escHtml(slot.room) : ""}</span>
                     </td>`;
                 } else {
                     html += "<td>–</td>";
@@ -59,6 +67,18 @@ async function loadSchedule() {
         }
         html += "</tbody></table>";
         container.innerHTML = html;
+
+        // For teachers: clicking a lesson opens the attendance modal on teacher.html
+        if (isTeacher) {
+            container.querySelectorAll(".clickable-lesson").forEach(td => {
+                td.addEventListener("click", () => {
+                    // Store the slot and redirect to teacher.html with attendance trigger
+                    const slot = JSON.parse(td.dataset.slot);
+                    sessionStorage.setItem("openAttendance", JSON.stringify(slot));
+                    window.location.href = "teacher.html";
+                });
+            });
+        }
     } catch (err) {
         container.innerHTML = '<p class="empty-state">Failed to load schedule.</p>';
     }

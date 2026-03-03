@@ -170,6 +170,35 @@ def me(request):
         return JsonResponse({"message": "Unauthorized"}, status=401)
 
     user_id = payload["sub"]
+
+    # PATCH = update email or password
+    if request.method in ("PATCH", "PUT"):
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"message": "Invalid JSON"}, status=400)
+
+        updates = {}
+        new_email = data.get("email", "").strip()
+        new_password = data.get("password", "").strip()
+
+        if new_email:
+            updates["email"] = new_email
+        if new_password:
+            if len(new_password) < 4:
+                return JsonResponse({"message": "Password must be at least 4 characters"}, status=400)
+            updates["password"] = new_password
+
+        if not updates:
+            return JsonResponse({"message": "Nothing to update"}, status=400)
+
+        try:
+            supabase_auth.auth.admin.update_user_by_id(user_id, updates)
+        except Exception as exc:
+            return JsonResponse({"message": f"Failed to update: {str(exc)}"}, status=400)
+
+        return JsonResponse({"message": "Updated successfully"})
+
     role, profile = _get_profile(user_id)
 
     if not role:
@@ -556,4 +585,165 @@ def announcements(request):
         return JsonResponse({"message": "Unauthorized"}, status=401)
 
     return JsonResponse({"announcements": []})
+
+
+# ------------------------------------------------------------------
+# Teacher: view marks for students they teach
+# For class teachers: also see ALL subjects for their class
+# ------------------------------------------------------------------
+
+@csrf_exempt
+def teacher_marks(request):
+    payload = _verify_token(request)
+    if not payload or payload.get("role") != "teacher":
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    teacher_id = payload["sub"]
+
+    # Get teacher info (is_class_teacher, class_teacher_of_class_id)
+    db = ediary()
+    teacher = db.table("teachers").select("*").eq("id", teacher_id).limit(1).execute()
+    if not teacher.data:
+        return JsonResponse({"message": "Teacher not found"}, status=404)
+    t = teacher.data[0]
+
+    # Get teacher's subject/class assignments
+    db2 = ediary()
+    assignments = db2.table("teacher_assignments").select("subject_id, class_id").eq("teacher_id", teacher_id).execute()
+
+    # Build set of (subject_id, grade_level) pairs the teacher teaches
+    db3 = ediary()
+    all_classes = db3.table("classes").select("id, class_name, grade_level").execute()
+    cls_map = {c["id"]: c for c in (all_classes.data or [])}
+
+    # For each assignment, resolve to year group
+    teaching_pairs = set()  # (subject_id, grade_level)
+    for a in (assignments.data or []):
+        cls = cls_map.get(a["class_id"])
+        if cls:
+            teaching_pairs.add((a["subject_id"], cls["grade_level"]))
+
+    # Build list of class_ids per grade_level
+    grade_class_map = {}  # grade_level -> [class_ids]
+    for c in (all_classes.data or []):
+        grade_class_map.setdefault(c["grade_level"], []).append(c["id"])
+
+    # Collect all student IDs in year groups teacher teaches
+    year_levels_taught = {gl for (_, gl) in teaching_pairs}
+
+    # If class teacher, add their class's year level to see all subjects
+    class_teacher_class_id = t.get("class_teacher_of_class_id")
+    class_teacher_grade = None
+    if t.get("is_class_teacher") and class_teacher_class_id:
+        cls_t = cls_map.get(class_teacher_class_id)
+        if cls_t:
+            class_teacher_grade = cls_t["grade_level"]
+            year_levels_taught.add(class_teacher_grade)
+
+    # Get all class_ids for relevant year levels
+    relevant_class_ids = []
+    for gl in year_levels_taught:
+        relevant_class_ids.extend(grade_class_map.get(gl, []))
+
+    if not relevant_class_ids:
+        return JsonResponse({"groups": []})
+
+    # Get all students in relevant classes
+    db4 = ediary()
+    students = (
+        db4.table("students")
+        .select("id, name, surname, class_id")
+        .in_("class_id", relevant_class_ids)
+        .order("surname")
+        .execute()
+    )
+    student_map = {s["id"]: s for s in (students.data or [])}
+    student_ids = list(student_map.keys())
+
+    if not student_ids:
+        return JsonResponse({"groups": []})
+
+    # Get subjects lookup
+    db5 = ediary()
+    subjects_result = db5.table("subjects").select("id, name, color_code").execute()
+    subj_map = {s["id"]: s for s in (subjects_result.data or [])}
+
+    # Get ALL grades for these students
+    db6 = ediary()
+    grades_result = (
+        db6.table("grades")
+        .select("id, student_id, subject_id, assessment_name, grade_code, percentage, date_taken")
+        .in_("student_id", student_ids)
+        .order("date_taken", desc=True)
+        .execute()
+    )
+
+    # Build response grouped by year level / subject
+    # For each (subject, year_group): list students with their grades
+    # A teacher can see:
+    #   - Subjects they teach (for all year groups they teach them)
+    #   - ALL subjects if class teacher (for their own class's year group)
+
+    groups = []
+
+    for gl in sorted(year_levels_taught):
+        gl_class_ids = grade_class_map.get(gl, [])
+        gl_students = [s for s in (students.data or []) if s["class_id"] in gl_class_ids]
+
+        # Which subjects to show for this year group?
+        if class_teacher_grade == gl:
+            # Class teacher: show ALL subjects for this year
+            visible_subjects = set()
+            # Get all enrolled subjects for students in this year
+            gl_student_ids = [s["id"] for s in gl_students]
+            if gl_student_ids:
+                db7 = ediary()
+                enr = db7.table("student_subjects").select("subject_id").in_("student_id", gl_student_ids).execute()
+                visible_subjects = {e["subject_id"] for e in (enr.data or [])}
+            # Also include subjects teacher teaches
+            for (sid, g) in teaching_pairs:
+                if g == gl:
+                    visible_subjects.add(sid)
+        else:
+            # Only show subjects the teacher teaches for this year
+            visible_subjects = {sid for (sid, g) in teaching_pairs if g == gl}
+
+        for subj_id in sorted(visible_subjects, key=lambda x: subj_map.get(x, {}).get("name", "")):
+            subj = subj_map.get(subj_id, {})
+
+            # Filter students enrolled in this subject
+            student_grades = []
+            for s in gl_students:
+                s_grades = [
+                    g for g in (grades_result.data or [])
+                    if g["student_id"] == s["id"] and g["subject_id"] == subj_id
+                ]
+                if s_grades or True:  # Show all students even without grades
+                    student_grades.append({
+                        "student_id": s["id"],
+                        "name": s["name"],
+                        "surname": s["surname"],
+                        "class_name": cls_map.get(s["class_id"], {}).get("class_name", ""),
+                        "grades": [
+                            {
+                                "id": g["id"],
+                                "assessment": g.get("assessment_name", ""),
+                                "grade_code": g.get("grade_code", ""),
+                                "percentage": g.get("percentage"),
+                                "date": g.get("date_taken", ""),
+                            }
+                            for g in s_grades
+                        ],
+                    })
+
+            groups.append({
+                "year_group": gl,
+                "subject": subj.get("name", "Unknown"),
+                "subject_id": subj_id,
+                "subject_color": subj.get("color_code", "#607D8B"),
+                "is_own_class": class_teacher_grade == gl,
+                "students": student_grades,
+            })
+
+    return JsonResponse({"groups": groups})
 

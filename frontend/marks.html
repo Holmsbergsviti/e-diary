@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="images/icon.png">
+    <link rel="stylesheet" href="styles/shared.css">
+    <title>Marks – Chartwell E-Diary</title>
+</head>
+<body>
+
+<nav class="topnav">
+    <span class="topnav-brand">Chartwell E-Diary</span>
+    <div class="topnav-right">
+        <span id="navUserName"></span>
+        <button id="logoutBtn">Log out</button>
+    </div>
+</nav>
+
+<div class="page-layout">
+    <aside class="sidebar">
+        <a href="teacher.html"><span class="icon">🏠</span> Dashboard</a>
+        <a href="schedule.html"><span class="icon">📅</span> Schedule</a>
+        <a href="marks.html" class="active"><span class="icon">📝</span> Marks</a>
+        <a href="profile.html"><span class="icon">👤</span> Profile</a>
+    </aside>
+
+    <main class="content">
+        <div class="card">
+            <div class="card-title">📝 Student Marks</div>
+            <div id="tabsContainer" class="tabs"></div>
+            <div id="marksContainer"><p class="loading">Loading marks…</p></div>
+        </div>
+    </main>
+</div>
+
+<script src="scripts/auth.js"></script>
+<script src="scripts/marks.js"></script>
+</body>
+</html>

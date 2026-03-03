@@ -77,7 +77,6 @@ function initNav() {
     // Update sidebar links based on role
     const sidebar = document.querySelector(".sidebar");
     if (sidebar && user) {
-        const dashHref = user.role === "teacher" ? "teacher.html" : "dashboard.html";
         sidebar.querySelectorAll("a").forEach(a => {
             // Rewrite dashboard links for teachers
             if (a.getAttribute("href") === "dashboard.html" && user.role === "teacher") {
@@ -85,11 +84,26 @@ function initNav() {
             } else if (a.getAttribute("href") === "teacher.html" && user.role !== "teacher") {
                 a.setAttribute("href", "dashboard.html");
             }
-            // Hide grades link for teachers (they don't have student grades)
+            // Hide student grades link for teachers
             if (a.getAttribute("href") === "grades.html" && user.role === "teacher") {
                 a.style.display = "none";
             }
+            // Hide marks link for non-teachers
+            if (a.getAttribute("href") === "marks.html" && user.role !== "teacher") {
+                a.style.display = "none";
+            }
         });
+
+        // If teacher and no Marks link exists, inject one before Profile
+        if (user.role === "teacher" && !sidebar.querySelector('a[href="marks.html"]')) {
+            const profileLink = sidebar.querySelector('a[href="profile.html"]');
+            if (profileLink) {
+                const marksLink = document.createElement("a");
+                marksLink.href = "marks.html";
+                marksLink.innerHTML = '<span class="icon">📝</span> Marks';
+                sidebar.insertBefore(marksLink, profileLink);
+            }
+        }
     }
 }
 
