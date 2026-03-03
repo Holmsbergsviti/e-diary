@@ -588,6 +588,81 @@ def announcements(request):
 
 
 # ------------------------------------------------------------------
+# Teacher: add a grade
+# ------------------------------------------------------------------
+
+@csrf_exempt
+def teacher_add_grade(request):
+    payload = _verify_token(request)
+    if not payload or payload.get("role") != "teacher":
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    if request.method != "POST":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"message": "Invalid JSON"}, status=400)
+
+    student_id = data.get("student_id", "").strip()
+    subject_id = data.get("subject_id", "").strip()
+    assessment_name = data.get("assessment_name", "").strip()
+    grade_code = data.get("grade_code", "").strip()
+    percentage = data.get("percentage")
+    comment = data.get("comment", "").strip()
+    date_taken = data.get("date", "").strip()
+
+    if not student_id or not subject_id or not grade_code:
+        return JsonResponse({"message": "student_id, subject_id, and grade_code are required"}, status=400)
+
+    row = {
+        "student_id": student_id,
+        "subject_id": subject_id,
+        "grade_code": grade_code,
+        "created_by_teacher_id": payload["sub"],
+    }
+    if assessment_name:
+        row["assessment_name"] = assessment_name
+    if percentage is not None and percentage != "":
+        row["percentage"] = float(percentage)
+    if date_taken:
+        row["date_taken"] = date_taken
+
+    try:
+        r = ediary().table("grades").insert(row).execute()
+    except Exception as exc:
+        return JsonResponse({"message": str(exc)}, status=500)
+
+    return JsonResponse({"grade": r.data[0] if r.data else {}}, status=201)
+
+
+# ------------------------------------------------------------------
+# Teacher: delete a grade
+# ------------------------------------------------------------------
+
+@csrf_exempt
+def teacher_delete_grade(request):
+    payload = _verify_token(request)
+    if not payload or payload.get("role") != "teacher":
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    if request.method != "DELETE":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+
+    grade_id = request.GET.get("id", "").strip()
+    if not grade_id:
+        return JsonResponse({"message": "Grade id is required"}, status=400)
+
+    try:
+        ediary().table("grades").delete().eq("id", grade_id).execute()
+    except Exception as exc:
+        return JsonResponse({"message": str(exc)}, status=500)
+
+    return JsonResponse({"deleted": True})
+
+
+# ------------------------------------------------------------------
 # Teacher: view marks for students they teach
 # For class teachers: also see ALL subjects for their class
 # ------------------------------------------------------------------

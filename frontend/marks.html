@@ -29,7 +29,55 @@
         <div class="card">
             <div class="card-title">📝 Student Marks</div>
             <div id="tabsContainer" class="tabs"></div>
+            <div style="margin-bottom:12px;">
+                <button id="addGradeBtn" class="btn btn-primary btn-sm" style="display:none;">+ Add Grade</button>
+            </div>
             <div id="marksContainer"><p class="loading">Loading marks…</p></div>
+        </div>
+
+        <!-- Add Grade Modal -->
+        <div id="gradeModal" class="modal-overlay" style="display:none;">
+            <div class="modal" style="max-width:420px;">
+                <div class="modal-header">
+                    <h2 id="gradeModalTitle">Add Grade</h2>
+                    <button id="gradeModalClose" class="modal-close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Student</label>
+                        <select id="gradeStudent" class="form-input"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Assessment name</label>
+                        <input id="gradeAssessment" class="form-input" placeholder="e.g. Test 1, Homework 3…">
+                    </div>
+                    <div class="form-group">
+                        <label>Grade</label>
+                        <select id="gradeCode" class="form-input">
+                            <option value="A*">A* – Outstanding</option>
+                            <option value="A">A – Excellent</option>
+                            <option value="A-">A- – Very Good (High)</option>
+                            <option value="B">B – Very Good</option>
+                            <option value="C">C – Good</option>
+                            <option value="D">D – Satisfactory</option>
+                            <option value="E">E – Acceptable</option>
+                            <option value="U">U – Ungraded</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Percentage <small>(optional)</small></label>
+                        <input id="gradePercent" class="form-input" type="number" min="0" max="100" placeholder="e.g. 87">
+                    </div>
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input id="gradeDate" class="form-input" type="date">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="gradeModalCancel" class="btn btn-secondary">Cancel</button>
+                    <button id="gradeModalSave" class="btn btn-primary">Save Grade</button>
+                </div>
+            </div>
         </div>
     </main>
 </div>
