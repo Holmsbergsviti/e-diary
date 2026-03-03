@@ -91,7 +91,7 @@ function renderSchedule() {
     }
     html += "</tr></thead><tbody>";
 
-    for (let p = 1; p <= Math.max(maxPeriod, 6); p++) {
+    for (let p = 1; p <= 8; p++) {
         const time = PERIOD_TIMES[p - 1] || `Period ${p}`;
         html += `<tr><td><strong>${p}</strong><br><small style="color:#9ca3af">${time}</small></td>`;
         for (let d = 1; d <= 5; d++) {
