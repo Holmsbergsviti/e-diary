@@ -437,3 +437,13 @@ tr:hover td {
     border-color: #2563eb;
     box-shadow: 0 0 0 2px rgba(37,99,235,0.15);
 }
+
+.class-tag {
+    display: inline-block;
+    background: #f3f4f6;
+    color: #4b5563;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 600;
+}

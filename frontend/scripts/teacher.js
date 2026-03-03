@@ -58,12 +58,13 @@ function renderTodayClasses() {
 
     container.innerHTML = todaySlots.map(slot => {
         const time = PERIOD_TIMES[slot.period - 1] || `Period ${slot.period}`;
+        const yearLabel = slot.grade_level ? `Year ${slot.grade_level}` : escHtml(slot.class_name);
         return `
         <div class="class-card" data-slot='${JSON.stringify(slot)}'>
             <div class="class-card-period">${time}</div>
             <div class="class-card-info">
                 <strong>${escHtml(slot.subject)}</strong>
-                <span class="class-card-meta">${escHtml(slot.class_name)}${slot.room ? " · Room " + escHtml(slot.room) : ""}</span>
+                <span class="class-card-meta">${yearLabel}${slot.room ? " · Room " + escHtml(slot.room) : ""}</span>
             </div>
             <div class="class-card-action">
                 <button class="btn btn-primary btn-sm">Take Attendance</button>
@@ -107,9 +108,10 @@ function renderWeeklySchedule() {
         for (let d = 1; d <= 5; d++) {
             const slot = (grid[d] || {})[p];
             if (slot) {
+                const yrLabel = slot.grade_level ? `Year ${slot.grade_level}` : escHtml(slot.class_name);
                 html += `<td class="lesson clickable-lesson" data-slot='${JSON.stringify(slot)}'>
                     ${escHtml(slot.subject)}<br>
-                    <span class="lesson-room">${escHtml(slot.class_name)}${slot.room ? " · " + escHtml(slot.room) : ""}</span>
+                    <span class="lesson-room">${yrLabel}${slot.room ? " · " + escHtml(slot.room) : ""}</span>
                 </td>`;
             } else {
                 html += "<td>–</td>";
@@ -138,7 +140,8 @@ async function openAttendanceModal(slot) {
     const dateInput = document.getElementById("attendanceDate");
     const studentList = document.getElementById("studentList");
 
-    title.textContent = `${slot.subject} – ${slot.class_name}`;
+    const yearLabel = slot.grade_level ? `Year ${slot.grade_level}` : slot.class_name;
+    title.textContent = `${slot.subject} – ${yearLabel}`;
     const time = PERIOD_TIMES[slot.period - 1] || `Period ${slot.period}`;
     subtitle.textContent = `${DAYS[slot.day_of_week - 1]} · ${time}${slot.room ? " · Room " + slot.room : ""}`;
 
@@ -194,6 +197,7 @@ async function loadStudentsAndAttendance(slot, date) {
                     <tr>
                         <th>#</th>
                         <th>Student</th>
+                        <th>Class</th>
                         <th>Status</th>
                         <th>Comment</th>
                     </tr>
@@ -207,6 +211,7 @@ async function loadStudentsAndAttendance(slot, date) {
                         <tr data-student-id="${s.id}">
                             <td>${i + 1}</td>
                             <td>${escHtml(s.surname)} ${escHtml(s.name)}</td>
+                            <td><span class="class-tag">${escHtml(s.class_name || "")}</span></td>
                             <td>
                                 <select class="status-select status-${status.toLowerCase()}">
                                     <option value="Present" ${status === "Present" ? "selected" : ""}>✅ Present</option>

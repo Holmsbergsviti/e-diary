@@ -372,19 +372,21 @@ def schedule(request):
     subj_result = ediary().table("subjects").select("id, name, color_code").execute()
     subj_map = {s["id"]: s for s in (subj_result.data or [])}
 
-    cls_result = ediary().table("classes").select("id, class_name").execute()
-    cls_map = {c["id"]: c["class_name"] for c in (cls_result.data or [])}
+    cls_result = ediary().table("classes").select("id, class_name, grade_level").execute()
+    cls_map = {c["id"]: c for c in (cls_result.data or [])}
 
     rows = []
     for slot in (result.data or []):
         subj = subj_map.get(slot["subject_id"], {})
+        cls = cls_map.get(slot["class_id"], {})
         rows.append({
             "id": slot["id"],
             "subject": subj.get("name", "Unknown"),
             "subject_color": subj.get("color_code", "#607D8B"),
             "subject_id": slot["subject_id"],
             "class_id": slot["class_id"],
-            "class_name": cls_map.get(slot["class_id"], ""),
+            "class_name": cls.get("class_name", ""),
+            "grade_level": cls.get("grade_level", 0),
             "day_of_week": slot["day_of_week"],
             "period": slot["period"],
             "room": slot.get("room", ""),
@@ -395,6 +397,8 @@ def schedule(request):
 
 # ------------------------------------------------------------------
 # Teacher: get students for a class + subject (for attendance)
+# Looks up the grade level of the given class and returns ALL
+# students from that year group enrolled in the subject.
 # ------------------------------------------------------------------
 
 @csrf_exempt
@@ -409,25 +413,37 @@ def teacher_class_students(request):
     if not class_id or not subject_id:
         return JsonResponse({"message": "class_id and subject_id required"}, status=400)
 
-    # Get students in this class who are enrolled in this subject
+    # Look up the grade level of the given class
     db = ediary()
-    students_in_class = (
-        db.table("students")
-        .select("id, name, surname")
-        .eq("class_id", class_id)
+    cls = db.table("classes").select("grade_level").eq("id", class_id).limit(1).execute()
+    if not cls.data:
+        return JsonResponse({"students": []})
+    grade_level = cls.data[0]["grade_level"]
+
+    # Get ALL classes in this year group
+    db2 = ediary()
+    all_classes = db2.table("classes").select("id").eq("grade_level", grade_level).execute()
+    class_ids = [c["id"] for c in (all_classes.data or [])]
+
+    # Get ALL students in these classes
+    db3 = ediary()
+    students_in_year = (
+        db3.table("students")
+        .select("id, name, surname, class_id")
+        .in_("class_id", class_ids)
         .order("surname")
         .execute()
     )
 
-    if not students_in_class.data:
+    if not students_in_year.data:
         return JsonResponse({"students": []})
 
-    student_ids = [s["id"] for s in students_in_class.data]
+    student_ids = [s["id"] for s in students_in_year.data]
 
     # Filter to those enrolled in this subject
-    db2 = ediary()
+    db4 = ediary()
     enrolments = (
-        db2.table("student_subjects")
+        db4.table("student_subjects")
         .select("student_id")
         .eq("subject_id", subject_id)
         .in_("student_id", student_ids)
@@ -435,9 +451,19 @@ def teacher_class_students(request):
     )
     enrolled_ids = {e["student_id"] for e in (enrolments.data or [])}
 
+    # Build class_id → class_name lookup
+    db5 = ediary()
+    cls_result = db5.table("classes").select("id, class_name").in_("id", class_ids).execute()
+    cls_map = {c["id"]: c["class_name"] for c in (cls_result.data or [])}
+
     students = [
-        {"id": s["id"], "name": s["name"], "surname": s["surname"]}
-        for s in students_in_class.data
+        {
+            "id": s["id"],
+            "name": s["name"],
+            "surname": s["surname"],
+            "class_name": cls_map.get(s["class_id"], ""),
+        }
+        for s in students_in_year.data
         if s["id"] in enrolled_ids
     ]
 
