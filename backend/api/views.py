@@ -5,7 +5,7 @@ from jwt.exceptions import PyJWTError
 from datetime import datetime, timedelta, timezone
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from .supabase_client import supabase
+from .supabase_client import supabase, supabase_auth, ediary
 
 JWT_SECRET = os.environ.get("JWT_SECRET", "dev-jwt-secret-change-this")
 JWT_ALGORITHM = "HS256"
@@ -38,45 +38,68 @@ def _verify_token(request) -> dict | None:
 
 
 # ------------------------------------------------------------------
-# Profile helper – figure out role from the public tables
+# Profile helper – figure out role from ediary_schema tables
 # ------------------------------------------------------------------
 
 def _get_profile(user_id: str) -> tuple:
     """
-    Return (role, profile_dict) for the given auth user id.
-
-    Checks public.teachers then public.students.
-    The students table is denormalised – one row per subject – so we
-    grab the first row for name / year info.
+    Return (role, profile_dict) by checking ediary_schema.admins,
+    ediary_schema.teachers, then ediary_schema.students.
     """
+    db = ediary()
+
+    # Admin?
+    admin = db.table("admins").select("*").eq("id", user_id).limit(1).execute()
+    if admin.data:
+        a = admin.data[0]
+        return "admin", {
+            "full_name": f"{a['name']} {a['surname']}",
+            "class_name": "",
+        }
+
     # Teacher?
-    teacher = (
-        supabase.table("teachers")
-        .select("*")
-        .eq("user_id", user_id)
-        .limit(1)
-        .execute()
-    )
+    teacher = db.table("teachers").select("*").eq("id", user_id).limit(1).execute()
     if teacher.data:
         t = teacher.data[0]
+        # Resolve class name if class_teacher_of_class_id set
+        class_name = ""
+        if t.get("class_teacher_of_class_id"):
+            db2 = ediary()
+            cls = (
+                db2.table("classes")
+                .select("class_name")
+                .eq("id", t["class_teacher_of_class_id"])
+                .limit(1)
+                .execute()
+            )
+            if cls.data:
+                class_name = cls.data[0]["class_name"]
         return "teacher", {
-            "full_name": f"Teacher (id {t['id']})",
-            "class_name": f"{t.get('class_teacher_grade', '')}{t.get('class_teacher_letter', '')}".strip(),
+            "full_name": f"{t['name']} {t['surname']}",
+            "class_name": class_name,
         }
 
     # Student?
-    student = (
-        supabase.table("students")
-        .select("*")
-        .eq("user_id", user_id)
-        .limit(1)
-        .execute()
-    )
+    student = db.table("students").select("*").eq("id", user_id).limit(1).execute()
     if student.data:
         s = student.data[0]
-        full_name = f"{s['Name']} {s['Surname']}"
-        class_name = f"{s.get('year', '')}{s.get('Letter', '')}".strip()
-        return "student", {"full_name": full_name, "class_name": class_name}
+        # Resolve class name
+        class_name = ""
+        if s.get("class_id"):
+            db2 = ediary()
+            cls = (
+                db2.table("classes")
+                .select("class_name")
+                .eq("id", s["class_id"])
+                .limit(1)
+                .execute()
+            )
+            if cls.data:
+                class_name = cls.data[0]["class_name"]
+        return "student", {
+            "full_name": f"{s['name']} {s['surname']}",
+            "class_name": class_name,
+        }
 
     return None, None
 
@@ -101,9 +124,10 @@ def login(request):
     if not email or not password:
         return JsonResponse({"message": "Email and password required"}, status=400)
 
-    # Authenticate with Supabase Auth
+    # Authenticate with Supabase Auth (use dedicated auth client so the
+    # data client's service-role header is never overwritten)
     try:
-        auth_response = supabase.auth.sign_in_with_password(
+        auth_response = supabase_auth.auth.sign_in_with_password(
             {"email": email, "password": password}
         )
     except Exception:
@@ -115,10 +139,9 @@ def login(request):
     user_id = str(auth_response.user.id)
     user_email = auth_response.user.email or email
 
-    # Determine role from profile tables
+    # Determine role from ediary_schema profile tables
     role, profile = _get_profile(user_id)
     if not role:
-        # No profile row yet – default to student with basic info
         role = "student"
         profile = {"full_name": user_email.split("@")[0], "class_name": ""}
 
@@ -166,7 +189,7 @@ def me(request):
 
 
 # ------------------------------------------------------------------
-# Grades – read from denormalised students table
+# Grades – read from ediary_schema.grades + subjects
 # ------------------------------------------------------------------
 
 @csrf_exempt
@@ -175,32 +198,71 @@ def grades(request):
     if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
 
-    # Each student row contains a Subject FK and a Mark
+    db = ediary()
     result = (
-        supabase.table("students")
-        .select("id, Subject, Mark")
-        .eq("user_id", payload["sub"])
+        db.table("grades")
+        .select("id, subject_id, assessment_name, percentage, grade_code, date_taken")
+        .eq("student_id", payload["sub"])
+        .order("date_taken", desc=True)
         .execute()
     )
 
-    # Build a subject-id → name lookup
-    subj_result = supabase.table("subjects").select("Subject ID, name").execute()
-    subj_map = {s["Subject ID"]: s["name"] for s in (subj_result.data or [])}
+    # Build subject-id → name lookup
+    db2 = ediary()
+    subj_result = db2.table("subjects").select("id, name, color_code").execute()
+    subj_map = {s["id"]: s for s in (subj_result.data or [])}
 
     rows = []
     for row in (result.data or []):
-        subj_name = subj_map.get(row.get("Subject"), f"Subject {row.get('Subject', '?')}")
+        subj = subj_map.get(row.get("subject_id"), {})
         rows.append({
             "id": row["id"],
-            "subject": subj_name,
-            "mark": row.get("Mark", ""),
+            "subject": subj.get("name", "Unknown"),
+            "subject_color": subj.get("color_code", "#607D8B"),
+            "assessment": row.get("assessment_name", ""),
+            "percentage": row.get("percentage"),
+            "grade_code": row.get("grade_code", ""),
+            "date": row.get("date_taken", ""),
         })
 
     return JsonResponse({"grades": rows})
 
 
 # ------------------------------------------------------------------
-# Diary entries
+# Subjects – return student's enrolled subjects
+# ------------------------------------------------------------------
+
+@csrf_exempt
+def subjects(request):
+    payload = _verify_token(request)
+    if not payload:
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    db = ediary()
+    enrolments = (
+        db.table("student_subjects")
+        .select("subject_id")
+        .eq("student_id", payload["sub"])
+        .execute()
+    )
+    subject_ids = [e["subject_id"] for e in (enrolments.data or [])]
+
+    if not subject_ids:
+        return JsonResponse({"subjects": []})
+
+    db2 = ediary()
+    result = (
+        db2.table("subjects")
+        .select("id, name, color_code")
+        .in_("id", subject_ids)
+        .execute()
+    )
+
+    return JsonResponse({"subjects": result.data or []})
+
+
+# ------------------------------------------------------------------
+# Diary entries (personal journal)
 # ------------------------------------------------------------------
 
 @csrf_exempt
@@ -209,9 +271,11 @@ def diary_entries(request):
     if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
 
+    db = ediary()
+
     if request.method == "GET":
         result = (
-            supabase.table("diary_entries")
+            db.table("entries")
             .select("*")
             .eq("user_id", payload["sub"])
             .order("created_at", desc=True)
@@ -229,11 +293,38 @@ def diary_entries(request):
             "user_id": payload["sub"],
             "title": data.get("title", ""),
             "content": data.get("content", ""),
+            "mood": data.get("mood", ""),
         }
-        result = supabase.table("diary_entries").insert(entry).execute()
+        if data.get("subject_id"):
+            entry["subject_id"] = data["subject_id"]
+
+        db2 = ediary()
+        result = db2.table("entries").insert(entry).execute()
         return JsonResponse({"entry": result.data[0] if result.data else {}}, status=201)
 
     return JsonResponse({"message": "Method not allowed"}, status=405)
+
+
+# ------------------------------------------------------------------
+# Attendance
+# ------------------------------------------------------------------
+
+@csrf_exempt
+def attendance(request):
+    payload = _verify_token(request)
+    if not payload:
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    db = ediary()
+    result = (
+        db.table("attendance")
+        .select("id, date_recorded, status, class_id")
+        .eq("student_id", payload["sub"])
+        .order("date_recorded", desc=True)
+        .execute()
+    )
+
+    return JsonResponse({"attendance": result.data or []})
 
 
 # ------------------------------------------------------------------

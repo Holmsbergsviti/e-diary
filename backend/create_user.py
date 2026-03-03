@@ -1,6 +1,6 @@
 """
-Utility script: create a user via Supabase Auth and optionally insert
-a profile row into the students or teachers table.
+Utility script: create a user via Supabase Auth and insert
+a profile row into the ediary_schema tables.
 
 Usage:
     SUPABASE_URL=... SUPABASE_SERVICE_KEY=... python create_user.py
@@ -24,9 +24,8 @@ EMAIL = "student1@example.com"
 PASSWORD = "changeme"
 NAME = "Alice"
 SURNAME = "Smith"
-ROLE = "student"       # student | teacher
-YEAR = 12              # students only – year group
-LETTER = "A"           # students only – class letter
+ROLE = "student"       # student | teacher | admin
+CLASS_NAME = "12A"     # students only – e.g. "12A", "11B"
 # ─────────────────────────────────────────────
 
 supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
@@ -40,20 +39,30 @@ auth_response = supabase.auth.admin.create_user({
 user_id = str(auth_response.user.id)
 print(f"Auth user created: {user_id} ({EMAIL})")
 
-# 2. Insert profile row
+# 2. Insert profile row into ediary_schema
+db = supabase.schema("ediary_schema")
 if ROLE == "student":
-    result = supabase.table("students").insert({
-        "Name": NAME,
-        "Surname": SURNAME,
-        "user_id": user_id,
-        "year": YEAR,
-        "Letter": LETTER,
-        "Subject": 0,
+    cls = db.table("classes").select("id").eq("class_name", CLASS_NAME).limit(1).execute()
+    class_id = cls.data[0]["id"] if cls.data else None
+    result = supabase.schema("ediary_schema").table("students").insert({
+        "id": user_id,
+        "name": NAME,
+        "surname": SURNAME,
+        "class_id": class_id,
     }).execute()
     print("Student profile created:", result.data)
 elif ROLE == "teacher":
-    result = supabase.table("teachers").insert({
-        "user_id": user_id,
+    result = supabase.schema("ediary_schema").table("teachers").insert({
+        "id": user_id,
+        "name": NAME,
+        "surname": SURNAME,
     }).execute()
     print("Teacher profile created:", result.data)
+elif ROLE == "admin":
+    result = supabase.schema("ediary_schema").table("admins").insert({
+        "id": user_id,
+        "name": NAME,
+        "surname": SURNAME,
+    }).execute()
+    print("Admin profile created:", result.data)
 

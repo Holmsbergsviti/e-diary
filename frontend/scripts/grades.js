@@ -1,12 +1,12 @@
-// ---------- helper: letter mark → CSS class ----------
-function markClass(mark) {
-    if (!mark) return "";
-    const m = mark.toUpperCase().charAt(0);
-    if (m === "A") return "grade-a";
-    if (m === "B") return "grade-b";
-    if (m === "C") return "grade-c";
-    if (m === "D") return "grade-d";
-    if (m === "E") return "grade-e";
+// ---------- helper: grade code → CSS class ----------
+function gradeClass(code) {
+    if (!code) return "";
+    const c = code.toUpperCase().replace("*", "");
+    if (c === "A") return "grade-a";
+    if (c === "B") return "grade-b";
+    if (c === "C") return "grade-c";
+    if (c === "D") return "grade-d";
+    if (c === "E") return "grade-e";
     return "grade-u";
 }
 
@@ -28,7 +28,9 @@ async function loadGrades() {
             return;
         }
 
-        document.getElementById("statTotal").textContent = grades.length;
+        // Count unique subjects
+        const subjectSet = new Set(grades.map(g => g.subject));
+        document.getElementById("statTotal").textContent = subjectSet.size;
 
         // Group by subject
         const bySubject = {};
@@ -45,13 +47,19 @@ async function loadGrades() {
                     <table>
                         <thead>
                             <tr>
-                                <th>Mark</th>
+                                <th>Assessment</th>
+                                <th>Grade</th>
+                                <th>%</th>
+                                <th>Date</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${items.map(g => `
                                 <tr>
-                                    <td><span class="grade-badge ${markClass(g.mark)}">${escHtml(g.mark || "\u2013")}</span></td>
+                                    <td>${escHtml(g.assessment || "\u2013")}</td>
+                                    <td><span class="grade-badge ${gradeClass(g.grade_code)}">${escHtml(g.grade_code || "\u2013")}</span></td>
+                                    <td>${g.percentage != null ? g.percentage + "%" : "\u2013"}</td>
+                                    <td>${formatDate(g.date)}</td>
                                 </tr>
                             `).join("")}
                         </tbody>

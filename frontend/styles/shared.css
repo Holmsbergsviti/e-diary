@@ -160,11 +160,11 @@ tr:hover td {
 }
 
 /* Grade badge colours – Cambridge letter grades */
-.grade-a  { background: #16a34a; } /* A  – excellent */
-.grade-b  { background: #2563eb; } /* B  – good */
-.grade-c  { background: #0891b2; } /* C  – satisfactory */
-.grade-d  { background: #d97706; } /* D  – below average */
-.grade-e  { background: #dc2626; } /* E  – poor */
+.grade-a  { background: #16a34a; } /* A* / A – excellent */
+.grade-b  { background: #2563eb; } /* B  – very good */
+.grade-c  { background: #0891b2; } /* C  – good */
+.grade-d  { background: #d97706; } /* D  – satisfactory */
+.grade-e  { background: #dc2626; } /* E  – acceptable */
 .grade-u  { background: #7f1d1d; } /* U  – ungraded */
 
 /* ---- Loading / empty state ---- */
