@@ -131,7 +131,7 @@ def login(request):
             {"email": email, "password": password}
         )
     except Exception as exc:
-        return JsonResponse({"message": "Invalid credentials", "debug": str(exc)}, status=401)
+        return JsonResponse({"message": "Invalid credentials"}, status=401)
 
     if not auth_response.user:
         return JsonResponse({"message": "Invalid credentials"}, status=401)
