@@ -10,6 +10,7 @@ const PERIOD_TIMES = [
 
 let allSlots = [];      // full schedule
 let currentSlot = null; // slot being attended
+let weekOffset = 0;     // 0 = this week, -1 = last week, etc.
 
 /* ---- Bootstrap ------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
@@ -24,6 +25,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     initNav();
     await loadSchedule();
+
+    // Week navigation arrows
+    document.getElementById("weekPrev").addEventListener("click", () => { weekOffset--; renderWeeklySchedule(); });
+    document.getElementById("weekNext").addEventListener("click", () => { weekOffset++; renderWeeklySchedule(); });
 
     // Check if redirected from schedule page with an attendance slot to open
     const pending = sessionStorage.getItem("openAttendance");
@@ -92,8 +97,30 @@ function renderTodayClasses() {
 }
 
 /* ---- Weekly schedule table ------------------------------------ */
+/* Return Monday of the week that is `offset` weeks from this week */
+function getMonday(offset) {
+    const now = new Date();
+    const day = now.getDay(); // 0=Sun
+    const diff = (day === 0 ? -6 : 1 - day) + offset * 7;
+    const mon = new Date(now);
+    mon.setDate(now.getDate() + diff);
+    mon.setHours(0, 0, 0, 0);
+    return mon;
+}
+function shortDate(d) { return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }); }
+function isoDate(d) { return d.toISOString().slice(0, 10); }
+
 function renderWeeklySchedule() {
     const container = document.getElementById("weeklySchedule");
+    const mon = getMonday(weekOffset);
+    const fri = new Date(mon); fri.setDate(mon.getDate() + 4);
+
+    // Update week label
+    const weekLabel = document.getElementById("weekLabel");
+    weekLabel.textContent = `${shortDate(mon)} – ${shortDate(fri)}`;
+    const today = new Date(); today.setHours(0,0,0,0);
+    weekLabel.classList.toggle("week-current", today >= mon && today <= fri);
+
     if (allSlots.length === 0) {
         container.innerHTML = '<p class="empty-state">No schedule available.</p>';
         return;
@@ -109,7 +136,10 @@ function renderWeeklySchedule() {
     }
 
     let html = '<table class="timetable"><thead><tr><th>Period</th>';
-    for (const day of DAYS) html += `<th>${day}</th>`;
+    for (let d = 0; d < 5; d++) {
+        const dayDate = new Date(mon); dayDate.setDate(mon.getDate() + d);
+        html += `<th>${DAYS[d]}<br><small class="day-date">${shortDate(dayDate)}</small></th>`;
+    }
     html += "</tr></thead><tbody>";
 
     for (let p = 1; p <= Math.max(maxPeriod, 6); p++) {
@@ -119,7 +149,9 @@ function renderWeeklySchedule() {
             const slot = (grid[d] || {})[p];
             if (slot) {
                 const yrLabel = slot.grade_level ? `Year ${slot.grade_level}` : escHtml(slot.class_name);
-                html += `<td class="lesson clickable-lesson" data-slot='${JSON.stringify(slot)}'>
+                const cellDate = new Date(mon); cellDate.setDate(mon.getDate() + d - 1);
+                const slotWithDate = { ...slot, _date: isoDate(cellDate) };
+                html += `<td class="lesson clickable-lesson" data-slot='${JSON.stringify(slotWithDate)}'>
                     ${escHtml(slot.subject)}<br>
                     <span class="lesson-room">${yrLabel}${slot.room ? " · " + escHtml(slot.room) : ""}</span>
                 </td>`;
@@ -155,8 +187,8 @@ async function openAttendanceModal(slot) {
     const time = PERIOD_TIMES[slot.period - 1] || `Period ${slot.period}`;
     subtitle.textContent = `${DAYS[slot.day_of_week - 1]} · ${time}${slot.room ? " · Room " + slot.room : ""}`;
 
-    // Default date to today
-    dateInput.value = new Date().toISOString().slice(0, 10);
+    // Default date to the slot's date if available, otherwise today
+    dateInput.value = slot._date || new Date().toISOString().slice(0, 10);
 
     modal.style.display = "flex";
     studentList.innerHTML = '<p class="loading">Loading students…</p>';

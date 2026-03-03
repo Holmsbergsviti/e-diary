@@ -27,7 +27,11 @@
 
     <main class="content">
         <div class="card">
-            <div class="card-title">📅 Weekly Schedule</div>
+            <div class="card-title week-nav-header">
+                <button id="weekPrev" class="week-arrow" title="Previous week">&#8249;</button>
+                <span>📅 <span id="weekLabel">This Week</span></span>
+                <button id="weekNext" class="week-arrow" title="Next week">&#8250;</button>
+            </div>
             <div id="scheduleContainer"><p class="loading">Loading schedule…</p></div>
         </div>
     </main>

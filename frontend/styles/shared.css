@@ -117,6 +117,46 @@ body {
     border-bottom: 1px solid #f3f4f6;
 }
 
+/* ---- Week navigation header ---- */
+.week-nav-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+.week-arrow {
+    background: none;
+    border: 1.5px solid #d1d5db;
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #374151;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s;
+}
+.week-arrow:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+}
+#weekLabel {
+    font-weight: 600;
+    font-size: 0.92rem;
+    color: #374151;
+}
+#weekLabel.week-current {
+    color: #2563eb;
+}
+.day-date {
+    color: #9ca3af;
+    font-weight: 400;
+    font-size: 0.78rem;
+}
+
 /* ---- Tables ---- */
 table {
     width: 100%;

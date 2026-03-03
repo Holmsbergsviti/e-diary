@@ -1,7 +1,14 @@
 document.addEventListener("DOMContentLoaded", async () => {
     if (!requireAuth()) return;
-    initNav();
 
+    // Teachers have their own dashboard
+    const user = getUser();
+    if (user && user.role === "teacher") {
+        window.location.href = "teacher.html";
+        return;
+    }
+
+    initNav();
     await Promise.all([loadAnnouncements(), loadRecentGrades()]);
 });
 
