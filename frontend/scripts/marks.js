@@ -181,7 +181,6 @@ function openGradeModal(gradeData, studentName) {
         document.getElementById("gradeCode").value = gradeData.grade_code || "A";
         document.getElementById("gradePercent").value = gradeData.percentage != null ? gradeData.percentage : "";
         document.getElementById("gradeComment").value = gradeData.comment || "";
-        document.getElementById("gradeDate").value = gradeData.date || new Date().toISOString().slice(0, 10);
     } else {
         title.textContent = `Add Grade – ${group.subject} (Year ${group.year_group})`;
         studentGroup.style.display = "";
@@ -198,7 +197,6 @@ function openGradeModal(gradeData, studentName) {
         document.getElementById("gradeCode").value = "A";
         document.getElementById("gradePercent").value = "";
         document.getElementById("gradeComment").value = "";
-        document.getElementById("gradeDate").value = new Date().toISOString().slice(0, 10);
     }
 
     modal.style.display = "flex";
@@ -217,7 +215,6 @@ async function saveGrade() {
     const gradeCode = document.getElementById("gradeCode").value;
     const percentage = document.getElementById("gradePercent").value;
     const comment = document.getElementById("gradeComment").value.trim();
-    const date = document.getElementById("gradeDate").value;
 
     if (!gradeCode) {
         alert("Please select a grade.");
@@ -235,7 +232,6 @@ async function saveGrade() {
                 assessment_name: assessment,
                 grade_code: gradeCode,
                 comment: comment,
-                date: date,
             };
             if (percentage !== "") {
                 body.percentage = parseFloat(percentage);
@@ -270,7 +266,6 @@ async function saveGrade() {
                 grade_code: gradeCode,
                 assessment_name: assessment,
                 comment: comment,
-                date: date,
             };
             if (percentage !== "") body.percentage = parseFloat(percentage);
 
