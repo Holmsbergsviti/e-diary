@@ -1129,3 +1129,150 @@ def teacher_delete_homework(request):
 
     return JsonResponse({"deleted": True})
 
+
+# ------------------------------------------------------------------
+# Behavioral entries – list for teacher or student
+# ------------------------------------------------------------------
+
+@csrf_exempt
+def behavioral_entries(request):
+    payload = _verify_token(request)
+    if not payload:
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    user_id = payload["sub"]
+    role = payload.get("role", "student")
+    db = ediary()
+
+    if role == "teacher":
+        result = (
+            db.table("behavioral_entries")
+            .select("id, student_id, subject_id, class_id, entry_type, content, severity, created_at")
+            .eq("teacher_id", user_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+    else:
+        result = (
+            db.table("behavioral_entries")
+            .select("id, teacher_id, subject_id, class_id, entry_type, content, severity, created_at")
+            .eq("student_id", user_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+
+    # Build lookups
+    subj_result = ediary().table("subjects").select("id, name").execute()
+    subj_map = {s["id"]: s["name"] for s in (subj_result.data or [])}
+
+    stu_ids = list({r.get("student_id", "") for r in (result.data or []) if r.get("student_id")})
+    t_ids = list({r.get("teacher_id", "") for r in (result.data or []) if r.get("teacher_id")})
+
+    stu_map = {}
+    if stu_ids:
+        sr = ediary().table("students").select("id, name, surname").in_("id", stu_ids).execute()
+        stu_map = {s["id"]: f"{s['name']} {s['surname']}" for s in (sr.data or [])}
+
+    t_map = {}
+    if t_ids:
+        tr = ediary().table("teachers").select("id, name, surname").in_("id", t_ids).execute()
+        t_map = {t["id"]: f"{t['name']} {t['surname']}" for t in (tr.data or [])}
+
+    rows = []
+    for r in (result.data or []):
+        rows.append({
+            "id": r["id"],
+            "entry_type": r.get("entry_type", ""),
+            "content": r.get("content", ""),
+            "severity": r.get("severity", ""),
+            "subject": subj_map.get(r.get("subject_id"), ""),
+            "student": stu_map.get(r.get("student_id"), ""),
+            "teacher": t_map.get(r.get("teacher_id"), ""),
+            "created_at": r.get("created_at", ""),
+        })
+
+    return JsonResponse({"entries": rows})
+
+
+# ------------------------------------------------------------------
+# Teacher: add behavioral entry
+# ------------------------------------------------------------------
+
+@csrf_exempt
+def teacher_add_behavioral(request):
+    payload = _verify_token(request)
+    if not payload or payload.get("role") != "teacher":
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    if request.method != "POST":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"message": "Invalid JSON"}, status=400)
+
+    student_id = data.get("student_id", "").strip()
+    subject_id = data.get("subject_id", "").strip()
+    class_id = data.get("class_id", "").strip()
+    entry_type = data.get("entry_type", "").strip()
+    content = data.get("content", "").strip()
+    severity = data.get("severity", "").strip()
+
+    if not student_id or not entry_type or not content:
+        return JsonResponse({"message": "student_id, entry_type and content are required"}, status=400)
+
+    insert_row = {
+        "teacher_id": payload["sub"],
+        "student_id": student_id,
+        "entry_type": entry_type,
+        "content": content,
+    }
+    if subject_id:
+        insert_row["subject_id"] = subject_id
+    if class_id:
+        insert_row["class_id"] = class_id
+    if severity:
+        insert_row["severity"] = severity
+
+    db = ediary()
+    result = db.table("behavioral_entries").insert(insert_row).execute()
+
+    return JsonResponse({"entry": result.data[0] if result.data else {}}, status=201)
+
+
+# ------------------------------------------------------------------
+# Teacher: delete behavioral entry
+# ------------------------------------------------------------------
+
+@csrf_exempt
+def teacher_delete_behavioral(request):
+    payload = _verify_token(request)
+    if not payload or payload.get("role") != "teacher":
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    if request.method != "POST":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"message": "Invalid JSON"}, status=400)
+
+    entry_id = data.get("id", "").strip()
+    if not entry_id:
+        return JsonResponse({"message": "id is required"}, status=400)
+
+    db = ediary()
+    result = (
+        db.table("behavioral_entries")
+        .delete()
+        .eq("id", entry_id)
+        .eq("teacher_id", payload["sub"])
+        .execute()
+    )
+
+    if not result.data:
+        return JsonResponse({"message": "Not found or not yours"}, status=404)
+
+    return JsonResponse({"deleted": True})

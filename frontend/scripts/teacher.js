@@ -25,7 +25,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     initNav();
     await loadSchedule();
-    await loadHomework();
+    await Promise.all([loadHomework(), loadBehavioral()]);
 
     // Week navigation arrows
     document.getElementById("weekPrev").addEventListener("click", () => { weekOffset--; renderWeeklySchedule(); });
@@ -477,4 +477,165 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("homeworkModal").style.display = "none";
     });
     document.getElementById("hwSave")?.addEventListener("click", saveHomework);
+
+    // Behavioral buttons
+    document.getElementById("addBehavioralBtn")?.addEventListener("click", openBehavioralModal);
+    document.getElementById("behModalClose")?.addEventListener("click", () => {
+        document.getElementById("behavioralModal").style.display = "none";
+    });
+    document.getElementById("behSave")?.addEventListener("click", saveBehavioral);
+    document.getElementById("behClassSelect")?.addEventListener("change", loadStudentsForBehavioral);
 });
+
+
+/* ================================================================
+   BEHAVIORAL NOTES SECTION
+   ================================================================ */
+
+let behavioralEntries = [];
+
+async function loadBehavioral() {
+    const container = document.getElementById("behavioralList");
+    try {
+        const res = await apiFetch("/behavioral/");
+        const data = await res.json();
+        behavioralEntries = data.entries || [];
+        renderBehavioral();
+    } catch (err) {
+        container.innerHTML = '<p class="empty-state">Failed to load behavioral notes.</p>';
+    }
+}
+
+const TYPE_ICONS = { positive: "👍", negative: "👎", note: "📝" };
+const SEVERITY_LABELS = { low: "Low", medium: "Medium", high: "High" };
+
+function renderBehavioral() {
+    const container = document.getElementById("behavioralList");
+    if (behavioralEntries.length === 0) {
+        container.innerHTML = '<p class="empty-state">No behavioral notes yet.</p>';
+        return;
+    }
+
+    container.innerHTML = behavioralEntries.map(e => {
+        const icon = TYPE_ICONS[e.entry_type] || "📝";
+        const sevClass = e.severity === "high" ? "beh-high" : e.severity === "medium" ? "beh-medium" : "beh-low";
+        const date = e.created_at ? formatDate(e.created_at.slice(0, 10)) : "";
+        return `
+        <div class="beh-item ${sevClass}">
+            <div class="beh-item-main">
+                <div class="beh-item-title">${icon} ${escHtml(e.student || "Unknown student")}</div>
+                <div class="beh-item-meta">
+                    ${e.entry_type ? escHtml(e.entry_type) : ""}${e.severity ? " · " + SEVERITY_LABELS[e.severity] : ""}${e.subject ? " · " + escHtml(e.subject) : ""}${date ? " · " + date : ""}
+                </div>
+                <div class="beh-item-content">${escHtml(e.content)}</div>
+            </div>
+            <button class="btn btn-danger btn-sm beh-delete-btn" data-id="${e.id}" title="Delete">&times;</button>
+        </div>`;
+    }).join("");
+
+    container.querySelectorAll(".beh-delete-btn").forEach(btn => {
+        btn.addEventListener("click", async (ev) => {
+            ev.stopPropagation();
+            if (!confirm("Delete this behavioral note?")) return;
+            try {
+                await apiFetch("/teacher/behavioral/delete/", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: btn.dataset.id }),
+                });
+                await loadBehavioral();
+            } catch (err) {
+                alert("Failed to delete note.");
+            }
+        });
+    });
+}
+
+function openBehavioralModal() {
+    // Populate the class/subject dropdown from schedule data
+    const select = document.getElementById("behClassSelect");
+    const seen = new Set();
+    const options = [];
+    for (const s of allSlots) {
+        const key = `${s.subject_id}|${s.class_id}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const label = `${s.subject} – ${s.class_name || 'Year ' + s.grade_level}`;
+        options.push({ key, label, subject_id: s.subject_id, class_id: s.class_id });
+    }
+    options.sort((a, b) => a.label.localeCompare(b.label));
+    select.innerHTML = options.map(o =>
+        `<option value="${o.key}" data-subject="${o.subject_id}" data-class="${o.class_id}">${escHtml(o.label)}</option>`
+    ).join("");
+
+    // Reset fields
+    document.getElementById("behType").value = "positive";
+    document.getElementById("behSeverity").value = "low";
+    document.getElementById("behContent").value = "";
+
+    document.getElementById("behavioralModal").style.display = "flex";
+
+    // Trigger student loading for the first class
+    loadStudentsForBehavioral();
+}
+
+async function loadStudentsForBehavioral() {
+    const select = document.getElementById("behClassSelect");
+    const stuSelect = document.getElementById("behStudentSelect");
+    const opt = select.options[select.selectedIndex];
+    if (!opt) return;
+
+    const subject_id = opt.dataset.subject;
+    const class_id = opt.dataset.class;
+
+    stuSelect.innerHTML = '<option value="">Loading…</option>';
+
+    try {
+        const res = await apiFetch(`/teacher/class-students/?subject_id=${subject_id}&class_id=${class_id}`);
+        const data = await res.json();
+        const students = data.students || [];
+        if (students.length === 0) {
+            stuSelect.innerHTML = '<option value="">No students</option>';
+            return;
+        }
+        stuSelect.innerHTML = students
+            .sort((a, b) => a.surname.localeCompare(b.surname))
+            .map(s => `<option value="${s.id}">${escHtml(s.surname)} ${escHtml(s.name)}</option>`)
+            .join("");
+    } catch (err) {
+        stuSelect.innerHTML = '<option value="">Failed to load</option>';
+    }
+}
+
+async function saveBehavioral() {
+    const classSelect = document.getElementById("behClassSelect");
+    const classOpt = classSelect.options[classSelect.selectedIndex];
+    const subject_id = classOpt.dataset.subject;
+    const class_id = classOpt.dataset.class;
+    const student_id = document.getElementById("behStudentSelect").value;
+    const entry_type = document.getElementById("behType").value;
+    const severity = document.getElementById("behSeverity").value;
+    const content = document.getElementById("behContent").value.trim();
+
+    if (!student_id) { alert("Please select a student."); return; }
+    if (!content) { alert("Please enter details."); return; }
+
+    const btn = document.getElementById("behSave");
+    btn.disabled = true;
+    btn.textContent = "Saving…";
+
+    try {
+        await apiFetch("/teacher/behavioral/add/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ student_id, subject_id, class_id, entry_type, severity, content }),
+        });
+        document.getElementById("behavioralModal").style.display = "none";
+        await loadBehavioral();
+    } catch (err) {
+        alert("Failed to save behavioral note.");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Save Note";
+    }
+}

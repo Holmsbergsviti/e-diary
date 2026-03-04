@@ -667,3 +667,23 @@ tr:hover td {
 .hw-item-desc { font-size: 0.85rem; color: #374151; margin-top: 4px; white-space: pre-wrap; }
 .hw-past { opacity: 0.5; }
 .hw-delete-btn { flex-shrink: 0; font-size: 1.1rem; line-height: 1; padding: 4px 8px; }
+
+/* ---- Behavioral entries ---- */
+.beh-item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border-left: 4px solid #9ca3af;
+    border-bottom: 1px solid #e5e7eb;
+}
+.beh-item:last-child { border-bottom: none; }
+.beh-item-main { flex: 1; min-width: 0; }
+.beh-item-title { font-weight: 600; color: #1a2a3a; }
+.beh-item-meta { font-size: 0.82rem; color: #6b7280; margin-top: 2px; }
+.beh-item-content { font-size: 0.85rem; color: #374151; margin-top: 4px; white-space: pre-wrap; }
+.beh-low { border-left-color: #60a5fa; }
+.beh-medium { border-left-color: #fbbf24; }
+.beh-high { border-left-color: #ef4444; }
+.beh-delete-btn { flex-shrink: 0; font-size: 1.1rem; line-height: 1; padding: 4px 8px; }

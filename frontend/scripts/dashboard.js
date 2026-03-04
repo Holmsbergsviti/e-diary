@@ -9,7 +9,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     initNav();
-    await Promise.all([loadAnnouncements(), loadRecentGrades()]);
+    await Promise.all([loadAnnouncements(), loadRecentGrades(), loadBehavioral()]);
 });
 
 // ---------- helper: grade code -> CSS class ----------
@@ -88,5 +88,40 @@ async function loadRecentGrades() {
         `;
     } catch (err) {
         container.innerHTML = '<p class="empty-state">Failed to load grades.</p>';
+    }
+}
+
+const BEH_TYPE_ICONS = { positive: "👍", negative: "👎", note: "📝" };
+const BEH_SEVERITY_LABELS = { low: "Low", medium: "Medium", high: "High" };
+
+async function loadBehavioral() {
+    const container = document.getElementById("behavioralContainer");
+    try {
+        const res = await apiFetch("/behavioral/");
+        const data = await res.json();
+        const entries = data.entries || [];
+
+        if (entries.length === 0) {
+            container.innerHTML = '<p class="empty-state">No behavioral notes.</p>';
+            return;
+        }
+
+        container.innerHTML = entries.map(e => {
+            const icon = BEH_TYPE_ICONS[e.entry_type] || "📝";
+            const sevClass = e.severity === "high" ? "beh-high" : e.severity === "medium" ? "beh-medium" : "beh-low";
+            const date = e.created_at ? formatDate(e.created_at.slice(0, 10)) : "";
+            return `
+            <div class="beh-item ${sevClass}">
+                <div class="beh-item-main">
+                    <div class="beh-item-title">${icon} ${escHtml(e.entry_type || "")}</div>
+                    <div class="beh-item-meta">
+                        ${e.teacher ? "By " + escHtml(e.teacher) : ""}${e.subject ? " · " + escHtml(e.subject) : ""}${date ? " · " + date : ""}
+                    </div>
+                    <div class="beh-item-content">${escHtml(e.content)}</div>
+                </div>
+            </div>`;
+        }).join("");
+    } catch (err) {
+        container.innerHTML = '<p class="empty-state">Failed to load behavioral notes.</p>';
     }
 }
