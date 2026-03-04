@@ -1,7 +1,7 @@
 // ---------- helper: grade code → CSS class ----------
 function gradeClass(code) {
     if (!code) return "";
-    const c = code.toUpperCase().replace("*", "");
+    const c = code.toUpperCase().replace("*", "").replace("+", "").replace("-", "");
     if (c === "A") return "grade-a";
     if (c === "B") return "grade-b";
     if (c === "C") return "grade-c";

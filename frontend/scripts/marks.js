@@ -27,7 +27,12 @@ const CATEGORY_LABELS = {
 
 // Grade → numeric value for weighted average
 const GRADE_VALUES = {
-    "A*": 9, "A": 8, "A-": 7, "B": 6, "C": 5, "D": 4, "E": 3, "U": 1,
+    "A*": 9, "A": 8, "A-": 7,
+    "B+": 6.5, "B": 6, "B-": 5.5,
+    "C+": 5.5, "C": 5, "C-": 4.5,
+    "D+": 4.5, "D": 4, "D-": 3.5,
+    "E+": 3.5, "E": 3, "E-": 2.5,
+    "U": 1,
 };
 
 // Numeric value → predicted grade
@@ -35,10 +40,18 @@ function numToGrade(val) {
     if (val >= 8.5) return "A*";
     if (val >= 7.5) return "A";
     if (val >= 6.5) return "A-";
-    if (val >= 5.5) return "B";
+    if (val >= 6.25) return "B+";
+    if (val >= 5.75) return "B";
+    if (val >= 5.25) return "B-";
+    if (val >= 4.75) return "C+";
     if (val >= 4.5) return "C";
+    if (val >= 4.25) return "C-";
+    if (val >= 3.75) return "D+";
     if (val >= 3.5) return "D";
-    if (val >= 2.0) return "E";
+    if (val >= 3.25) return "D-";
+    if (val >= 2.75) return "E+";
+    if (val >= 2.25) return "E";
+    if (val >= 1.75) return "E-";
     return "U";
 }
 
