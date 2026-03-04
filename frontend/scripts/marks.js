@@ -220,7 +220,7 @@ function renderGroup(container, group) {
 
             html += `<tr>
                 <td>${i + 1}</td>
-                <td>${escHtml(s.surname)} ${escHtml(s.name)}</td>
+                <td class="student-name-clickable" data-student-id="${s.student_id}" data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">${escHtml(s.surname)} ${escHtml(s.name)}</td>
                 <td><span class="class-tag">${escHtml(s.class_name)}</span></td>`;
 
             if (assessments.length > 0) {
@@ -270,10 +270,17 @@ function renderGroup(container, group) {
             openGradeModal(gradeData, studentName);
         });
     });
+
+    // Wire clickable student names to open Add Grade with student pre-selected
+    container.querySelectorAll(".student-name-clickable").forEach(cell => {
+        cell.addEventListener("click", () => {
+            openGradeModal(null, null, cell.dataset.studentId);
+        });
+    });
 }
 
 /* ---- Grade Modal (Add / Edit) ---- */
-function openGradeModal(gradeData, studentName) {
+function openGradeModal(gradeData, studentName, preSelectedStudentId) {
     const group = allGroups[activeGroupIdx];
     if (!group) return;
 
@@ -310,6 +317,11 @@ function openGradeModal(gradeData, studentName) {
             .sort((a, b) => a.surname.localeCompare(b.surname))
             .map(s => `<option value="${s.student_id}">${escHtml(s.surname)} ${escHtml(s.name)} (${escHtml(s.class_name)})</option>`)
             .join("");
+
+        // Pre-select student if provided
+        if (preSelectedStudentId) {
+            sel.value = preSelectedStudentId;
+        }
 
         document.getElementById("gradeAssessment").value = "";
         document.getElementById("gradeCategory").value = "test";

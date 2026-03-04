@@ -635,6 +635,16 @@ tr:hover td {
     background: #f9fafb;
 }
 
+/* ---- Clickable student name in marks table ---- */
+.student-name-clickable {
+    cursor: pointer;
+    transition: color .15s;
+}
+.student-name-clickable:hover {
+    color: #2563eb;
+    text-decoration: underline;
+}
+
 /* ---- Form row (side-by-side fields) ---- */
 .form-row {
     display: flex;
