@@ -908,3 +908,87 @@ tr:hover td {
 .overview-grade-info {
     color: #475569;
 }
+
+/* ── Per-Student Stats Grid ── */
+.student-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e2e8f0;
+}
+@media (max-width: 600px) {
+    .student-stats-grid { grid-template-columns: 1fr; }
+}
+.student-stat-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+.student-stat-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 6px;
+}
+.student-stat-bar {
+    display: flex;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #e2e8f0;
+    margin-bottom: 6px;
+}
+.stat-bar-seg { min-width: 0; transition: width 0.3s; }
+.stat-bar-present { background: #22c55e; }
+.stat-bar-late { background: #f59e0b; }
+.stat-bar-absent { background: #ef4444; }
+.stat-bar-excused { background: #8b5cf6; }
+.student-stat-nums {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 0.75rem;
+}
+.stat-present { color: #16a34a; }
+.stat-late { color: #d97706; }
+.stat-absent { color: #dc2626; }
+.stat-excused { color: #7c3aed; }
+.student-stat-big {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #1e293b;
+    line-height: 1.2;
+}
+.student-stat-sub {
+    font-size: 0.78rem;
+    color: #94a3b8;
+}
+.student-stat-empty {
+    color: #94a3b8;
+    font-size: 0.82rem;
+    font-style: italic;
+}
+.student-stat-hw {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.stat-hw-pill {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+.student-grades-section-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 4px;
+}

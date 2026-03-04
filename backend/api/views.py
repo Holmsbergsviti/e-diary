@@ -977,6 +977,85 @@ def teacher_marks(request):
     # === CLASS TEACHER OVERVIEW (first tab) ===
     if class_teacher_class_id and t.get("is_class_teacher"):
         homeroom_students = [s for s in (students.data or []) if s["class_id"] == class_teacher_class_id]
+        homeroom_ids = [s["id"] for s in homeroom_students]
+
+        # Fetch stats data for homeroom students
+        att_data = []
+        hw_comp_data = []
+        beh_data = []
+        hw_data = []
+        if homeroom_ids:
+            att_data = (
+                ediary().table("attendance")
+                .select("student_id, status")
+                .in_("student_id", homeroom_ids)
+                .execute()
+            ).data or []
+
+            # Build grade_level class ids for homework lookup
+            ct_gl = cls_map.get(class_teacher_class_id, {}).get("grade_level")
+            ct_class_ids = grade_class_map.get(ct_gl, []) if ct_gl else [class_teacher_class_id]
+
+            hw_data = (
+                ediary().table("homework")
+                .select("id, class_id")
+                .in_("class_id", ct_class_ids)
+                .execute()
+            ).data or []
+            hw_ids_ct = [h["id"] for h in hw_data]
+
+            if hw_ids_ct:
+                hw_comp_data = (
+                    ediary().table("homework_completions")
+                    .select("student_id, status")
+                    .in_("homework_id", hw_ids_ct)
+                    .execute()
+                ).data or []
+
+            beh_data = (
+                ediary().table("behavioral_entries")
+                .select("student_id, entry_type")
+                .in_("student_id", homeroom_ids)
+                .execute()
+            ).data or []
+
+        # Build per-student stat maps
+        def build_student_stats(sid):
+            att_c = {"Present": 0, "Late": 0, "Absent": 0, "Excused": 0}
+            for a in att_data:
+                if a["student_id"] == sid:
+                    st = a.get("status", "Present")
+                    if st in att_c:
+                        att_c[st] += 1
+            att_total = sum(att_c.values())
+
+            # Grade avg from grades_result
+            pcts = [
+                g["percentage"] for g in (grades_result.data or [])
+                if g["student_id"] == sid and g.get("percentage") is not None
+            ]
+            grade_avg = round(sum(pcts) / len(pcts), 1) if pcts else None
+
+            hwc_c = {"completed": 0, "partial": 0, "not_done": 0}
+            for h in hw_comp_data:
+                if h["student_id"] == sid:
+                    st = h.get("status", "")
+                    if st in hwc_c:
+                        hwc_c[st] += 1
+
+            beh_c = {"positive": 0, "negative": 0, "note": 0}
+            for b in beh_data:
+                if b["student_id"] == sid:
+                    bt = b.get("entry_type", "note")
+                    if bt in beh_c:
+                        beh_c[bt] += 1
+
+            return {
+                "attendance": {"total": att_total, **att_c},
+                "grades": {"count": len(pcts), "average": grade_avg},
+                "homework": hwc_c,
+                "behavioral": beh_c,
+            }
 
         if homeroom_students:
             # Build enrollment map: student_id -> set of subject_ids
@@ -1019,6 +1098,7 @@ def teacher_marks(request):
                     "surname": s["surname"],
                     "class_name": cls_map.get(s["class_id"], {}).get("class_name", ""),
                     "subjects": subjects_data,
+                    "stats": build_student_stats(s["id"]),
                 })
 
             ct_class = cls_map.get(class_teacher_class_id, {})

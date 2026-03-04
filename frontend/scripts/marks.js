@@ -174,16 +174,86 @@ function renderClassOverview(container, group) {
             }
         }
 
+        const st = student.stats || {};
+        const att = st.attendance || {};
+        const attRate = att.total > 0 ? Math.round(((att.Present || 0) + (att.Late || 0)) / att.total * 100) : null;
+
         html += `<div class="overview-student" data-idx="${idx}">
             <div class="overview-student-header">
                 <span class="overview-num">${idx + 1}</span>
                 <span class="overview-name">${escHtml(student.surname)} ${escHtml(student.name)}</span>
-                <span class="overview-meta">${subjectCount} subjects · ${totalGrades} grades</span>
+                <span class="overview-meta">${subjectCount} subj · ${totalGrades} grades${attRate !== null ? ` · ${attRate}% att.` : ''}</span>
                 <span class="overview-expand">▸</span>
             </div>
             <div class="overview-student-detail" style="display:none;">`;
 
+        // --- Per-student stat cards ---
+        if (st.attendance || st.grades || st.homework || st.behavioral) {
+            html += `<div class="student-stats-grid">`;
+
+            // Attendance mini card
+            const attTotal = att.total || 0;
+            const present = att.Present || 0;
+            const late = att.Late || 0;
+            const absent = att.Absent || 0;
+            const excused = att.Excused || 0;
+            html += `<div class="student-stat-card">
+                <div class="student-stat-label">📋 Attendance</div>
+                ${attTotal > 0 ? `
+                <div class="student-stat-bar">
+                    <div class="stat-bar-seg stat-bar-present" style="width:${(present/attTotal*100).toFixed(1)}%" title="Present: ${present}"></div>
+                    <div class="stat-bar-seg stat-bar-late" style="width:${(late/attTotal*100).toFixed(1)}%" title="Late: ${late}"></div>
+                    <div class="stat-bar-seg stat-bar-absent" style="width:${(absent/attTotal*100).toFixed(1)}%" title="Absent: ${absent}"></div>
+                    <div class="stat-bar-seg stat-bar-excused" style="width:${(excused/attTotal*100).toFixed(1)}%" title="Excused: ${excused}"></div>
+                </div>
+                <div class="student-stat-nums">
+                    <span class="stat-present">${present} present</span>
+                    <span class="stat-late">${late} late</span>
+                    <span class="stat-absent">${absent} absent</span>
+                    <span class="stat-excused">${excused} excused</span>
+                </div>` : `<div class="student-stat-empty">No records</div>`}
+            </div>`;
+
+            // Grade average mini card
+            const gr = st.grades || {};
+            html += `<div class="student-stat-card">
+                <div class="student-stat-label">📊 Grades</div>
+                ${gr.average != null ? `
+                <div class="student-stat-big">${gr.average}%</div>
+                <div class="student-stat-sub">${gr.count} grade${gr.count !== 1 ? 's' : ''} total</div>` : `<div class="student-stat-empty">No grades</div>`}
+            </div>`;
+
+            // Homework mini card
+            const hw = st.homework || {};
+            const hwTotal = (hw.completed || 0) + (hw.partial || 0) + (hw.not_done || 0);
+            html += `<div class="student-stat-card">
+                <div class="student-stat-label">📝 Homework</div>
+                ${hwTotal > 0 ? `
+                <div class="student-stat-hw">
+                    <span class="stat-hw-pill stat-hw-done">${hw.completed || 0} done</span>
+                    <span class="stat-hw-pill stat-hw-partial">${hw.partial || 0} partial</span>
+                    <span class="stat-hw-pill stat-hw-not">${hw.not_done || 0} missing</span>
+                </div>` : `<div class="student-stat-empty">No records</div>`}
+            </div>`;
+
+            // Behavioral mini card
+            const beh = st.behavioral || {};
+            const behTotal = (beh.positive || 0) + (beh.negative || 0) + (beh.note || 0);
+            html += `<div class="student-stat-card">
+                <div class="student-stat-label">⭐ Behavioral</div>
+                ${behTotal > 0 ? `
+                <div class="student-stat-hw">
+                    <span class="stat-hw-pill" style="background:#d1fae5;color:#065f46;">👍 ${beh.positive || 0}</span>
+                    <span class="stat-hw-pill" style="background:#fee2e2;color:#991b1b;">👎 ${beh.negative || 0}</span>
+                    <span class="stat-hw-pill" style="background:#e0e7ff;color:#3730a3;">📝 ${beh.note || 0}</span>
+                </div>` : `<div class="student-stat-empty">No entries</div>`}
+            </div>`;
+
+            html += `</div>`;
+        }
+
         if (student.subjects && student.subjects.length > 0) {
+            html += `<div class="student-grades-section-label">Subject Grades</div>`;
             for (const subj of student.subjects) {
                 const filteredGrades = activeTerm
                     ? subj.grades.filter(g => g.term === activeTerm)
