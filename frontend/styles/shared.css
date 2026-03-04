@@ -712,3 +712,108 @@ tr:hover td {
 .att-row.att-late td:nth-child(3) { color: #d97706; }
 .att-row.att-absent td:nth-child(3) { color: #dc2626; font-weight: 600; }
 .att-row.att-excused td:nth-child(3) { color: #6366f1; }
+
+/* ---- Class Statistics cards ---- */
+.stat-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    background: #fafbfc;
+}
+.stat-card:last-child { margin-bottom: 0; }
+.stat-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.stat-card-title { font-weight: 700; font-size: 0.95rem; color: #1a2a3a; }
+.stat-card-students { font-size: 0.8rem; color: #6b7280; background: #f3f4f6; padding: 2px 10px; border-radius: 12px; }
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+@media (max-width: 600px) {
+    .stat-grid { grid-template-columns: 1fr; }
+}
+
+.stat-block {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+.stat-block-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 6px;
+}
+
+/* Attendance stacked bar */
+.stat-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.stat-bar {
+    height: 10px;
+    border-radius: 5px;
+    background: #f3f4f6;
+    overflow: hidden;
+    display: flex;
+}
+.stat-bar-fill { height: 100%; transition: width 0.3s; }
+.stat-bar-present { background: #34d399; }
+.stat-bar-late { background: #fbbf24; }
+.stat-bar-absent { background: #f87171; }
+
+.stat-legend {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: #6b7280;
+    flex-wrap: wrap;
+}
+.stat-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-left: 6px;
+}
+.stat-dot:first-child { margin-left: 0; }
+.stat-dot-present { background: #34d399; }
+.stat-dot-late { background: #fbbf24; }
+.stat-dot-absent { background: #f87171; }
+.stat-dot-excused { background: #a78bfa; }
+
+/* Big number for grades */
+.stat-big {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #1a2a3a;
+    line-height: 1.1;
+}
+.stat-sub {
+    font-size: 0.78rem;
+    color: #9ca3af;
+}
+
+/* HW / Behavioral chips */
+.stat-hw-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+.stat-hw-chip {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+.stat-hw-done { background: #d1fae5; color: #065f46; }
+.stat-hw-partial { background: #fef3c7; color: #92400e; }
+.stat-hw-not { background: #fee2e2; color: #991b1b; }

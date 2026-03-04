@@ -1377,3 +1377,207 @@ def teacher_homework_completions(request):
         return JsonResponse({"saved": len(rows)}, status=201)
 
     return JsonResponse({"message": "Method not allowed"}, status=405)
+
+
+# ------------------------------------------------------------------
+# Teacher: class statistics (attendance, grades, hw, behavioral)
+# ------------------------------------------------------------------
+
+@csrf_exempt
+def teacher_class_stats(request):
+    payload = _verify_token(request)
+    if not payload or payload.get("role") != "teacher":
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    teacher_id = payload["sub"]
+    db = ediary()
+
+    # Get teacher assignments
+    assignments = (
+        db.table("teacher_assignments")
+        .select("subject_id, class_id")
+        .eq("teacher_id", teacher_id)
+        .execute()
+    )
+    pairs = [(a["subject_id"], a["class_id"]) for a in (assignments.data or [])]
+    if not pairs:
+        return JsonResponse({"stats": []})
+
+    # Lookups
+    subj_result = ediary().table("subjects").select("id, name").execute()
+    subj_map = {s["id"]: s["name"] for s in (subj_result.data or [])}
+
+    cls_result = ediary().table("classes").select("id, class_name, grade_level").execute()
+    cls_map = {c["id"]: c for c in (cls_result.data or [])}
+
+    # Build grade_level -> [class_ids] map
+    gl_class_map = {}
+    for c in (cls_result.data or []):
+        gl_class_map.setdefault(c["grade_level"], []).append(c["id"])
+
+    # For each pair, get all class_ids in that year level
+    pair_class_ids = set()
+    for sid, cid in pairs:
+        cl = cls_map.get(cid)
+        if cl:
+            for related_cid in gl_class_map.get(cl["grade_level"], []):
+                pair_class_ids.add(related_cid)
+
+    all_cids = list(pair_class_ids)
+    if not all_cids:
+        return JsonResponse({"stats": []})
+
+    # Get all students in relevant classes
+    stu_result = (
+        ediary().table("students")
+        .select("id, class_id")
+        .in_("class_id", all_cids)
+        .execute()
+    )
+    # Build class_id->set(student_ids)
+    class_students = {}
+    for s in (stu_result.data or []):
+        class_students.setdefault(s["class_id"], set()).add(s["id"])
+
+    # Get student_subjects for filtering
+    all_student_ids = [s["id"] for s in (stu_result.data or [])]
+    ss_result = (
+        ediary().table("student_subjects")
+        .select("student_id, subject_id, group_class_id")
+        .in_("student_id", all_student_ids)
+        .execute()
+    ) if all_student_ids else type('', (), {'data': []})()
+    # (student_id, subject_id) -> group_class_id
+    ss_map = {}
+    for ss in (ss_result.data or []):
+        ss_map.setdefault(ss["subject_id"], set()).add(ss["student_id"])
+
+    # Fetch all attendance for this teacher
+    att_result = (
+        ediary().table("attendance")
+        .select("class_id, subject_id, student_id, status")
+        .eq("recorded_by_teacher_id", teacher_id)
+        .execute()
+    )
+
+    # Fetch all grades for this teacher
+    grades_result = (
+        ediary().table("grades")
+        .select("class_id, subject_id, student_id, grade_value")
+        .eq("teacher_id", teacher_id)
+        .execute()
+    )
+
+    # Fetch homework for this teacher
+    hw_result = (
+        ediary().table("homework")
+        .select("id, subject_id, class_id")
+        .eq("teacher_id", teacher_id)
+        .execute()
+    )
+    hw_ids = [h["id"] for h in (hw_result.data or [])]
+
+    # Fetch homework completions
+    hwc_result = (
+        ediary().table("homework_completions")
+        .select("homework_id, student_id, status")
+        .in_("homework_id", hw_ids)
+        .execute()
+    ) if hw_ids else type('', (), {'data': []})()
+
+    # Map homework_id -> (subject_id, class_id)
+    hw_pair_map = {h["id"]: (h["subject_id"], h["class_id"]) for h in (hw_result.data or [])}
+
+    # Fetch behavioral entries for this teacher
+    beh_result = (
+        ediary().table("behavioral_entries")
+        .select("subject_id, class_id, entry_type")
+        .eq("teacher_id", teacher_id)
+        .execute()
+    )
+
+    # Build stats per (subject_id, class_id)
+    stats = []
+    for subject_id, class_id in pairs:
+        cl = cls_map.get(class_id)
+        if not cl:
+            continue
+        grade_level = cl["grade_level"]
+
+        # All students in this year enrolled in this subject
+        enrolled = ss_map.get(subject_id, set())
+        year_class_ids = set(gl_class_map.get(grade_level, []))
+        year_students = set()
+        for cid in year_class_ids:
+            year_students |= class_students.get(cid, set())
+        class_enrolled = enrolled & year_students
+        student_count = len(class_enrolled)
+
+        # Attendance stats: filter by class_ids in year + subject
+        att_counts = {"Present": 0, "Late": 0, "Absent": 0, "Excused": 0}
+        for a in (att_result.data or []):
+            if a["subject_id"] == subject_id and a.get("class_id") in year_class_ids:
+                s = a.get("status", "Present")
+                if s in att_counts:
+                    att_counts[s] += 1
+        att_total = sum(att_counts.values())
+
+        # Grade stats
+        grade_values = []
+        for g in (grades_result.data or []):
+            if g["subject_id"] == subject_id and g.get("class_id") in year_class_ids:
+                gv = g.get("grade_value")
+                if gv is not None:
+                    grade_values.append(gv)
+        grade_count = len(grade_values)
+        grade_avg = round(sum(grade_values) / grade_count, 2) if grade_count else None
+
+        # Homework stats
+        hw_for_pair = [h_id for h_id, (sid, cid) in hw_pair_map.items() if sid == subject_id and cid == class_id]
+        hw_count = len(hw_for_pair)
+        hwc_counts = {"completed": 0, "partial": 0, "not_done": 0}
+        for c in (hwc_result.data or []):
+            if c["homework_id"] in hw_for_pair:
+                st = c.get("status", "")
+                if st in hwc_counts:
+                    hwc_counts[st] += 1
+
+        # Behavioral stats
+        beh_counts = {"positive": 0, "negative": 0, "note": 0}
+        for b in (beh_result.data or []):
+            if b.get("subject_id") == subject_id:
+                bt = b.get("entry_type", "note")
+                if bt in beh_counts:
+                    beh_counts[bt] += 1
+
+        stats.append({
+            "subject": subj_map.get(subject_id, ""),
+            "class_name": cl.get("class_name", ""),
+            "student_count": student_count,
+            "attendance": {
+                "total": att_total,
+                "present": att_counts["Present"],
+                "late": att_counts["Late"],
+                "absent": att_counts["Absent"],
+                "excused": att_counts["Excused"],
+            },
+            "grades": {
+                "count": grade_count,
+                "average": grade_avg,
+            },
+            "homework": {
+                "assigned": hw_count,
+                "completed": hwc_counts["completed"],
+                "partial": hwc_counts["partial"],
+                "not_done": hwc_counts["not_done"],
+            },
+            "behavioral": {
+                "positive": beh_counts["positive"],
+                "negative": beh_counts["negative"],
+                "note": beh_counts["note"],
+            },
+        })
+
+    # Sort by subject then class
+    stats.sort(key=lambda s: (s["subject"], s["class_name"]))
+    return JsonResponse({"stats": stats})

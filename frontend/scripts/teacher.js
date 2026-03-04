@@ -25,7 +25,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     initNav();
     await loadSchedule();
-    await Promise.all([loadHomework(), loadBehavioral()]);
+    await Promise.all([loadHomework(), loadBehavioral(), loadClassStats()]);
 
     // Week navigation arrows
     document.getElementById("weekPrev").addEventListener("click", () => { weekOffset--; renderWeeklySchedule(); });
@@ -349,6 +349,91 @@ function closeModal() {
     document.getElementById("attendanceModal").style.display = "none";
     currentSlot = null;
 }
+
+/* ================================================================
+   CLASS STATISTICS SECTION
+   ================================================================ */
+
+async function loadClassStats() {
+    const container = document.getElementById("classStatsList");
+    try {
+        const res = await apiFetch("/teacher/class-stats/");
+        const data = await res.json();
+        const stats = data.stats || [];
+        renderClassStats(stats);
+    } catch (err) {
+        container.innerHTML = '<p class="empty-state">Failed to load statistics.</p>';
+    }
+}
+
+function renderClassStats(stats) {
+    const container = document.getElementById("classStatsList");
+    if (stats.length === 0) {
+        container.innerHTML = '<p class="empty-state">No class data yet.</p>';
+        return;
+    }
+
+    container.innerHTML = stats.map(s => {
+        const attTotal = s.attendance.total;
+        const attRate = attTotal ? Math.round((s.attendance.present / attTotal) * 100) : 0;
+        const lateRate = attTotal ? Math.round((s.attendance.late / attTotal) * 100) : 0;
+        const absentRate = attTotal ? Math.round((s.attendance.absent / attTotal) * 100) : 0;
+
+        const hwTotal = s.homework.completed + s.homework.partial + s.homework.not_done;
+
+        const gradeAvg = s.grades.average !== null ? s.grades.average.toFixed(1) : "–";
+
+        return `
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-card-title">${escHtml(s.subject)} – ${escHtml(s.class_name)}</span>
+                <span class="stat-card-students">${s.student_count} student${s.student_count !== 1 ? 's' : ''}</span>
+            </div>
+            <div class="stat-grid">
+                <div class="stat-block">
+                    <div class="stat-block-title">📅 Attendance</div>
+                    <div class="stat-bar-row">
+                        <div class="stat-bar" style="flex:1;">
+                            <div class="stat-bar-fill stat-bar-present" style="width:${attRate}%" title="Present ${attRate}%"></div>
+                            <div class="stat-bar-fill stat-bar-late" style="width:${lateRate}%" title="Late ${lateRate}%"></div>
+                            <div class="stat-bar-fill stat-bar-absent" style="width:${absentRate}%" title="Absent ${absentRate}%"></div>
+                        </div>
+                    </div>
+                    <div class="stat-legend">
+                        <span class="stat-dot stat-dot-present"></span> ${s.attendance.present}
+                        <span class="stat-dot stat-dot-late"></span> ${s.attendance.late}
+                        <span class="stat-dot stat-dot-absent"></span> ${s.attendance.absent}
+                        <span class="stat-dot stat-dot-excused"></span> ${s.attendance.excused}
+                    </div>
+                </div>
+                <div class="stat-block">
+                    <div class="stat-block-title">📊 Grades</div>
+                    <div class="stat-big">${gradeAvg}</div>
+                    <div class="stat-sub">${s.grades.count} grade${s.grades.count !== 1 ? 's' : ''} recorded</div>
+                </div>
+                <div class="stat-block">
+                    <div class="stat-block-title">📝 Homework</div>
+                    <div class="stat-sub">${s.homework.assigned} assigned</div>
+                    ${hwTotal > 0 ? `
+                    <div class="stat-hw-row">
+                        <span class="stat-hw-chip stat-hw-done">✅ ${s.homework.completed}</span>
+                        <span class="stat-hw-chip stat-hw-partial">⚠️ ${s.homework.partial}</span>
+                        <span class="stat-hw-chip stat-hw-not">❌ ${s.homework.not_done}</span>
+                    </div>` : '<div class="stat-sub">No completions yet</div>'}
+                </div>
+                <div class="stat-block">
+                    <div class="stat-block-title">📋 Behavioral</div>
+                    <div class="stat-hw-row">
+                        <span class="stat-hw-chip stat-hw-done">👍 ${s.behavioral.positive}</span>
+                        <span class="stat-hw-chip stat-hw-not">👎 ${s.behavioral.negative}</span>
+                        <span class="stat-hw-chip stat-hw-partial">📝 ${s.behavioral.note}</span>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }).join("");
+}
+
 
 /* ================================================================
    HOMEWORK SECTION
