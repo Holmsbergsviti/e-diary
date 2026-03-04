@@ -77,22 +77,38 @@ function initNav() {
     // Update sidebar links based on role
     const sidebar = document.querySelector(".sidebar");
     if (sidebar && user) {
+        // Rewrite dashboard link for the correct role
         sidebar.querySelectorAll("a").forEach(a => {
-            // Rewrite dashboard links for teachers
             if (a.getAttribute("href") === "dashboard.html" && user.role === "teacher") {
                 a.setAttribute("href", "teacher.html");
             } else if (a.getAttribute("href") === "teacher.html" && user.role !== "teacher") {
                 a.setAttribute("href", "dashboard.html");
             }
-            // Remove student grades link for teachers
-            if (a.getAttribute("href") === "grades.html" && user.role === "teacher") {
-                a.remove();
-            }
-            // Remove marks link for non-teachers
-            if (a.getAttribute("href") === "marks.html" && user.role !== "teacher") {
-                a.remove();
-            }
         });
+
+        // Inject the role-specific link if not already present
+        const profileLink = sidebar.querySelector('a[href="profile.html"]');
+        if (user.role === "teacher") {
+            if (!sidebar.querySelector('a[href="marks.html"]')) {
+                const a = document.createElement("a");
+                a.href = "marks.html";
+                const current = window.location.pathname.endsWith("marks.html");
+                if (current) a.classList.add("active");
+                a.innerHTML = '<span class="icon">📝</span> Marks';
+                if (profileLink) sidebar.insertBefore(a, profileLink);
+                else sidebar.appendChild(a);
+            }
+        } else {
+            if (!sidebar.querySelector('a[href="grades.html"]')) {
+                const a = document.createElement("a");
+                a.href = "grades.html";
+                const current = window.location.pathname.endsWith("grades.html");
+                if (current) a.classList.add("active");
+                a.innerHTML = '<span class="icon">📊</span> Grades';
+                if (profileLink) sidebar.insertBefore(a, profileLink);
+                else sidebar.appendChild(a);
+            }
+        }
     }
 }
 
