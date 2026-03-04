@@ -89,23 +89,18 @@ function initNav() {
         // Inject the role-specific link if not already present
         const profileLink = sidebar.querySelector('a[href="profile.html"]');
         if (user.role === "teacher") {
+            // Remove grades link (teacher doesn't need it)
+            const gradesLink = sidebar.querySelector('a[href="grades.html"]');
+            if (gradesLink) gradesLink.remove();
+            // Inject marks link if not already present
             if (!sidebar.querySelector('a[href="marks.html"]')) {
                 const a = document.createElement("a");
                 a.href = "marks.html";
                 const current = window.location.pathname.endsWith("marks.html");
                 if (current) a.classList.add("active");
                 a.innerHTML = '<span class="icon">📝</span> Marks';
-                if (profileLink) sidebar.insertBefore(a, profileLink);
-                else sidebar.appendChild(a);
-            }
-        } else {
-            if (!sidebar.querySelector('a[href="grades.html"]')) {
-                const a = document.createElement("a");
-                a.href = "grades.html";
-                const current = window.location.pathname.endsWith("grades.html");
-                if (current) a.classList.add("active");
-                a.innerHTML = '<span class="icon">📊</span> Grades';
-                if (profileLink) sidebar.insertBefore(a, profileLink);
+                const pLink = sidebar.querySelector('a[href="profile.html"]');
+                if (pLink) sidebar.insertBefore(a, pLink);
                 else sidebar.appendChild(a);
             }
         }
