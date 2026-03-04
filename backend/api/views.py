@@ -971,11 +971,65 @@ def teacher_marks(request):
         .execute()
     )
 
-    # Build response grouped by (subject, class_id) for taught classes
-    # For class teacher view: by (subject, year_group) for non-taught subjects
+    # Build response
     groups = []
 
-    # First: add groups for each specific class the teacher teaches
+    # === CLASS TEACHER OVERVIEW (first tab) ===
+    if class_teacher_class_id and t.get("is_class_teacher"):
+        homeroom_students = [s for s in (students.data or []) if s["class_id"] == class_teacher_class_id]
+
+        if homeroom_students:
+            # Build enrollment map: student_id -> set of subject_ids
+            enrollment_map = {}
+            for ss in (all_student_subjects.data or []):
+                enrollment_map.setdefault(ss["student_id"], set()).add(ss["subject_id"])
+
+            overview_students = []
+            for s in sorted(homeroom_students, key=lambda x: x.get("surname", "")):
+                enrolled_subjects = enrollment_map.get(s["id"], set())
+                subjects_data = []
+                for subj_id in sorted(enrolled_subjects, key=lambda x: subj_map.get(x, {}).get("name", "")):
+                    subj = subj_map.get(subj_id, {})
+                    s_grades = [
+                        g for g in (grades_result.data or [])
+                        if g["student_id"] == s["id"] and g["subject_id"] == subj_id
+                    ]
+                    subjects_data.append({
+                        "subject_id": subj_id,
+                        "subject": subj.get("name", "Unknown"),
+                        "subject_color": subj.get("color_code", "#607D8B"),
+                        "grades": [
+                            {
+                                "id": g["id"],
+                                "assessment": g.get("assessment_name", ""),
+                                "grade_code": g.get("grade_code", ""),
+                                "percentage": g.get("percentage"),
+                                "date": g.get("date_taken", ""),
+                                "comment": g.get("comment", ""),
+                                "category": g.get("category", "other"),
+                                "term": g.get("term", 1),
+                            }
+                            for g in s_grades
+                        ],
+                    })
+
+                overview_students.append({
+                    "student_id": s["id"],
+                    "name": s["name"],
+                    "surname": s["surname"],
+                    "class_name": cls_map.get(s["class_id"], {}).get("class_name", ""),
+                    "subjects": subjects_data,
+                })
+
+            ct_class = cls_map.get(class_teacher_class_id, {})
+            groups.append({
+                "type": "class_overview",
+                "class_name": ct_class.get("class_name", ""),
+                "year_group": class_teacher_grade,
+                "students": overview_students,
+            })
+
+    # === TEACHING GROUPS ===
     for subj_id, class_id in sorted(teaching_pairs, key=lambda x: (cls_map.get(x[1], {}).get("grade_level", 0), cls_map.get(x[1], {}).get("class_name", ""))):
         cls = cls_map.get(class_id, {})
         subj = subj_map.get(subj_id, {})
@@ -1024,67 +1078,16 @@ def teacher_marks(request):
             })
 
         groups.append({
+            "type": "subject_group",
             "year_group": gl,
             "subject": subj.get("name", "Unknown"),
             "subject_id": subj_id,
             "subject_color": subj.get("color_code", "#607D8B"),
             "class_id": class_id,
             "class_name": class_name,
-            "is_own_class": class_teacher_grade == gl,
+            "is_own_class": class_teacher_class_id == class_id,
             "students": student_grades,
         })
-
-    # Second: if class teacher, add subjects they don't teach for their year
-    if class_teacher_grade is not None:
-        taught_subjects_for_ct_year = {sid for (sid, cid) in teaching_pairs if cls_map.get(cid, {}).get("grade_level") == class_teacher_grade}
-        gl = class_teacher_grade
-        gl_class_ids = grade_class_map.get(gl, [])
-        gl_students = [s for s in (students.data or []) if s["class_id"] in gl_class_ids]
-        gl_student_ids = [s["id"] for s in gl_students]
-
-        if gl_student_ids:
-            db7 = ediary()
-            enr = db7.table("student_subjects").select("subject_id").in_("student_id", gl_student_ids).execute()
-            extra_subjects = {e["subject_id"] for e in (enr.data or [])} - taught_subjects_for_ct_year
-
-            for subj_id in sorted(extra_subjects, key=lambda x: subj_map.get(x, {}).get("name", "")):
-                subj = subj_map.get(subj_id, {})
-                student_grades = []
-                for s in gl_students:
-                    s_grades = [
-                        g for g in (grades_result.data or [])
-                        if g["student_id"] == s["id"] and g["subject_id"] == subj_id
-                    ]
-                    student_grades.append({
-                        "student_id": s["id"],
-                        "name": s["name"],
-                        "surname": s["surname"],
-                        "class_name": cls_map.get(s["class_id"], {}).get("class_name", ""),
-                        "grades": [
-                            {
-                                "id": g["id"],
-                                "assessment": g.get("assessment_name", ""),
-                                "grade_code": g.get("grade_code", ""),
-                                "percentage": g.get("percentage"),
-                                "date": g.get("date_taken", ""),
-                                "comment": g.get("comment", ""),
-                                "category": g.get("category", "other"),
-                                "term": g.get("term", 1),
-                            }
-                            for g in s_grades
-                        ],
-                    })
-
-                groups.append({
-                    "year_group": gl,
-                    "subject": subj.get("name", "Unknown"),
-                    "subject_id": subj_id,
-                    "subject_color": subj.get("color_code", "#607D8B"),
-                    "class_id": None,
-                    "class_name": f"Year {gl}",
-                    "is_own_class": True,
-                    "students": student_grades,
-                })
 
     return JsonResponse({"groups": groups})
 

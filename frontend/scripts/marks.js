@@ -112,10 +112,15 @@ async function loadMarks() {
 
 function renderTabs(tabsEl, container) {
     tabsEl.innerHTML = allGroups.map((g, i) => {
-        const label = g.class_name
-            ? `${escHtml(g.class_name)} – ${escHtml(g.subject)}`
-            : `Year ${g.year_group} – ${escHtml(g.subject)}`;
-        const badge = g.is_own_class ? ' <small style="color:#16a34a;">(CT)</small>' : '';
+        let label;
+        if (g.type === "class_overview") {
+            label = `My Class (${escHtml(g.class_name)})`;
+        } else {
+            label = g.class_name
+                ? `${escHtml(g.class_name)} – ${escHtml(g.subject)}`
+                : `Year ${g.year_group} – ${escHtml(g.subject)}`;
+        }
+        const badge = g.type === "class_overview" ? ' <small style="color:#16a34a;">👥</small>' : '';
         return `<button class="tab-btn${i === activeGroupIdx ? ' active' : ''}" data-idx="${i}">${label}${badge}</button>`;
     }).join("");
 
@@ -124,11 +129,126 @@ function renderTabs(tabsEl, container) {
             tabsEl.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
             btn.classList.add("active");
             activeGroupIdx = parseInt(btn.dataset.idx);
-            renderGroup(container, allGroups[activeGroupIdx]);
+            renderActiveGroup(container);
         });
     });
 
-    renderGroup(container, allGroups[activeGroupIdx]);
+    renderActiveGroup(container);
+}
+
+function renderActiveGroup(container) {
+    const group = allGroups[activeGroupIdx];
+    if (!group) return;
+    if (group.type === "class_overview") {
+        renderClassOverview(container, group);
+        document.getElementById("addGradeBtn").style.display = "none";
+    } else {
+        renderGroup(container, group);
+        document.getElementById("addGradeBtn").style.display = "inline-block";
+    }
+}
+
+/* ---- Class Overview: student list with expandable all-subject grades ---- */
+function renderClassOverview(container, group) {
+    if (!group || !group.students || group.students.length === 0) {
+        container.innerHTML = '<p class="empty-state">No students in this class.</p>';
+        return;
+    }
+
+    // Term filter bar
+    let html = `<div class="term-filter">
+        <button class="term-btn${activeTerm === null ? ' active' : ''}" data-term="">Both Terms</button>
+        <button class="term-btn${activeTerm === 1 ? ' active' : ''}" data-term="1">Term 1 <small>(Sep–Dec)</small></button>
+        <button class="term-btn${activeTerm === 2 ? ' active' : ''}" data-term="2">Term 2 <small>(Jan–Jun)</small></button>
+    </div>`;
+
+    html += `<div class="class-overview-list">`;
+
+    group.students.forEach((student, idx) => {
+        let totalGrades = 0;
+        let subjectCount = student.subjects ? student.subjects.length : 0;
+        if (student.subjects) {
+            for (const subj of student.subjects) {
+                const filtered = activeTerm ? subj.grades.filter(g => g.term === activeTerm) : subj.grades;
+                totalGrades += filtered.length;
+            }
+        }
+
+        html += `<div class="overview-student" data-idx="${idx}">
+            <div class="overview-student-header">
+                <span class="overview-num">${idx + 1}</span>
+                <span class="overview-name">${escHtml(student.surname)} ${escHtml(student.name)}</span>
+                <span class="overview-meta">${subjectCount} subjects · ${totalGrades} grades</span>
+                <span class="overview-expand">▸</span>
+            </div>
+            <div class="overview-student-detail" style="display:none;">`;
+
+        if (student.subjects && student.subjects.length > 0) {
+            for (const subj of student.subjects) {
+                const filteredGrades = activeTerm
+                    ? subj.grades.filter(g => g.term === activeTerm)
+                    : subj.grades;
+                const pred = predictGrade(filteredGrades);
+
+                html += `<div class="overview-subject">
+                    <div class="overview-subject-header">
+                        <span class="subject-color-dot" style="background:${subj.subject_color}"></span>
+                        <strong>${escHtml(subj.subject)}</strong>
+                        ${pred ? `<span class="grade-badge ${gradeClass(pred.grade)}" style="margin-left:auto;">${pred.grade} <small>(${pred.value})</small></span>` : '<span style="margin-left:auto;color:#94a3b8;font-size:0.85rem;">No grades</span>'}
+                    </div>`;
+
+                if (filteredGrades.length > 0) {
+                    html += `<div class="overview-grades">`;
+                    for (const g of filteredGrades) {
+                        const catLabel = CATEGORY_LABELS[g.category] || g.category;
+                        const pctStr = g.percentage != null ? ` <span class="grade-pct">${g.percentage}%</span>` : '';
+                        html += `<div class="overview-grade-item">
+                            <span class="grade-badge ${gradeClass(g.grade_code)}">${escHtml(g.grade_code)}</span>
+                            <span class="overview-grade-info">${escHtml(g.assessment || 'Unnamed')} <small class="cat-label cat-${g.category}">${catLabel}</small></span>
+                            ${pctStr}
+                        </div>`;
+                    }
+                    html += `</div>`;
+                }
+
+                html += `</div>`;
+            }
+        } else {
+            html += `<p class="empty-state" style="padding:8px;">No subjects enrolled.</p>`;
+        }
+
+        html += `</div></div>`;
+    });
+
+    html += `</div>`;
+    container.innerHTML = html;
+
+    // Wire term filter buttons
+    container.querySelectorAll(".term-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const t = btn.dataset.term;
+            activeTerm = t === "" ? null : parseInt(t);
+            renderClassOverview(container, allGroups[activeGroupIdx]);
+        });
+    });
+
+    // Wire expand/collapse
+    container.querySelectorAll(".overview-student-header").forEach(header => {
+        header.addEventListener("click", () => {
+            const parent = header.closest(".overview-student");
+            const detail = parent.querySelector(".overview-student-detail");
+            const expand = parent.querySelector(".overview-expand");
+            if (detail.style.display === "none") {
+                detail.style.display = "block";
+                expand.textContent = "▾";
+                parent.classList.add("expanded");
+            } else {
+                detail.style.display = "none";
+                expand.textContent = "▸";
+                parent.classList.remove("expanded");
+            }
+        });
+    });
 }
 
 function gradeClass(code) {
