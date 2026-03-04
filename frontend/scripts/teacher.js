@@ -74,7 +74,7 @@ function renderTodayClasses() {
 
     container.innerHTML = todaySlots.map(slot => {
         const time = PERIOD_TIMES[slot.period - 1] || `Period ${slot.period}`;
-        const yearLabel = slot.grade_level ? `Year ${slot.grade_level}` : escHtml(slot.class_name);
+        const yearLabel = escHtml(slot.class_name || `Year ${slot.grade_level}`);
         return `
         <div class="class-card" data-slot='${JSON.stringify(slot)}'>
             <div class="class-card-period">${time}</div>
@@ -149,7 +149,7 @@ function renderWeeklySchedule() {
         for (let d = 1; d <= 5; d++) {
             const slot = (grid[d] || {})[p];
             if (slot) {
-                const yrLabel = slot.grade_level ? `Year ${slot.grade_level}` : escHtml(slot.class_name);
+                const yrLabel = escHtml(slot.class_name || `Year ${slot.grade_level}`);
                 const cellDate = new Date(mon); cellDate.setDate(mon.getDate() + d - 1);
                 const slotWithDate = { ...slot, _date: isoDate(cellDate) };
                 html += `<td class="lesson clickable-lesson" data-slot='${JSON.stringify(slotWithDate)}'>
@@ -183,7 +183,7 @@ async function openAttendanceModal(slot) {
     const dateInput = document.getElementById("attendanceDate");
     const studentList = document.getElementById("studentList");
 
-    const yearLabel = slot.grade_level ? `Year ${slot.grade_level}` : slot.class_name;
+    const yearLabel = slot.class_name || `Year ${slot.grade_level}`;
     title.textContent = `${slot.subject} – ${yearLabel}`;
     const time = PERIOD_TIMES[slot.period - 1] || `Period ${slot.period}`;
     subtitle.textContent = `${DAYS[slot.day_of_week - 1]} · ${time}${slot.room ? " · Room " + slot.room : ""}`;

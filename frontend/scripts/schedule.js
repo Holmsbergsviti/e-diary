@@ -97,8 +97,8 @@ function renderSchedule() {
         for (let d = 1; d <= 5; d++) {
             const slot = (grid[d] || {})[p];
             if (slot) {
-                const yearLabel = (isTeacher && slot.grade_level)
-                    ? `Year ${slot.grade_level}`
+                const yearLabel = isTeacher
+                    ? escHtml(slot.class_name || `Year ${slot.grade_level}`)
                     : (slot.room ? "Room " + escHtml(slot.room) : "");
                 const cls = isTeacher ? "lesson clickable-lesson" : "lesson";
                 // Attach the actual date for this cell
