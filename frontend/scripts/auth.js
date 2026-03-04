@@ -84,13 +84,13 @@ function initNav() {
             } else if (a.getAttribute("href") === "teacher.html" && user.role !== "teacher") {
                 a.setAttribute("href", "dashboard.html");
             }
-            // Hide student grades link for teachers
+            // Remove student grades link for teachers
             if (a.getAttribute("href") === "grades.html" && user.role === "teacher") {
-                a.style.display = "none";
+                a.remove();
             }
-            // Hide marks link for non-teachers
+            // Remove marks link for non-teachers
             if (a.getAttribute("href") === "marks.html" && user.role !== "teacher") {
-                a.style.display = "none";
+                a.remove();
             }
         });
     }
