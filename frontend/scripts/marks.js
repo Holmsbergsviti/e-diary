@@ -359,8 +359,8 @@ async function saveGrade() {
         return;
     }
 
-    if (percentage !== "" && (parseFloat(percentage) < 0 || parseFloat(percentage) > 100)) {
-        alert("Percentage must be between 0 and 100.");
+    if (percentage !== "" && parseFloat(percentage) < 0) {
+        alert("Percentage cannot be negative.");
         return;
     }
 

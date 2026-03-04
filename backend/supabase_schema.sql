@@ -104,7 +104,7 @@ CREATE TABLE ediary_schema.grades (
   student_id uuid NOT NULL,
   subject_id uuid NOT NULL,
   assessment_name text NOT NULL,
-  percentage numeric CHECK (percentage >= 0 AND percentage <= 100),
+  percentage numeric CHECK (percentage >= 0),
   grade_code text,
   date_taken date NOT NULL,
   comment text,
