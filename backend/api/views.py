@@ -1460,13 +1460,13 @@ def teacher_class_stats(request):
         .execute()
     )
 
-    # Fetch all grades for this teacher
+    # Fetch all grades for students in relevant classes
     grades_result = (
         ediary().table("grades")
-        .select("class_id, subject_id, student_id, grade_value")
-        .eq("teacher_id", teacher_id)
+        .select("subject_id, student_id, percentage")
+        .in_("student_id", all_student_ids)
         .execute()
-    )
+    ) if all_student_ids else type('', (), {'data': []})()
 
     # Fetch homework for this teacher
     hw_result = (
@@ -1522,11 +1522,11 @@ def teacher_class_stats(request):
                     att_counts[s] += 1
         att_total = sum(att_counts.values())
 
-        # Grade stats
+        # Grade stats: filter by subject + students in this year group
         grade_values = []
         for g in (grades_result.data or []):
-            if g["subject_id"] == subject_id and g.get("class_id") in year_class_ids:
-                gv = g.get("grade_value")
+            if g["subject_id"] == subject_id and g.get("student_id") in class_enrolled:
+                gv = g.get("percentage")
                 if gv is not None:
                     grade_values.append(gv)
         grade_count = len(grade_values)
