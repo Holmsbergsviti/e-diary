@@ -86,19 +86,31 @@ function initNav() {
             }
         });
 
-        // Inject the role-specific link if not already present
-        const profileLink = sidebar.querySelector('a[href="profile.html"]');
+        // Ensure correct role-specific link
         if (user.role === "teacher") {
             // Remove grades link (teacher doesn't need it)
             const gradesLink = sidebar.querySelector('a[href="grades.html"]');
             if (gradesLink) gradesLink.remove();
-            // Inject marks link if not already present
+            // Add marks link only if not already in the page
             if (!sidebar.querySelector('a[href="marks.html"]')) {
                 const a = document.createElement("a");
                 a.href = "marks.html";
-                const current = window.location.pathname.endsWith("marks.html");
-                if (current) a.classList.add("active");
+                if (window.location.pathname.endsWith("marks.html")) a.classList.add("active");
                 a.innerHTML = '<span class="icon">📝</span> Marks';
+                const pLink = sidebar.querySelector('a[href="profile.html"]');
+                if (pLink) sidebar.insertBefore(a, pLink);
+                else sidebar.appendChild(a);
+            }
+        } else {
+            // Remove marks link (student doesn't need it)
+            const marksLink = sidebar.querySelector('a[href="marks.html"]');
+            if (marksLink) marksLink.remove();
+            // Add grades link only if not already in the page
+            if (!sidebar.querySelector('a[href="grades.html"]')) {
+                const a = document.createElement("a");
+                a.href = "grades.html";
+                if (window.location.pathname.endsWith("grades.html")) a.classList.add("active");
+                a.innerHTML = '<span class="icon">📊</span> Grades';
                 const pLink = sidebar.querySelector('a[href="profile.html"]');
                 if (pLink) sidebar.insertBefore(a, pLink);
                 else sidebar.appendChild(a);
