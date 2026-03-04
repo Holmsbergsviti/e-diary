@@ -383,11 +383,26 @@ def schedule(request):
         )
     else:
         # Student: get their class_id, return schedule for that class
+        # PLUS any group-class schedule entries (via student_subjects.group_class_id)
         db2 = ediary()
         student = db2.table("students").select("class_id").eq("id", user_id).limit(1).execute()
         class_id = student.data[0]["class_id"] if student.data else None
         if not class_id:
             return JsonResponse({"schedule": []})
+
+        # Get group class IDs from student_subjects
+        ss_result = (
+            ediary().table("student_subjects")
+            .select("group_class_id")
+            .eq("student_id", user_id)
+            .execute()
+        )
+        group_class_ids = [
+            r["group_class_id"] for r in (ss_result.data or [])
+            if r.get("group_class_id")
+        ]
+
+        # Fetch schedule for the student's own class
         result = (
             ediary().table("schedule")
             .select("id, subject_id, class_id, day_of_week, period, room")
@@ -396,6 +411,24 @@ def schedule(request):
             .order("period")
             .execute()
         )
+
+        # Also fetch schedule entries for any group classes the student is in
+        if group_class_ids:
+            group_result = (
+                ediary().table("schedule")
+                .select("id, subject_id, class_id, day_of_week, period, room")
+                .in_("class_id", group_class_ids)
+                .order("day_of_week")
+                .order("period")
+                .execute()
+            )
+            # Merge: group entries fill in slots not already occupied
+            existing_slots = {(s["day_of_week"], s["period"]) for s in (result.data or [])}
+            for slot in (group_result.data or []):
+                key = (slot["day_of_week"], slot["period"])
+                if key not in existing_slots:
+                    result.data.append(slot)
+                    existing_slots.add(key)
 
     # Build subject + class name lookup
     subj_result = ediary().table("subjects").select("id, name, color_code").execute()
@@ -408,14 +441,16 @@ def schedule(request):
     for slot in (result.data or []):
         subj = subj_map.get(slot["subject_id"], {})
         cls = cls_map.get(slot["class_id"], {})
+        gl = cls.get("grade_level", 0)
+        cn = cls.get("class_name", "")
         rows.append({
             "id": slot["id"],
             "subject": subj.get("name", "Unknown"),
             "subject_color": subj.get("color_code", "#607D8B"),
             "subject_id": slot["subject_id"],
             "class_id": slot["class_id"],
-            "class_name": cls.get("class_name", ""),
-            "grade_level": cls.get("grade_level", 0),
+            "class_name": cn,
+            "grade_level": gl,
             "day_of_week": slot["day_of_week"],
             "period": slot["period"],
             "room": slot.get("room", ""),
