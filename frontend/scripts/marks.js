@@ -10,17 +10,19 @@ let activeTerm = null; // null = both, 1 or 2
 
 // Category weights (must sum to 1.0)
 const CATEGORY_WEIGHTS = {
-    exam:      0.30,
-    test:      0.25,
-    project:   0.20,
-    homework:  0.10,
-    classwork: 0.10,
+    exam:      0.25,
+    test:      0.20,
+    minitest:  0.10,
+    quiz:      0.10,
+    project:   0.15,
+    homework:  0.08,
+    classwork: 0.07,
     other:     0.05,
 };
 
 const CATEGORY_LABELS = {
-    exam: "Exam", test: "Test", project: "Project",
-    homework: "HW", classwork: "CW", other: "Other",
+    exam: "Exam", test: "Test", minitest: "Mini", quiz: "Quiz",
+    project: "Project", homework: "HW", classwork: "CW", other: "Other",
 };
 
 // Grade → numeric value for weighted average
