@@ -106,7 +106,6 @@ function initNav() {
         if (pLink) sidebar.insertBefore(a, pLink);
         else sidebar.appendChild(a);
     }
-    }
 }
 
 // Shared utilities used across page scripts
