@@ -359,6 +359,11 @@ async function saveGrade() {
         return;
     }
 
+    if (percentage !== "" && (parseFloat(percentage) < 0 || parseFloat(percentage) > 100)) {
+        alert("Percentage must be between 0 and 100.");
+        return;
+    }
+
     const btn = document.getElementById("gradeModalSave");
     btn.disabled = true;
     btn.textContent = editingGradeId ? "Updating…" : "Saving…";
