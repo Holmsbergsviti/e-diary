@@ -87,20 +87,21 @@ function initNav() {
         });
 
         // Always inject the role-specific link (no HTML files have it)
-        const pLink = sidebar.querySelector('a[href="profile.html"]');
+        const schedLink = sidebar.querySelector('a[href="schedule.html"]');
+        const insertAfter = schedLink ? schedLink.nextElementSibling : null;
         if (user.role === "teacher") {
             const a = document.createElement("a");
             a.href = "marks.html";
             if (window.location.pathname.endsWith("marks.html")) a.classList.add("active");
             a.innerHTML = '<span class="icon">📝</span> Marks';
-            if (pLink) sidebar.insertBefore(a, pLink);
+            if (insertAfter) sidebar.insertBefore(a, insertAfter);
             else sidebar.appendChild(a);
         } else {
             const a = document.createElement("a");
             a.href = "grades.html";
             if (window.location.pathname.endsWith("grades.html")) a.classList.add("active");
             a.innerHTML = '<span class="icon">📊</span> Grades';
-            if (pLink) sidebar.insertBefore(a, pLink);
+            if (insertAfter) sidebar.insertBefore(a, insertAfter);
             else sidebar.appendChild(a);
         }
     }
