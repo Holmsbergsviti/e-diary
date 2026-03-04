@@ -613,7 +613,7 @@ def teacher_attendance(request):
 
 
 # ------------------------------------------------------------------
-# Announcements – no announcements table exists; return empty
+# Announcements – return homework/tasks as announcements for students
 # ------------------------------------------------------------------
 
 @csrf_exempt
@@ -622,7 +622,81 @@ def announcements(request):
     if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
 
-    return JsonResponse({"announcements": []})
+    user_id = payload["sub"]
+    role = payload.get("role", "student")
+    db = ediary()
+
+    if role == "teacher":
+        # Teacher sees their own homework
+        result = (
+            db.table("homework")
+            .select("id, subject_id, class_id, title, description, due_date, created_at")
+            .eq("teacher_id", user_id)
+            .order("due_date", desc=True)
+            .execute()
+        )
+    else:
+        # Student: get class_id + group_class_ids from student_subjects
+        stu = db.table("students").select("class_id").eq("id", user_id).limit(1).execute()
+        class_id = stu.data[0]["class_id"] if stu.data else None
+
+        ss = (
+            ediary().table("student_subjects")
+            .select("subject_id, group_class_id")
+            .eq("student_id", user_id)
+            .execute()
+        )
+        enrolled_subjects = [r["subject_id"] for r in (ss.data or [])]
+        group_class_ids = [
+            r["group_class_id"] for r in (ss.data or [])
+            if r.get("group_class_id")
+        ]
+
+        # Get homework where (class_id matches student's class OR group_class_ids)
+        # AND subject is one the student is enrolled in
+        all_class_ids = group_class_ids[:]
+        if class_id:
+            all_class_ids.append(class_id)
+
+        if not all_class_ids or not enrolled_subjects:
+            return JsonResponse({"announcements": []})
+
+        result = (
+            ediary().table("homework")
+            .select("id, subject_id, class_id, title, description, due_date, created_at, teacher_id")
+            .in_("class_id", all_class_ids)
+            .in_("subject_id", enrolled_subjects)
+            .order("due_date", desc=True)
+            .execute()
+        )
+
+    # Build lookups
+    subj_result = ediary().table("subjects").select("id, name").execute()
+    subj_map = {s["id"]: s["name"] for s in (subj_result.data or [])}
+
+    cls_result = ediary().table("classes").select("id, class_name").execute()
+    cls_map = {c["id"]: c["class_name"] for c in (cls_result.data or [])}
+
+    teacher_ids = list({r.get("teacher_id", "") for r in (result.data or []) if r.get("teacher_id")})
+    teacher_map = {}
+    if teacher_ids:
+        t_result = ediary().table("teachers").select("id, name, surname").in_("id", teacher_ids).execute()
+        teacher_map = {t["id"]: f"{t['name']} {t['surname']}" for t in (t_result.data or [])}
+
+    rows = []
+    for r in (result.data or []):
+        rows.append({
+            "id": r["id"],
+            "title": r.get("title", ""),
+            "body": r.get("description", ""),
+            "subject": subj_map.get(r.get("subject_id"), ""),
+            "class_name": cls_map.get(r.get("class_id"), ""),
+            "due_date": r.get("due_date", ""),
+            "created_at": r.get("created_at", ""),
+            "author": teacher_map.get(r.get("teacher_id"), ""),
+        })
+
+    return JsonResponse({"announcements": rows})
 
 
 # ------------------------------------------------------------------
@@ -977,4 +1051,81 @@ def teacher_marks(request):
                 })
 
     return JsonResponse({"groups": groups})
+
+
+# ------------------------------------------------------------------
+# Teacher: add homework / task
+# ------------------------------------------------------------------
+
+@csrf_exempt
+def teacher_add_homework(request):
+    payload = _verify_token(request)
+    if not payload or payload.get("role") != "teacher":
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    if request.method != "POST":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"message": "Invalid JSON"}, status=400)
+
+    subject_id = data.get("subject_id", "").strip()
+    class_id = data.get("class_id", "").strip()
+    title = data.get("title", "").strip()
+    description = data.get("description", "").strip()
+    due_date = data.get("due_date", "").strip()
+
+    if not subject_id or not class_id or not title or not due_date:
+        return JsonResponse({"message": "subject_id, class_id, title and due_date are required"}, status=400)
+
+    db = ediary()
+    result = db.table("homework").insert({
+        "teacher_id": payload["sub"],
+        "subject_id": subject_id,
+        "class_id": class_id,
+        "title": title,
+        "description": description,
+        "due_date": due_date,
+    }).execute()
+
+    return JsonResponse({"homework": result.data[0] if result.data else {}}, status=201)
+
+
+# ------------------------------------------------------------------
+# Teacher: delete homework
+# ------------------------------------------------------------------
+
+@csrf_exempt
+def teacher_delete_homework(request):
+    payload = _verify_token(request)
+    if not payload or payload.get("role") != "teacher":
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    if request.method != "POST":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"message": "Invalid JSON"}, status=400)
+
+    hw_id = data.get("id", "").strip()
+    if not hw_id:
+        return JsonResponse({"message": "id is required"}, status=400)
+
+    db = ediary()
+    result = (
+        db.table("homework")
+        .delete()
+        .eq("id", hw_id)
+        .eq("teacher_id", payload["sub"])
+        .execute()
+    )
+
+    if not result.data:
+        return JsonResponse({"message": "Not found or not yours"}, status=404)
+
+    return JsonResponse({"deleted": True})
 

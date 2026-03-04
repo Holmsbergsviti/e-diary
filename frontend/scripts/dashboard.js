@@ -31,16 +31,22 @@ async function loadAnnouncements() {
         const data = await res.json();
         const items = data.announcements || [];
         if (items.length === 0) {
-            container.innerHTML = '<p class="empty-state">No announcements.</p>';
+            container.innerHTML = '<p class="empty-state">No homework or tasks.</p>';
             return;
         }
-        container.innerHTML = items.map(a => `
-            <div class="announcement">
+        const today = new Date().toISOString().slice(0, 10);
+        container.innerHTML = items.map(a => {
+            const isPast = a.due_date && a.due_date < today;
+            const dueLbl = a.due_date ? formatDate(a.due_date) : "";
+            return `
+            <div class="announcement${isPast ? ' hw-past' : ''}">
                 <div class="announcement-title">${escHtml(a.title)}</div>
-                <div class="announcement-meta">${formatDate(a.created_at)}${a.author ? " \u00b7 " + escHtml(a.author) : ""}</div>
+                <div class="announcement-meta">
+                    ${a.subject ? escHtml(a.subject) : ""}${a.author ? " · " + escHtml(a.author) : ""}${dueLbl ? " · Due: " + dueLbl : ""}
+                </div>
                 ${a.body ? `<div class="announcement-body">${escHtml(a.body)}</div>` : ""}
-            </div>
-        `).join("");
+            </div>`;
+        }).join("");
     } catch (err) {
         container.innerHTML = '<p class="empty-state">Failed to load announcements.</p>';
     }

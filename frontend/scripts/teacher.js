@@ -25,6 +25,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     initNav();
     await loadSchedule();
+    await loadHomework();
 
     // Week navigation arrows
     document.getElementById("weekPrev").addEventListener("click", () => { weekOffset--; renderWeeklySchedule(); });
@@ -348,3 +349,132 @@ function closeModal() {
     document.getElementById("attendanceModal").style.display = "none";
     currentSlot = null;
 }
+
+/* ================================================================
+   HOMEWORK SECTION
+   ================================================================ */
+
+let homeworkAssignments = [];
+
+async function loadHomework() {
+    const container = document.getElementById("homeworkList");
+    try {
+        const res = await apiFetch("/announcements/");
+        const data = await res.json();
+        homeworkAssignments = data.announcements || [];
+        renderHomework();
+    } catch (err) {
+        container.innerHTML = '<p class="empty-state">Failed to load homework.</p>';
+    }
+}
+
+function renderHomework() {
+    const container = document.getElementById("homeworkList");
+    if (homeworkAssignments.length === 0) {
+        container.innerHTML = '<p class="empty-state">No homework assigned yet.</p>';
+        return;
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    container.innerHTML = homeworkAssignments.map(hw => {
+        const isPast = hw.due_date < today;
+        const dueLbl = hw.due_date ? formatDate(hw.due_date) : "";
+        return `
+        <div class="hw-item${isPast ? ' hw-past' : ''}">
+            <div class="hw-item-main">
+                <div class="hw-item-title">${escHtml(hw.title)}</div>
+                <div class="hw-item-meta">
+                    ${escHtml(hw.subject)}${hw.class_name ? ' · ' + escHtml(hw.class_name) : ''}
+                    ${dueLbl ? ' · Due: ' + dueLbl : ''}
+                </div>
+                ${hw.body ? `<div class="hw-item-desc">${escHtml(hw.body)}</div>` : ""}
+            </div>
+            <button class="btn btn-danger btn-sm hw-delete-btn" data-id="${hw.id}" title="Delete">&times;</button>
+        </div>`;
+    }).join("");
+
+    container.querySelectorAll(".hw-delete-btn").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            if (!confirm("Delete this homework?")) return;
+            try {
+                await apiFetch("/teacher/homework/delete/", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: btn.dataset.id }),
+                });
+                await loadHomework();
+            } catch (err) {
+                alert("Failed to delete homework.");
+            }
+        });
+    });
+}
+
+function openHomeworkModal() {
+    // Populate the class/subject dropdown from schedule data
+    const select = document.getElementById("hwClassSelect");
+    const seen = new Set();
+    const options = [];
+    for (const s of allSlots) {
+        const key = `${s.subject_id}|${s.class_id}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const label = `${s.subject} – ${s.class_name || 'Year ' + s.grade_level}`;
+        options.push({ key, label, subject_id: s.subject_id, class_id: s.class_id });
+    }
+    options.sort((a, b) => a.label.localeCompare(b.label));
+    select.innerHTML = options.map(o =>
+        `<option value="${o.key}" data-subject="${o.subject_id}" data-class="${o.class_id}">${escHtml(o.label)}</option>`
+    ).join("");
+
+    // Set default due date to tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById("hwDueDate").value = tomorrow.toISOString().slice(0, 10);
+    document.getElementById("hwTitle").value = "";
+    document.getElementById("hwDesc").value = "";
+
+    document.getElementById("homeworkModal").style.display = "flex";
+}
+
+async function saveHomework() {
+    const select = document.getElementById("hwClassSelect");
+    const opt = select.options[select.selectedIndex];
+    const subject_id = opt.dataset.subject;
+    const class_id = opt.dataset.class;
+    const title = document.getElementById("hwTitle").value.trim();
+    const description = document.getElementById("hwDesc").value.trim();
+    const due_date = document.getElementById("hwDueDate").value;
+
+    if (!title) { alert("Title is required."); return; }
+    if (!due_date) { alert("Due date is required."); return; }
+
+    const btn = document.getElementById("hwSave");
+    btn.disabled = true;
+    btn.textContent = "Saving…";
+
+    try {
+        await apiFetch("/teacher/homework/add/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ subject_id, class_id, title, description, due_date }),
+        });
+        document.getElementById("homeworkModal").style.display = "none";
+        await loadHomework();
+    } catch (err) {
+        alert("Failed to save homework.");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Save Homework";
+    }
+}
+
+// Wire up homework buttons after DOM ready
+document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("addHomeworkBtn")?.addEventListener("click", openHomeworkModal);
+    document.getElementById("hwModalClose")?.addEventListener("click", () => {
+        document.getElementById("homeworkModal").style.display = "none";
+    });
+    document.getElementById("hwSave")?.addEventListener("click", saveHomework);
+});

@@ -195,3 +195,22 @@ CREATE TABLE ediary_schema.schedule (
   CONSTRAINT schedule_class_id_fkey
     FOREIGN KEY (class_id) REFERENCES ediary_schema.classes(id)
 );
+
+-- Homework / tasks assigned by teachers
+CREATE TABLE ediary_schema.homework (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  teacher_id uuid NOT NULL,
+  subject_id uuid NOT NULL,
+  class_id uuid NOT NULL,
+  title text NOT NULL,
+  description text DEFAULT '',
+  due_date date NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  CONSTRAINT homework_pkey PRIMARY KEY (id),
+  CONSTRAINT homework_teacher_id_fkey
+    FOREIGN KEY (teacher_id) REFERENCES auth.users(id),
+  CONSTRAINT homework_subject_id_fkey
+    FOREIGN KEY (subject_id) REFERENCES ediary_schema.subjects(id),
+  CONSTRAINT homework_class_id_fkey
+    FOREIGN KEY (class_id) REFERENCES ediary_schema.classes(id)
+);
