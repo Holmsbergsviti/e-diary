@@ -93,17 +93,6 @@ function initNav() {
                 a.style.display = "none";
             }
         });
-
-        // If teacher and no Marks link exists, inject one before Profile
-        if (user.role === "teacher" && !sidebar.querySelector('a[href="marks.html"]')) {
-            const profileLink = sidebar.querySelector('a[href="profile.html"]');
-            if (profileLink) {
-                const marksLink = document.createElement("a");
-                marksLink.href = "marks.html";
-                marksLink.innerHTML = '<span class="icon">📝</span> Marks';
-                sidebar.insertBefore(marksLink, profileLink);
-            }
-        }
     }
 }
 

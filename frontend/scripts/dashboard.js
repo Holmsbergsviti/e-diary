@@ -58,10 +58,6 @@ async function loadRecentGrades() {
             return;
         }
 
-        // Count unique subjects
-        const uniqueSubjects = new Set(grades.map(g => g.subject));
-        document.getElementById("statCount").textContent = uniqueSubjects.size;
-
         container.innerHTML = `
             <table>
                 <thead>
