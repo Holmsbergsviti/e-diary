@@ -520,33 +520,38 @@ tr:hover td {
 .form-msg-error { color: #dc2626; }
 .form-msg-success { color: #16a34a; }
 
-/* ---- Grade cell with delete ---- */
+/* ---- Grade cell – clickable ---- */
 .grade-cell {
     position: relative;
-    padding-right: 18px !important;
+    padding-right: 8px !important;
 }
-.grade-delete-btn {
-    position: absolute;
-    top: 2px;
-    right: 2px;
-    background: none;
-    border: none;
-    color: #d1d5db;
-    font-size: 1rem;
+.grade-clickable {
     cursor: pointer;
-    line-height: 1;
-    padding: 0 3px;
-    border-radius: 3px;
-    transition: color .15s, background .15s;
+    transition: background .15s;
 }
-.grade-delete-btn:hover {
-    color: #dc2626;
-    background: #fee2e2;
+.grade-clickable:hover {
+    background: #eff6ff;
+}
+.grade-comment-icon {
+    font-size: 0.7rem;
+    vertical-align: middle;
+    margin-left: 2px;
 }
 .grade-pct {
     color: #6b7280;
     font-size: 0.75rem;
 }
+/* Danger button for modal delete */
+.btn-danger {
+    background: #dc2626;
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+.btn-danger:hover { background: #b91c1c; }
 
 /* ---- Teacher marks page ---- */
 .tabs {

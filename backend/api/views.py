@@ -230,7 +230,7 @@ def grades(request):
     db = ediary()
     result = (
         db.table("grades")
-        .select("id, subject_id, assessment_name, percentage, grade_code, date_taken")
+        .select("id, subject_id, assessment_name, percentage, grade_code, date_taken, comment")
         .eq("student_id", payload["sub"])
         .order("date_taken", desc=True)
         .execute()
@@ -252,6 +252,7 @@ def grades(request):
             "percentage": row.get("percentage"),
             "grade_code": row.get("grade_code", ""),
             "date": row.get("date_taken", ""),
+            "comment": row.get("comment", ""),
         })
 
     return JsonResponse({"grades": rows})
@@ -661,6 +662,8 @@ def teacher_add_grade(request):
         row["assessment_name"] = assessment_name
     if percentage is not None and percentage != "":
         row["percentage"] = float(percentage)
+    if comment:
+        row["comment"] = comment
     if date_taken:
         row["date_taken"] = date_taken
 
@@ -670,6 +673,52 @@ def teacher_add_grade(request):
         return JsonResponse({"message": str(exc)}, status=500)
 
     return JsonResponse({"grade": r.data[0] if r.data else {}}, status=201)
+
+
+# ------------------------------------------------------------------
+# Teacher: edit a grade
+# ------------------------------------------------------------------
+
+@csrf_exempt
+def teacher_edit_grade(request):
+    payload = _verify_token(request)
+    if not payload or payload.get("role") != "teacher":
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    if request.method != "PATCH":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"message": "Invalid JSON"}, status=400)
+
+    grade_id = data.get("id", "").strip()
+    if not grade_id:
+        return JsonResponse({"message": "Grade id is required"}, status=400)
+
+    updates = {}
+    if "assessment_name" in data:
+        updates["assessment_name"] = data["assessment_name"].strip()
+    if "grade_code" in data:
+        updates["grade_code"] = data["grade_code"].strip()
+    if "percentage" in data:
+        val = data["percentage"]
+        updates["percentage"] = float(val) if val is not None and val != "" else None
+    if "comment" in data:
+        updates["comment"] = data["comment"].strip() or None
+    if "date" in data:
+        updates["date_taken"] = data["date"].strip()
+
+    if not updates:
+        return JsonResponse({"message": "Nothing to update"}, status=400)
+
+    try:
+        r = ediary().table("grades").update(updates).eq("id", grade_id).execute()
+    except Exception as exc:
+        return JsonResponse({"message": str(exc)}, status=500)
+
+    return JsonResponse({"grade": r.data[0] if r.data else {}})
 
 
 # ------------------------------------------------------------------
@@ -782,7 +831,7 @@ def teacher_marks(request):
     db6 = ediary()
     grades_result = (
         db6.table("grades")
-        .select("id, student_id, subject_id, assessment_name, grade_code, percentage, date_taken")
+        .select("id, student_id, subject_id, assessment_name, grade_code, percentage, date_taken, comment")
         .in_("student_id", student_ids)
         .order("date_taken", desc=True)
         .execute()
@@ -841,6 +890,7 @@ def teacher_marks(request):
                                 "grade_code": g.get("grade_code", ""),
                                 "percentage": g.get("percentage"),
                                 "date": g.get("date_taken", ""),
+                                "comment": g.get("comment", ""),
                             }
                             for g in s_grades
                         ],

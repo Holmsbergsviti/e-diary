@@ -1,9 +1,10 @@
 /* ================================================================
-   marks.js – Teacher marks view: see, add, delete grades
+   marks.js – Teacher marks view: see, add, edit, delete grades
    ================================================================ */
 
 let allGroups = [];
 let activeGroupIdx = 0;
+let editingGradeId = null;   // non-null when editing
 
 document.addEventListener("DOMContentLoaded", async () => {
     if (!requireAuth()) return;
@@ -16,12 +17,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     await loadMarks();
 
     // Add grade button
-    document.getElementById("addGradeBtn").addEventListener("click", openAddGradeModal);
+    document.getElementById("addGradeBtn").addEventListener("click", () => openGradeModal());
 
     // Modal wiring
     document.getElementById("gradeModalClose").addEventListener("click", closeGradeModal);
     document.getElementById("gradeModalCancel").addEventListener("click", closeGradeModal);
     document.getElementById("gradeModalSave").addEventListener("click", saveGrade);
+    document.getElementById("gradeModalDelete").addEventListener("click", deleteGradeFromModal);
     document.getElementById("gradeModal").addEventListener("click", (e) => {
         if (e.target === document.getElementById("gradeModal")) closeGradeModal();
     });
@@ -40,6 +42,8 @@ async function loadMarks() {
             document.getElementById("addGradeBtn").style.display = "none";
             return;
         }
+
+        if (activeGroupIdx >= allGroups.length) activeGroupIdx = 0;
 
         renderTabs(tabsEl, container);
         document.getElementById("addGradeBtn").style.display = "inline-block";
@@ -100,7 +104,7 @@ function renderGroup(container, group) {
                 <th>Student</th>
                 <th>Class</th>
                 ${assessments.length > 0
-                    ? assessments.map(a => `<th>${escHtml(a)}</th>`).join("")
+                    ? assessments.map(a => `<th>${escHtml(a || 'Unnamed')}</th>`).join("")
                     : '<th>No grades yet</th>'}
             </tr>
         </thead>
@@ -124,9 +128,9 @@ function renderGroup(container, group) {
                     const g = gradeMap[a];
                     if (g) {
                         const pct = g.percentage != null ? `<br><small class="grade-pct">${g.percentage}%</small>` : "";
-                        html += `<td class="grade-cell">
-                            <span class="grade-badge ${gradeClass(g.grade_code)}">${escHtml(g.grade_code)}</span>${pct}
-                            <button class="grade-delete-btn" data-grade-id="${g.id}" title="Delete grade">&times;</button>
+                        const commentIcon = g.comment ? ' <span class="grade-comment-icon" title="' + escHtml(g.comment) + '">💬</span>' : "";
+                        html += `<td class="grade-cell grade-clickable" data-grade='${JSON.stringify(g).replace(/'/g, "&#39;")}' data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">
+                            <span class="grade-badge ${gradeClass(g.grade_code)}">${escHtml(g.grade_code)}</span>${pct}${commentIcon}
                         </td>`;
                     } else {
                         html += `<td>–</td>`;
@@ -142,102 +146,177 @@ function renderGroup(container, group) {
     html += `</tbody></table>`;
     container.innerHTML = html;
 
-    // Wire delete buttons
-    container.querySelectorAll(".grade-delete-btn").forEach(btn => {
-        btn.addEventListener("click", async (e) => {
-            e.stopPropagation();
-            const gradeId = btn.dataset.gradeId;
-            if (!confirm("Delete this grade?")) return;
-            btn.disabled = true;
-            btn.textContent = "…";
-            try {
-                const res = await apiFetch(`/teacher/grades/delete/?id=${gradeId}`, { method: "DELETE" });
-                if (res.ok) {
-                    await loadMarks(); // Refresh
-                } else {
-                    const d = await res.json();
-                    alert(d.message || "Failed to delete grade");
-                }
-            } catch (err) {
-                alert("Error deleting grade");
-            }
+    // Wire clickable grade cells to open edit modal
+    container.querySelectorAll(".grade-clickable").forEach(cell => {
+        cell.addEventListener("click", () => {
+            const gradeData = JSON.parse(cell.dataset.grade);
+            const studentName = cell.dataset.studentName;
+            openGradeModal(gradeData, studentName);
         });
     });
 }
 
-/* ---- Add Grade Modal ---- */
-function openAddGradeModal() {
+/* ---- Grade Modal (Add / Edit) ---- */
+function openGradeModal(gradeData, studentName) {
     const group = allGroups[activeGroupIdx];
     if (!group) return;
 
+    const isEdit = !!gradeData;
+    editingGradeId = isEdit ? gradeData.id : null;
+
     const modal = document.getElementById("gradeModal");
-    document.getElementById("gradeModalTitle").textContent = `Add Grade – ${group.subject} (Year ${group.year_group})`;
+    const title = document.getElementById("gradeModalTitle");
+    const studentGroup = document.getElementById("gradeStudentGroup");
+    const saveBtn = document.getElementById("gradeModalSave");
+    const deleteBtn = document.getElementById("gradeModalDelete");
 
-    // Populate student dropdown
-    const sel = document.getElementById("gradeStudent");
-    sel.innerHTML = group.students
-        .sort((a, b) => a.surname.localeCompare(b.surname))
-        .map(s => `<option value="${s.student_id}">${escHtml(s.surname)} ${escHtml(s.name)} (${escHtml(s.class_name)})</option>`)
-        .join("");
+    if (isEdit) {
+        title.textContent = `Edit Grade – ${studentName || 'Student'}`;
+        studentGroup.style.display = "none";
+        saveBtn.textContent = "Update Grade";
+        deleteBtn.style.display = "inline-block";
+        deleteBtn.dataset.gradeId = gradeData.id;
 
-    // Default date to today
-    document.getElementById("gradeDate").value = new Date().toISOString().slice(0, 10);
-    document.getElementById("gradeAssessment").value = "";
-    document.getElementById("gradePercent").value = "";
-    document.getElementById("gradeCode").value = "A";
+        document.getElementById("gradeAssessment").value = gradeData.assessment || "";
+        document.getElementById("gradeCode").value = gradeData.grade_code || "A";
+        document.getElementById("gradePercent").value = gradeData.percentage != null ? gradeData.percentage : "";
+        document.getElementById("gradeComment").value = gradeData.comment || "";
+        document.getElementById("gradeDate").value = gradeData.date || new Date().toISOString().slice(0, 10);
+    } else {
+        title.textContent = `Add Grade – ${group.subject} (Year ${group.year_group})`;
+        studentGroup.style.display = "";
+        saveBtn.textContent = "Save Grade";
+        deleteBtn.style.display = "none";
+
+        const sel = document.getElementById("gradeStudent");
+        sel.innerHTML = group.students
+            .sort((a, b) => a.surname.localeCompare(b.surname))
+            .map(s => `<option value="${s.student_id}">${escHtml(s.surname)} ${escHtml(s.name)} (${escHtml(s.class_name)})</option>`)
+            .join("");
+
+        document.getElementById("gradeAssessment").value = "";
+        document.getElementById("gradeCode").value = "A";
+        document.getElementById("gradePercent").value = "";
+        document.getElementById("gradeComment").value = "";
+        document.getElementById("gradeDate").value = new Date().toISOString().slice(0, 10);
+    }
 
     modal.style.display = "flex";
 }
 
 function closeGradeModal() {
     document.getElementById("gradeModal").style.display = "none";
+    editingGradeId = null;
 }
 
 async function saveGrade() {
     const group = allGroups[activeGroupIdx];
     if (!group) return;
 
-    const studentId = document.getElementById("gradeStudent").value;
     const assessment = document.getElementById("gradeAssessment").value.trim();
     const gradeCode = document.getElementById("gradeCode").value;
     const percentage = document.getElementById("gradePercent").value;
+    const comment = document.getElementById("gradeComment").value.trim();
     const date = document.getElementById("gradeDate").value;
 
-    if (!studentId || !gradeCode) {
-        alert("Please select a student and grade.");
+    if (!gradeCode) {
+        alert("Please select a grade.");
         return;
     }
 
     const btn = document.getElementById("gradeModalSave");
     btn.disabled = true;
-    btn.textContent = "Saving…";
+    btn.textContent = editingGradeId ? "Updating…" : "Saving…";
 
     try {
-        const body = {
-            student_id: studentId,
-            subject_id: group.subject_id,
-            grade_code: gradeCode,
-            assessment_name: assessment,
-            date: date,
-        };
-        if (percentage !== "") body.percentage = parseFloat(percentage);
+        if (editingGradeId) {
+            const body = {
+                id: editingGradeId,
+                assessment_name: assessment,
+                grade_code: gradeCode,
+                comment: comment,
+                date: date,
+            };
+            if (percentage !== "") {
+                body.percentage = parseFloat(percentage);
+            } else {
+                body.percentage = null;
+            }
 
-        const res = await apiFetch("/teacher/grades/add/", {
-            method: "POST",
-            body: JSON.stringify(body),
-        });
+            const res = await apiFetch("/teacher/grades/edit/", {
+                method: "PATCH",
+                body: JSON.stringify(body),
+            });
 
-        if (res.ok) {
-            closeGradeModal();
-            await loadMarks(); // Refresh
+            if (res.ok) {
+                closeGradeModal();
+                await loadMarks();
+            } else {
+                const d = await res.json();
+                alert(d.message || "Failed to update grade");
+            }
         } else {
-            const d = await res.json();
-            alert(d.message || "Failed to save grade");
+            const studentId = document.getElementById("gradeStudent").value;
+            if (!studentId) {
+                alert("Please select a student.");
+                btn.disabled = false;
+                btn.textContent = "Save Grade";
+                return;
+            }
+
+            const body = {
+                student_id: studentId,
+                subject_id: group.subject_id,
+                grade_code: gradeCode,
+                assessment_name: assessment,
+                comment: comment,
+                date: date,
+            };
+            if (percentage !== "") body.percentage = parseFloat(percentage);
+
+            const res = await apiFetch("/teacher/grades/add/", {
+                method: "POST",
+                body: JSON.stringify(body),
+            });
+
+            if (res.ok) {
+                closeGradeModal();
+                await loadMarks();
+            } else {
+                const d = await res.json();
+                alert(d.message || "Failed to save grade");
+            }
         }
     } catch (err) {
         alert("Error saving grade");
     } finally {
         btn.disabled = false;
-        btn.textContent = "Save Grade";
+        btn.textContent = editingGradeId ? "Update Grade" : "Save Grade";
+    }
+}
+
+async function deleteGradeFromModal() {
+    const gradeId = document.getElementById("gradeModalDelete").dataset.gradeId;
+    if (!gradeId) return;
+    if (!confirm("Delete this grade? This cannot be undone.")) return;
+
+    const btn = document.getElementById("gradeModalDelete");
+    btn.disabled = true;
+    btn.textContent = "Deleting…";
+
+    try {
+        const res = await apiFetch(`/teacher/grades/delete/?id=${gradeId}`, { method: "DELETE" });
+        if (res.ok) {
+            closeGradeModal();
+            await loadMarks();
+        } else {
+            const d = await res.json();
+            alert(d.message || "Failed to delete grade");
+        }
+    } catch (err) {
+        alert("Error deleting grade");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Delete";
     }
 }

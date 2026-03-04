@@ -105,6 +105,7 @@ CREATE TABLE ediary_schema.grades (
   percentage numeric CHECK (percentage >= 0 AND percentage <= 100),
   grade_code text,
   date_taken date NOT NULL,
+  comment text,
   created_by_teacher_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT grades_pkey PRIMARY KEY (id),
