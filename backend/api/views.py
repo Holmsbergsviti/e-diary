@@ -670,6 +670,9 @@ def teacher_add_grade(request):
         row["comment"] = comment
     if date_taken:
         row["date_taken"] = date_taken
+    else:
+        from datetime import date as _date
+        row["date_taken"] = _date.today().isoformat()
     if category:
         row["category"] = category
     if term is not None:
