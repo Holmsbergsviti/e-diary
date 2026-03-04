@@ -790,20 +790,21 @@ def teacher_marks(request):
     all_classes = db3.table("classes").select("id, class_name, grade_level").execute()
     cls_map = {c["id"]: c for c in (all_classes.data or [])}
 
-    # For each assignment, resolve to year group
-    teaching_pairs = set()  # (subject_id, grade_level)
+    # Build set of (subject_id, class_id) pairs the teacher teaches
+    teaching_pairs = []  # [(subject_id, class_id)]
     for a in (assignments.data or []):
         cls = cls_map.get(a["class_id"])
         if cls:
-            teaching_pairs.add((a["subject_id"], cls["grade_level"]))
+            teaching_pairs.append((a["subject_id"], a["class_id"]))
 
     # Build list of class_ids per grade_level
     grade_class_map = {}  # grade_level -> [class_ids]
     for c in (all_classes.data or []):
         grade_class_map.setdefault(c["grade_level"], []).append(c["id"])
 
-    # Collect all student IDs in year groups teacher teaches
-    year_levels_taught = {gl for (_, gl) in teaching_pairs}
+    # Collect all relevant class_ids
+    taught_class_ids = {cid for (_, cid) in teaching_pairs}
+    year_levels_taught = {cls_map[cid]["grade_level"] for cid in taught_class_ids if cid in cls_map}
 
     # If class teacher, add their class's year level to see all subjects
     class_teacher_class_id = t.get("class_teacher_of_class_id")
@@ -837,6 +838,14 @@ def teacher_marks(request):
     if not student_ids:
         return JsonResponse({"groups": []})
 
+    # Get student_subjects (to know which group class each student is in)
+    db_ss = ediary()
+    all_student_subjects = db_ss.table("student_subjects").select("student_id, subject_id, group_class_id").in_("student_id", student_ids).execute()
+    # Build map: (student_id, subject_id) -> group_class_id
+    ss_group_map = {}
+    for ss in (all_student_subjects.data or []):
+        ss_group_map[(ss["student_id"], ss["subject_id"])] = ss.get("group_class_id")
+
     # Get subjects lookup
     db5 = ediary()
     subjects_result = db5.table("subjects").select("id, name, color_code").execute()
@@ -852,47 +861,90 @@ def teacher_marks(request):
         .execute()
     )
 
-    # Build response grouped by year level / subject
-    # For each (subject, year_group): list students with their grades
-    # A teacher can see:
-    #   - Subjects they teach (for all year groups they teach them)
-    #   - ALL subjects if class teacher (for their own class's year group)
-
+    # Build response grouped by (subject, class_id) for taught classes
+    # For class teacher view: by (subject, year_group) for non-taught subjects
     groups = []
 
-    for gl in sorted(year_levels_taught):
+    # First: add groups for each specific class the teacher teaches
+    for subj_id, class_id in sorted(teaching_pairs, key=lambda x: (cls_map.get(x[1], {}).get("grade_level", 0), cls_map.get(x[1], {}).get("class_name", ""))):
+        cls = cls_map.get(class_id, {})
+        subj = subj_map.get(subj_id, {})
+        gl = cls.get("grade_level", 0)
+        class_name = cls.get("class_name", "")
+
+        # Find students for this specific class/group
+        # Students whose home class is this class_id, OR
+        # students enrolled via student_subjects with this group_class_id
+        group_students = []
+        for s in (students.data or []):
+            # Student is in this group class if:
+            # 1) Their home class IS this class_id (for regular classes)
+            # 2) Their student_subjects.group_class_id matches (for group classes)
+            gc = ss_group_map.get((s["id"], subj_id))
+            if gc == class_id:
+                group_students.append(s)
+            elif s["class_id"] == class_id and not gc:
+                # Regular class, no group class assigned
+                group_students.append(s)
+
+        student_grades = []
+        for s in group_students:
+            s_grades = [
+                g for g in (grades_result.data or [])
+                if g["student_id"] == s["id"] and g["subject_id"] == subj_id
+            ]
+            student_grades.append({
+                "student_id": s["id"],
+                "name": s["name"],
+                "surname": s["surname"],
+                "class_name": cls_map.get(s["class_id"], {}).get("class_name", ""),
+                "grades": [
+                    {
+                        "id": g["id"],
+                        "assessment": g.get("assessment_name", ""),
+                        "grade_code": g.get("grade_code", ""),
+                        "percentage": g.get("percentage"),
+                        "date": g.get("date_taken", ""),
+                        "comment": g.get("comment", ""),
+                        "category": g.get("category", "other"),
+                        "term": g.get("term", 1),
+                    }
+                    for g in s_grades
+                ],
+            })
+
+        groups.append({
+            "year_group": gl,
+            "subject": subj.get("name", "Unknown"),
+            "subject_id": subj_id,
+            "subject_color": subj.get("color_code", "#607D8B"),
+            "class_id": class_id,
+            "class_name": class_name,
+            "is_own_class": class_teacher_grade == gl,
+            "students": student_grades,
+        })
+
+    # Second: if class teacher, add subjects they don't teach for their year
+    if class_teacher_grade is not None:
+        taught_subjects_for_ct_year = {sid for (sid, cid) in teaching_pairs if cls_map.get(cid, {}).get("grade_level") == class_teacher_grade}
+        gl = class_teacher_grade
         gl_class_ids = grade_class_map.get(gl, [])
         gl_students = [s for s in (students.data or []) if s["class_id"] in gl_class_ids]
+        gl_student_ids = [s["id"] for s in gl_students]
 
-        # Which subjects to show for this year group?
-        if class_teacher_grade == gl:
-            # Class teacher: show ALL subjects for this year
-            visible_subjects = set()
-            # Get all enrolled subjects for students in this year
-            gl_student_ids = [s["id"] for s in gl_students]
-            if gl_student_ids:
-                db7 = ediary()
-                enr = db7.table("student_subjects").select("subject_id").in_("student_id", gl_student_ids).execute()
-                visible_subjects = {e["subject_id"] for e in (enr.data or [])}
-            # Also include subjects teacher teaches
-            for (sid, g) in teaching_pairs:
-                if g == gl:
-                    visible_subjects.add(sid)
-        else:
-            # Only show subjects the teacher teaches for this year
-            visible_subjects = {sid for (sid, g) in teaching_pairs if g == gl}
+        if gl_student_ids:
+            db7 = ediary()
+            enr = db7.table("student_subjects").select("subject_id").in_("student_id", gl_student_ids).execute()
+            extra_subjects = {e["subject_id"] for e in (enr.data or [])} - taught_subjects_for_ct_year
 
-        for subj_id in sorted(visible_subjects, key=lambda x: subj_map.get(x, {}).get("name", "")):
-            subj = subj_map.get(subj_id, {})
-
-            # Filter students enrolled in this subject
-            student_grades = []
-            for s in gl_students:
-                s_grades = [
-                    g for g in (grades_result.data or [])
-                    if g["student_id"] == s["id"] and g["subject_id"] == subj_id
-                ]
-                if s_grades or True:  # Show all students even without grades
+            for subj_id in sorted(extra_subjects, key=lambda x: subj_map.get(x, {}).get("name", "")):
+                subj = subj_map.get(subj_id, {})
+                student_grades = []
+                for s in gl_students:
+                    s_grades = [
+                        g for g in (grades_result.data or [])
+                        if g["student_id"] == s["id"] and g["subject_id"] == subj_id
+                    ]
                     student_grades.append({
                         "student_id": s["id"],
                         "name": s["name"],
@@ -913,14 +965,16 @@ def teacher_marks(request):
                         ],
                     })
 
-            groups.append({
-                "year_group": gl,
-                "subject": subj.get("name", "Unknown"),
-                "subject_id": subj_id,
-                "subject_color": subj.get("color_code", "#607D8B"),
-                "is_own_class": class_teacher_grade == gl,
-                "students": student_grades,
-            })
+                groups.append({
+                    "year_group": gl,
+                    "subject": subj.get("name", "Unknown"),
+                    "subject_id": subj_id,
+                    "subject_color": subj.get("color_code", "#607D8B"),
+                    "class_id": None,
+                    "class_name": f"Year {gl}",
+                    "is_own_class": True,
+                    "students": student_grades,
+                })
 
     return JsonResponse({"groups": groups})
 

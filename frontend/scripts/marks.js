@@ -97,7 +97,9 @@ async function loadMarks() {
 
 function renderTabs(tabsEl, container) {
     tabsEl.innerHTML = allGroups.map((g, i) => {
-        const label = `Year ${g.year_group} – ${escHtml(g.subject)}`;
+        const label = g.class_name
+            ? `${escHtml(g.class_name)} – ${escHtml(g.subject)}`
+            : `Year ${g.year_group} – ${escHtml(g.subject)}`;
         const badge = g.is_own_class ? ' <small style="color:#16a34a;">(CT)</small>' : '';
         return `<button class="tab-btn${i === activeGroupIdx ? ' active' : ''}" data-idx="${i}">${label}${badge}</button>`;
     }).join("");
