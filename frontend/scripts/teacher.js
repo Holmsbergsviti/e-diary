@@ -47,9 +47,12 @@ async function loadSchedule() {
         const res = await apiFetch("/schedule/");
         const data = await res.json();
         allSlots = data.schedule || [];
+        console.log("[teacher.js] allSlots loaded:", allSlots.length, "entries");
+        console.log("[teacher.js] day_of_week values:", [...new Set(allSlots.map(s=>s.day_of_week))].sort());
         renderTodayClasses();
         renderWeeklySchedule();
     } catch (err) {
+        console.error("[teacher.js] loadSchedule error:", err);
         document.getElementById("todayClasses").innerHTML =
             '<p class="empty-state">Failed to load schedule.</p>';
     }
@@ -62,9 +65,14 @@ function renderTodayClasses() {
     const jsDay = new Date().getDay();          // 0-6
     const todayDow = jsDay === 0 ? 7 : jsDay;   // 1-7 (7=Sun)
 
+    console.log("[teacher.js] renderTodayClasses: jsDay=", jsDay, "todayDow=", todayDow);
+    console.log("[teacher.js] allSlots count:", allSlots.length);
+
     const todaySlots = allSlots
         .filter(s => s.day_of_week === todayDow)
         .sort((a, b) => a.period - b.period);
+
+    console.log("[teacher.js] todaySlots after filter:", todaySlots.length, todaySlots.map(s => `P${s.period}:${s.subject}`));
 
     if (todaySlots.length === 0) {
         container.innerHTML = '<p class="empty-state">No classes today.</p>';
