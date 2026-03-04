@@ -1,6 +1,6 @@
 # Chartwell International School E-Diary
 
-A student e-diary replicating and improving on [online.chartwell.edu.rs](https://www.online.chartwell.edu.rs/login).
+CS students replicating and improving [online.chartwell.edu.rs](https://www.online.chartwell.edu.rs/login).
 
 Live demo: <https://chartwell-e-diary.netlify.app/>
 
