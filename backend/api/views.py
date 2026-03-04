@@ -916,20 +916,24 @@ def teacher_marks(request):
     taught_class_ids = {cid for (_, cid) in teaching_pairs}
     year_levels_taught = {cls_map[cid]["grade_level"] for cid in taught_class_ids if cid in cls_map}
 
-    # If class teacher, add their class's year level to see all subjects
+    # If class teacher, note their homeroom class info
     class_teacher_class_id = t.get("class_teacher_of_class_id")
     class_teacher_grade = None
     if t.get("is_class_teacher") and class_teacher_class_id:
         cls_t = cls_map.get(class_teacher_class_id)
         if cls_t:
             class_teacher_grade = cls_t["grade_level"]
-            year_levels_taught.add(class_teacher_grade)
 
-    # Get all class_ids for relevant year levels
-    relevant_class_ids = []
+    # Get all class_ids for year levels the teacher teaches
+    relevant_class_ids = set()
     for gl in year_levels_taught:
-        relevant_class_ids.extend(grade_class_map.get(gl, []))
+        relevant_class_ids.update(grade_class_map.get(gl, []))
 
+    # Also include the class teacher's homeroom class (may be a different year)
+    if class_teacher_class_id:
+        relevant_class_ids.add(class_teacher_class_id)
+
+    relevant_class_ids = list(relevant_class_ids)
     if not relevant_class_ids:
         return JsonResponse({"groups": []})
 
