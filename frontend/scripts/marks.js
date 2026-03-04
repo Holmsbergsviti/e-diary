@@ -1,10 +1,50 @@
 /* ================================================================
    marks.js – Teacher marks view: see, add, edit, delete grades
+   with category weights, term filtering, and predicted grades
    ================================================================ */
 
 let allGroups = [];
 let activeGroupIdx = 0;
-let editingGradeId = null;   // non-null when editing
+let editingGradeId = null;
+let activeTerm = null; // null = both, 1 or 2
+
+// Category weights (must sum to 1.0)
+const CATEGORY_WEIGHTS = {
+    exam:      0.30,
+    test:      0.25,
+    project:   0.20,
+    homework:  0.10,
+    classwork: 0.10,
+    other:     0.05,
+};
+
+const CATEGORY_LABELS = {
+    exam: "Exam", test: "Test", project: "Project",
+    homework: "HW", classwork: "CW", other: "Other",
+};
+
+// Grade → numeric value for weighted average
+const GRADE_VALUES = {
+    "A*": 9, "A": 8, "A-": 7, "B": 6, "C": 5, "D": 4, "E": 3, "U": 1,
+};
+
+// Numeric value → predicted grade
+function numToGrade(val) {
+    if (val >= 8.5) return "A*";
+    if (val >= 7.5) return "A";
+    if (val >= 6.5) return "A-";
+    if (val >= 5.5) return "B";
+    if (val >= 4.5) return "C";
+    if (val >= 3.5) return "D";
+    if (val >= 2.0) return "E";
+    return "U";
+}
+
+// Auto-detect current term from month
+function currentTerm() {
+    const m = new Date().getMonth() + 1; // 1-12
+    return (m >= 9 && m <= 12) ? 1 : 2;
+}
 
 document.addEventListener("DOMContentLoaded", async () => {
     if (!requireAuth()) return;
@@ -14,9 +54,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
     }
     initNav();
+
+    // Default to current term
+    activeTerm = currentTerm();
+
     await loadMarks();
 
-    // Add grade button
     document.getElementById("addGradeBtn").addEventListener("click", () => openGradeModal());
 
     // Modal wiring
@@ -55,7 +98,7 @@ async function loadMarks() {
 function renderTabs(tabsEl, container) {
     tabsEl.innerHTML = allGroups.map((g, i) => {
         const label = `Year ${g.year_group} – ${escHtml(g.subject)}`;
-        const badge = g.is_own_class ? ' <small style="color:#16a34a;">(Class Teacher)</small>' : '';
+        const badge = g.is_own_class ? ' <small style="color:#16a34a;">(CT)</small>' : '';
         return `<button class="tab-btn${i === activeGroupIdx ? ' active' : ''}" data-idx="${i}">${label}${badge}</button>`;
     }).join("");
 
@@ -82,41 +125,98 @@ function gradeClass(code) {
     return "grade-u";
 }
 
+/* Calculate weighted predicted grade from a list of grade objects */
+function predictGrade(grades) {
+    if (!grades || grades.length === 0) return null;
+
+    // Group by category
+    const byCat = {};
+    for (const g of grades) {
+        const cat = g.category || "other";
+        if (!byCat[cat]) byCat[cat] = [];
+        const val = GRADE_VALUES[g.grade_code];
+        if (val != null) byCat[cat].push(val);
+    }
+
+    let weightedSum = 0;
+    let totalWeight = 0;
+
+    for (const [cat, vals] of Object.entries(byCat)) {
+        if (vals.length === 0) continue;
+        const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+        const w = CATEGORY_WEIGHTS[cat] || CATEGORY_WEIGHTS.other;
+        weightedSum += avg * w;
+        totalWeight += w;
+    }
+
+    if (totalWeight === 0) return null;
+
+    const predicted = weightedSum / totalWeight;
+    return { grade: numToGrade(predicted), value: predicted.toFixed(1) };
+}
+
 function renderGroup(container, group) {
     if (!group || !group.students || group.students.length === 0) {
         container.innerHTML = '<p class="empty-state">No students found for this group.</p>';
         return;
     }
 
-    // Find all unique assessments across students
+    // Term filter bar
+    let html = `<div class="term-filter">
+        <button class="term-btn${activeTerm === null ? ' active' : ''}" data-term="">Both Terms</button>
+        <button class="term-btn${activeTerm === 1 ? ' active' : ''}" data-term="1">Term 1 <small>(Sep–Dec)</small></button>
+        <button class="term-btn${activeTerm === 2 ? ' active' : ''}" data-term="2">Term 2 <small>(Jan–Jun)</small></button>
+    </div>`;
+
+    // Filter grades by term
+    const filteredStudents = group.students.map(s => ({
+        ...s,
+        grades: activeTerm ? s.grades.filter(g => g.term === activeTerm) : s.grades,
+        allGrades: s.grades,
+    }));
+
+    // Find unique assessments from filtered grades
     const assessmentSet = new Set();
-    for (const s of group.students) {
+    for (const s of filteredStudents) {
         for (const g of s.grades) {
             assessmentSet.add(g.assessment);
         }
     }
     const assessments = Array.from(assessmentSet).sort();
 
-    let html = `<table>
+    html += `<table>
         <thead>
             <tr>
                 <th>#</th>
                 <th>Student</th>
                 <th>Class</th>
                 ${assessments.length > 0
-                    ? assessments.map(a => `<th>${escHtml(a || 'Unnamed')}</th>`).join("")
+                    ? assessments.map(a => {
+                        // Find category of first grade with this assessment
+                        let cat = "";
+                        for (const s of filteredStudents) {
+                            const g = s.grades.find(g => g.assessment === a);
+                            if (g) { cat = g.category || ""; break; }
+                        }
+                        const catLabel = cat ? `<br><small class="cat-label cat-${cat}">${CATEGORY_LABELS[cat] || cat}</small>` : "";
+                        return `<th>${escHtml(a || 'Unnamed')}${catLabel}</th>`;
+                    }).join("")
                     : '<th>No grades yet</th>'}
+                <th>Predicted</th>
             </tr>
         </thead>
         <tbody>`;
 
-    group.students
+    filteredStudents
         .sort((a, b) => a.surname.localeCompare(b.surname))
         .forEach((s, i) => {
             const gradeMap = {};
             for (const g of s.grades) {
                 gradeMap[g.assessment] = g;
             }
+
+            // Predicted grade for current term filter
+            const pred = predictGrade(s.grades);
 
             html += `<tr>
                 <td>${i + 1}</td>
@@ -140,13 +240,29 @@ function renderGroup(container, group) {
                 html += `<td>–</td>`;
             }
 
+            // Predicted grade column
+            if (pred) {
+                html += `<td class="predicted-cell"><span class="grade-badge ${gradeClass(pred.grade)}">${pred.grade}</span><br><small class="grade-pct">${pred.value}</small></td>`;
+            } else {
+                html += `<td class="predicted-cell">–</td>`;
+            }
+
             html += `</tr>`;
         });
 
     html += `</tbody></table>`;
     container.innerHTML = html;
 
-    // Wire clickable grade cells to open edit modal
+    // Wire term filter buttons
+    container.querySelectorAll(".term-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const t = btn.dataset.term;
+            activeTerm = t === "" ? null : parseInt(t);
+            renderGroup(container, allGroups[activeGroupIdx]);
+        });
+    });
+
+    // Wire clickable grade cells
     container.querySelectorAll(".grade-clickable").forEach(cell => {
         cell.addEventListener("click", () => {
             const gradeData = JSON.parse(cell.dataset.grade);
@@ -178,6 +294,8 @@ function openGradeModal(gradeData, studentName) {
         deleteBtn.dataset.gradeId = gradeData.id;
 
         document.getElementById("gradeAssessment").value = gradeData.assessment || "";
+        document.getElementById("gradeCategory").value = gradeData.category || "other";
+        document.getElementById("gradeTerm").value = gradeData.term || currentTerm();
         document.getElementById("gradeCode").value = gradeData.grade_code || "A";
         document.getElementById("gradePercent").value = gradeData.percentage != null ? gradeData.percentage : "";
         document.getElementById("gradeComment").value = gradeData.comment || "";
@@ -194,6 +312,8 @@ function openGradeModal(gradeData, studentName) {
             .join("");
 
         document.getElementById("gradeAssessment").value = "";
+        document.getElementById("gradeCategory").value = "test";
+        document.getElementById("gradeTerm").value = currentTerm();
         document.getElementById("gradeCode").value = "A";
         document.getElementById("gradePercent").value = "";
         document.getElementById("gradeComment").value = "";
@@ -212,6 +332,8 @@ async function saveGrade() {
     if (!group) return;
 
     const assessment = document.getElementById("gradeAssessment").value.trim();
+    const category = document.getElementById("gradeCategory").value;
+    const term = parseInt(document.getElementById("gradeTerm").value);
     const gradeCode = document.getElementById("gradeCode").value;
     const percentage = document.getElementById("gradePercent").value;
     const comment = document.getElementById("gradeComment").value.trim();
@@ -232,6 +354,8 @@ async function saveGrade() {
                 assessment_name: assessment,
                 grade_code: gradeCode,
                 comment: comment,
+                category: category,
+                term: term,
             };
             if (percentage !== "") {
                 body.percentage = parseFloat(percentage);
@@ -266,6 +390,8 @@ async function saveGrade() {
                 grade_code: gradeCode,
                 assessment_name: assessment,
                 comment: comment,
+                category: category,
+                term: term,
             };
             if (percentage !== "") body.percentage = parseFloat(percentage);
 

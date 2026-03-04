@@ -230,7 +230,7 @@ def grades(request):
     db = ediary()
     result = (
         db.table("grades")
-        .select("id, subject_id, assessment_name, percentage, grade_code, date_taken, comment")
+        .select("id, subject_id, assessment_name, percentage, grade_code, date_taken, comment, category, term")
         .eq("student_id", payload["sub"])
         .order("date_taken", desc=True)
         .execute()
@@ -253,6 +253,8 @@ def grades(request):
             "grade_code": row.get("grade_code", ""),
             "date": row.get("date_taken", ""),
             "comment": row.get("comment", ""),
+            "category": row.get("category", "other"),
+            "term": row.get("term", 1),
         })
 
     return JsonResponse({"grades": rows})
@@ -648,6 +650,8 @@ def teacher_add_grade(request):
     percentage = data.get("percentage")
     comment = data.get("comment", "").strip()
     date_taken = data.get("date", "").strip()
+    category = data.get("category", "other").strip()
+    term = data.get("term")
 
     if not student_id or not subject_id or not grade_code:
         return JsonResponse({"message": "student_id, subject_id, and grade_code are required"}, status=400)
@@ -666,6 +670,10 @@ def teacher_add_grade(request):
         row["comment"] = comment
     if date_taken:
         row["date_taken"] = date_taken
+    if category:
+        row["category"] = category
+    if term is not None:
+        row["term"] = int(term)
 
     try:
         r = ediary().table("grades").insert(row).execute()
@@ -709,6 +717,10 @@ def teacher_edit_grade(request):
         updates["comment"] = data["comment"].strip() or None
     if "date" in data:
         updates["date_taken"] = data["date"].strip()
+    if "category" in data:
+        updates["category"] = data["category"].strip() or "other"
+    if "term" in data:
+        updates["term"] = int(data["term"])
 
     if not updates:
         return JsonResponse({"message": "Nothing to update"}, status=400)
@@ -831,7 +843,7 @@ def teacher_marks(request):
     db6 = ediary()
     grades_result = (
         db6.table("grades")
-        .select("id, student_id, subject_id, assessment_name, grade_code, percentage, date_taken, comment")
+        .select("id, student_id, subject_id, assessment_name, grade_code, percentage, date_taken, comment, category, term")
         .in_("student_id", student_ids)
         .order("date_taken", desc=True)
         .execute()
@@ -891,6 +903,8 @@ def teacher_marks(request):
                                 "percentage": g.get("percentage"),
                                 "date": g.get("date_taken", ""),
                                 "comment": g.get("comment", ""),
+                                "category": g.get("category", "other"),
+                                "term": g.get("term", 1),
                             }
                             for g in s_grades
                         ],

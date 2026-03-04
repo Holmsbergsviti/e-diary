@@ -51,22 +51,44 @@
                         <label>Assessment name</label>
                         <input id="gradeAssessment" class="form-input" placeholder="e.g. Unit Test, Essay, Homework 3…">
                     </div>
-                    <div class="form-group">
-                        <label>Grade</label>
-                        <select id="gradeCode" class="form-input">
-                            <option value="A*">A* – Outstanding</option>
-                            <option value="A">A – Excellent</option>
-                            <option value="A-">A- – Very Good (High)</option>
-                            <option value="B">B – Very Good</option>
-                            <option value="C">C – Good</option>
-                            <option value="D">D – Satisfactory</option>
-                            <option value="E">E – Acceptable</option>
-                            <option value="U">U – Ungraded</option>
-                        </select>
+                    <div class="form-row">
+                        <div class="form-group" style="flex:1;">
+                            <label>Category</label>
+                            <select id="gradeCategory" class="form-input">
+                                <option value="exam">Exam</option>
+                                <option value="test">Test</option>
+                                <option value="project">Project</option>
+                                <option value="homework">Homework</option>
+                                <option value="classwork">Classwork</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label>Term</label>
+                            <select id="gradeTerm" class="form-input">
+                                <option value="1">Term 1 (Sep – Dec)</option>
+                                <option value="2">Term 2 (Jan – Jun)</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>Percentage <small>(optional)</small></label>
-                        <input id="gradePercent" class="form-input" type="number" min="0" max="100" placeholder="e.g. 87">
+                    <div class="form-row">
+                        <div class="form-group" style="flex:1;">
+                            <label>Grade</label>
+                            <select id="gradeCode" class="form-input">
+                                <option value="A*">A*</option>
+                                <option value="A">A</option>
+                                <option value="A-">A-</option>
+                                <option value="B">B</option>
+                                <option value="C">C</option>
+                                <option value="D">D</option>
+                                <option value="E">E</option>
+                                <option value="U">U</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label>Percentage <small>(optional)</small></label>
+                            <input id="gradePercent" class="form-input" type="number" min="0" max="100" placeholder="e.g. 87">
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>Comment <small>(optional)</small></label>

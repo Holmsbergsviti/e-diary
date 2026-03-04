@@ -591,3 +591,52 @@ tr:hover td {
     padding: 6px 10px;
     font-size: 0.85rem;
 }
+
+/* ---- Term filter bar ---- */
+.term-filter {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+.term-btn {
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all .15s;
+}
+.term-btn:hover { background: #e5e7eb; }
+.term-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+
+/* ---- Category labels in table header ---- */
+.cat-label {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.cat-exam      { background: #fef2f2; color: #dc2626; }
+.cat-test      { background: #fefce8; color: #ca8a04; }
+.cat-project   { background: #eff6ff; color: #2563eb; }
+.cat-homework  { background: #f0fdf4; color: #16a34a; }
+.cat-classwork { background: #faf5ff; color: #9333ea; }
+.cat-other     { background: #f3f4f6; color: #6b7280; }
+
+/* ---- Predicted grade column ---- */
+.predicted-cell {
+    text-align: center;
+    background: #f9fafb;
+}
+
+/* ---- Form row (side-by-side fields) ---- */
+.form-row {
+    display: flex;
+    gap: 12px;
+}

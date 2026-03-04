@@ -97,6 +97,8 @@ CREATE TABLE ediary_schema.student_subjects (
 );
 
 -- Grades
+-- category: exam, test, project, homework, classwork, other
+-- term: 1 (Sep–Dec) or 2 (Jan–Jun)
 CREATE TABLE ediary_schema.grades (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   student_id uuid NOT NULL,
@@ -106,6 +108,8 @@ CREATE TABLE ediary_schema.grades (
   grade_code text,
   date_taken date NOT NULL,
   comment text,
+  category text DEFAULT 'other',
+  term smallint DEFAULT 1,
   created_by_teacher_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT grades_pkey PRIMARY KEY (id),
