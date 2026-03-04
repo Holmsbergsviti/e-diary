@@ -12,11 +12,11 @@ let activeTerm = null; // null = both, 1 or 2
 const CATEGORY_WEIGHTS = {
     exam:      0.25,
     test:      0.20,
-    minitest:  0.10,
+    minitest:  0.15,
     quiz:      0.10,
     project:   0.15,
-    homework:  0.08,
-    classwork: 0.07,
+    homework:  0.05,
+    classwork: 0.05,
     other:     0.05,
 };
 
