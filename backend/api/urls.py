@@ -3,7 +3,7 @@ from .views import (
     login, me, grades, subjects, diary_entries, attendance, schedule,
     announcements, teacher_class_students, teacher_attendance, teacher_marks,
     teacher_add_grade, teacher_edit_grade, teacher_delete_grade,
-    teacher_add_homework, teacher_delete_homework,
+    teacher_add_homework, teacher_delete_homework, teacher_homework_completions,
     behavioral_entries, teacher_add_behavioral, teacher_delete_behavioral,
 )
 
@@ -25,6 +25,7 @@ urlpatterns = [
     path("teacher/grades/delete/", teacher_delete_grade),
     path("teacher/homework/add/", teacher_add_homework),
     path("teacher/homework/delete/", teacher_delete_homework),
+    path("teacher/homework/completions/", teacher_homework_completions),
     path("teacher/behavioral/add/", teacher_add_behavioral),
     path("teacher/behavioral/delete/", teacher_delete_behavioral),
 ]

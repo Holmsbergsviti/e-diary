@@ -350,13 +350,29 @@ def attendance(request):
     db = ediary()
     result = (
         db.table("attendance")
-        .select("id, date_recorded, status, class_id")
+        .select("id, date_recorded, status, class_id, subject_id, comment")
         .eq("student_id", payload["sub"])
         .order("date_recorded", desc=True)
         .execute()
     )
 
-    return JsonResponse({"attendance": result.data or []})
+    # Build subject lookup
+    subj_result = ediary().table("subjects").select("id, name").execute()
+    subj_map = {s["id"]: s["name"] for s in (subj_result.data or [])}
+
+    rows = []
+    for r in (result.data or []):
+        row = {
+            "id": r["id"],
+            "date_recorded": r["date_recorded"],
+            "status": r["status"],
+            "class_id": r["class_id"],
+            "subject": subj_map.get(r.get("subject_id"), ""),
+            "comment": r.get("comment", ""),
+        }
+        rows.append(row)
+
+    return JsonResponse({"attendance": rows})
 
 
 # ------------------------------------------------------------------
@@ -683,10 +699,27 @@ def announcements(request):
         t_result = ediary().table("teachers").select("id, name, surname").in_("id", teacher_ids).execute()
         teacher_map = {t["id"]: f"{t['name']} {t['surname']}" for t in (t_result.data or [])}
 
+    # For students, fetch their homework completion statuses
+    completion_map = {}  # homework_id -> status
+    if role != "teacher":
+        hw_ids = [r["id"] for r in (result.data or [])]
+        if hw_ids:
+            comp_result = (
+                ediary().table("homework_completions")
+                .select("homework_id, status")
+                .eq("student_id", user_id)
+                .in_("homework_id", hw_ids)
+                .execute()
+            )
+            for c in (comp_result.data or []):
+                completion_map[c["homework_id"]] = c["status"]
+
     rows = []
     for r in (result.data or []):
-        rows.append({
+        row = {
             "id": r["id"],
+            "subject_id": r.get("subject_id", ""),
+            "class_id": r.get("class_id", ""),
             "title": r.get("title", ""),
             "body": r.get("description", ""),
             "subject": subj_map.get(r.get("subject_id"), ""),
@@ -694,7 +727,10 @@ def announcements(request):
             "due_date": r.get("due_date", ""),
             "created_at": r.get("created_at", ""),
             "author": teacher_map.get(r.get("teacher_id"), ""),
-        })
+        }
+        if role != "teacher":
+            row["completion_status"] = completion_map.get(r["id"], "")
+        rows.append(row)
 
     return JsonResponse({"announcements": rows})
 
@@ -1276,3 +1312,68 @@ def teacher_delete_behavioral(request):
         return JsonResponse({"message": "Not found or not yours"}, status=404)
 
     return JsonResponse({"deleted": True})
+
+
+# ------------------------------------------------------------------
+# Teacher: homework completions (get + save)
+# ------------------------------------------------------------------
+
+@csrf_exempt
+def teacher_homework_completions(request):
+    payload = _verify_token(request)
+    if not payload or payload.get("role") != "teacher":
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    if request.method == "GET":
+        homework_id = request.GET.get("homework_id")
+        if not homework_id:
+            return JsonResponse({"message": "homework_id required"}, status=400)
+
+        db = ediary()
+        result = (
+            db.table("homework_completions")
+            .select("id, homework_id, student_id, status")
+            .eq("homework_id", homework_id)
+            .execute()
+        )
+        return JsonResponse({"completions": result.data or []})
+
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"message": "Invalid JSON"}, status=400)
+
+        homework_id = data.get("homework_id", "").strip()
+        records = data.get("records", [])
+
+        if not homework_id or not records:
+            return JsonResponse({"message": "homework_id and records required"}, status=400)
+
+        db = ediary()
+        # Delete existing completions for this homework
+        db.table("homework_completions") \
+            .delete() \
+            .eq("homework_id", homework_id) \
+            .execute()
+
+        # Insert new records (only those with a status set)
+        rows = []
+        for rec in records:
+            status = rec.get("status", "").strip()
+            if not status:
+                continue
+            rows.append({
+                "homework_id": homework_id,
+                "student_id": rec["student_id"],
+                "status": status,
+                "recorded_by_teacher_id": payload["sub"],
+            })
+
+        if rows:
+            db2 = ediary()
+            db2.table("homework_completions").insert(rows).execute()
+
+        return JsonResponse({"saved": len(rows)}, status=201)
+
+    return JsonResponse({"message": "Method not allowed"}, status=405)

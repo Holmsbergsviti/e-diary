@@ -687,3 +687,28 @@ tr:hover td {
 .beh-medium { border-left-color: #fbbf24; }
 .beh-high { border-left-color: #ef4444; }
 .beh-delete-btn { flex-shrink: 0; font-size: 1.1rem; line-height: 1; padding: 4px 8px; }
+
+/* ---- Homework completion badges (student view) ---- */
+.hw-badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: 10px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+.hw-badge-done { background: #d1fae5; color: #065f46; }
+.hw-badge-partial { background: #fef3c7; color: #92400e; }
+.hw-badge-notdone { background: #fee2e2; color: #991b1b; }
+
+/* ---- Homework completion select (teacher modal) ---- */
+.hw-comp-select { font-size: 0.85rem; padding: 4px 8px; }
+.hwc-completed { background: #d1fae5; color: #065f46; }
+.hwc-partial { background: #fef3c7; color: #92400e; }
+.hwc-not_done { background: #fee2e2; color: #991b1b; }
+
+/* ---- Attendance rows (student dashboard) ---- */
+.att-row.att-late td:nth-child(3) { color: #d97706; }
+.att-row.att-absent td:nth-child(3) { color: #dc2626; font-weight: 600; }
+.att-row.att-excused td:nth-child(3) { color: #6366f1; }

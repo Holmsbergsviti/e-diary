@@ -380,7 +380,7 @@ function renderHomework() {
         const isPast = hw.due_date < today;
         const dueLbl = hw.due_date ? formatDate(hw.due_date) : "";
         return `
-        <div class="hw-item${isPast ? ' hw-past' : ''}">
+        <div class="hw-item${isPast ? ' hw-past' : ''}" data-hw-id="${hw.id}" data-subject-id="${hw.subject_id}" data-class-id="${hw.class_id}" style="cursor:pointer;">
             <div class="hw-item-main">
                 <div class="hw-item-title">${escHtml(hw.title)}</div>
                 <div class="hw-item-meta">
@@ -407,6 +407,16 @@ function renderHomework() {
             } catch (err) {
                 alert("Failed to delete homework.");
             }
+        });
+    });
+
+    // Click on a homework item opens the completion modal
+    container.querySelectorAll(".hw-item").forEach(item => {
+        item.addEventListener("click", (e) => {
+            if (e.target.closest(".hw-delete-btn")) return;
+            const hwId = item.dataset.hwId;
+            const hw = homeworkAssignments.find(h => h.id === hwId);
+            if (hw) openHwCompletionModal(hw);
         });
     });
 }
@@ -467,6 +477,117 @@ async function saveHomework() {
     } finally {
         btn.disabled = false;
         btn.textContent = "Save Homework";
+    }
+}
+
+/* ---- Homework completion modal -------------------------------- */
+const HW_STATUS_OPTIONS = [
+    { value: "", label: "— Not set —" },
+    { value: "completed", label: "✅ Completed" },
+    { value: "partial", label: "⚠️ Partial" },
+    { value: "not_done", label: "❌ Not done" },
+];
+
+async function openHwCompletionModal(hw) {
+    const modal = document.getElementById("hwCompletionModal");
+    document.getElementById("hwCompTitle").textContent = hw.title;
+    document.getElementById("hwCompSubtitle").textContent =
+        `${hw.subject}${hw.class_name ? ' · ' + hw.class_name : ''}${hw.due_date ? ' · Due: ' + formatDate(hw.due_date) : ''}`;
+
+    const listEl = document.getElementById("hwCompStudentList");
+    listEl.innerHTML = '<p class="loading">Loading students…</p>';
+    modal.style.display = "flex";
+
+    // Close handlers
+    document.getElementById("hwCompClose").onclick = () => { modal.style.display = "none"; };
+    modal.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; };
+
+    try {
+        const [studentsRes, compRes] = await Promise.all([
+            apiFetch(`/teacher/class-students/?class_id=${hw.class_id}&subject_id=${hw.subject_id}`),
+            apiFetch(`/teacher/homework/completions/?homework_id=${hw.id}`),
+        ]);
+        const studentsData = await studentsRes.json();
+        const compData = await compRes.json();
+
+        const students = studentsData.students || [];
+        const completions = compData.completions || [];
+        const compMap = {};
+        for (const c of completions) compMap[c.student_id] = c.status;
+
+        if (students.length === 0) {
+            listEl.innerHTML = '<p class="empty-state">No students enrolled.</p>';
+            return;
+        }
+
+        listEl.innerHTML = `
+            <table class="attendance-table">
+                <thead>
+                    <tr><th>#</th><th>Student</th><th>Class</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                    ${students.map((s, i) => {
+                        const cur = compMap[s.id] || "";
+                        return `
+                        <tr data-student-id="${s.id}">
+                            <td>${i + 1}</td>
+                            <td>${escHtml(s.surname)} ${escHtml(s.name)}</td>
+                            <td><span class="class-tag">${escHtml(s.class_name || "")}</span></td>
+                            <td>
+                                <select class="status-select hw-comp-select${cur ? ' hwc-' + cur : ''}">
+                                    ${HW_STATUS_OPTIONS.map(o =>
+                                        `<option value="${o.value}"${o.value === cur ? " selected" : ""}>${o.label}</option>`
+                                    ).join("")}
+                                </select>
+                            </td>
+                        </tr>`;
+                    }).join("")}
+                </tbody>
+            </table>
+        `;
+
+        // Update select styling
+        listEl.querySelectorAll(".hw-comp-select").forEach(sel => {
+            updateHwCompStyle(sel);
+            sel.addEventListener("change", () => updateHwCompStyle(sel));
+        });
+
+        // Save button
+        document.getElementById("hwCompSave").onclick = () => saveHwCompletions(hw.id);
+
+    } catch (err) {
+        listEl.innerHTML = '<p class="empty-state">Failed to load students.</p>';
+    }
+}
+
+function updateHwCompStyle(sel) {
+    sel.className = "status-select hw-comp-select" + (sel.value ? " hwc-" + sel.value : "");
+}
+
+async function saveHwCompletions(homeworkId) {
+    const btn = document.getElementById("hwCompSave");
+    const rows = document.querySelectorAll("#hwCompStudentList tbody tr");
+    const records = [];
+    rows.forEach(row => {
+        const studentId = row.dataset.studentId;
+        const status = row.querySelector(".hw-comp-select").value;
+        records.push({ student_id: studentId, status });
+    });
+
+    btn.disabled = true;
+    btn.textContent = "Saving…";
+    try {
+        await apiFetch("/teacher/homework/completions/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ homework_id: homeworkId, records }),
+        });
+        document.getElementById("hwCompletionModal").style.display = "none";
+    } catch (err) {
+        alert("Failed to save completion status.");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Save Completion";
     }
 }
 

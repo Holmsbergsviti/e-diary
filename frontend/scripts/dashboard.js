@@ -9,7 +9,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     initNav();
-    await Promise.all([loadAnnouncements(), loadRecentGrades(), loadBehavioral()]);
+    await Promise.all([loadAnnouncements(), loadRecentGrades(), loadAttendance(), loadBehavioral()]);
 });
 
 // ---------- helper: grade code -> CSS class ----------
@@ -35,12 +35,18 @@ async function loadAnnouncements() {
             return;
         }
         const today = new Date().toISOString().slice(0, 10);
+        const COMP_BADGES = {
+            completed: '<span class="hw-badge hw-badge-done">✅ Completed</span>',
+            partial: '<span class="hw-badge hw-badge-partial">⚠️ Partial</span>',
+            not_done: '<span class="hw-badge hw-badge-notdone">❌ Not done</span>',
+        };
         container.innerHTML = items.map(a => {
             const isPast = a.due_date && a.due_date < today;
             const dueLbl = a.due_date ? formatDate(a.due_date) : "";
+            const badge = a.completion_status ? COMP_BADGES[a.completion_status] || "" : "";
             return `
             <div class="announcement${isPast ? ' hw-past' : ''}">
-                <div class="announcement-title">${escHtml(a.title)}</div>
+                <div class="announcement-title">${escHtml(a.title)}${badge ? ' ' + badge : ''}</div>
                 <div class="announcement-meta">
                     ${a.subject ? escHtml(a.subject) : ""}${a.author ? " · " + escHtml(a.author) : ""}${dueLbl ? " · Due: " + dueLbl : ""}
                 </div>
@@ -88,6 +94,48 @@ async function loadRecentGrades() {
         `;
     } catch (err) {
         container.innerHTML = '<p class="empty-state">Failed to load grades.</p>';
+    }
+}
+
+/* ---------- Attendance ---------- */
+const ATT_ICONS = { Present: "✅", Late: "⏰", Absent: "❌", Excused: "📋" };
+
+async function loadAttendance() {
+    const container = document.getElementById("attendanceContainer");
+    try {
+        const res = await apiFetch("/attendance/");
+        const data = await res.json();
+        const records = (data.attendance || []).slice(0, 15);
+
+        if (records.length === 0) {
+            container.innerHTML = '<p class="empty-state">No attendance records.</p>';
+            return;
+        }
+
+        container.innerHTML = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Subject</th>
+                        <th>Status</th>
+                        <th>Comment</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${records.map(r => `
+                        <tr class="att-row att-${r.status.toLowerCase()}">
+                            <td>${formatDate(r.date_recorded)}</td>
+                            <td>${escHtml(r.subject || "–")}</td>
+                            <td>${ATT_ICONS[r.status] || ""} ${escHtml(r.status)}</td>
+                            <td>${r.comment ? escHtml(r.comment) : '<span style="color:#9ca3af;">—</span>'}</td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        `;
+    } catch (err) {
+        container.innerHTML = '<p class="empty-state">Failed to load attendance.</p>';
     }
 }
 
