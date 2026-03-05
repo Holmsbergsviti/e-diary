@@ -109,12 +109,12 @@ function initNav() {
     }
 
     // Update sidebar links based on role
-    const sidebar = document.querySelector(".sidebar");
-    if (sidebar && user && !sidebar.dataset.navDone) {
-        sidebar.dataset.navDone = "1";
+    const sidebarEl = document.querySelector(".sidebar");
+    if (sidebarEl && user && !sidebarEl.dataset.navDone) {
+        sidebarEl.dataset.navDone = "1";
 
         // Rewrite dashboard link for the correct role
-        sidebar.querySelectorAll("a").forEach(a => {
+        sidebarEl.querySelectorAll("a").forEach(a => {
             if (a.getAttribute("href") === "dashboard.html" && user.role === "teacher") {
                 a.setAttribute("href", "teacher.html");
             } else if (a.getAttribute("href") === "teacher.html" && user.role !== "teacher") {
@@ -123,10 +123,10 @@ function initNav() {
         });
 
         // Remove any existing grades/marks links first (clean slate)
-        sidebar.querySelectorAll('a[href="grades.html"], a[href="marks.html"]').forEach(a => a.remove());
+        sidebarEl.querySelectorAll('a[href="grades.html"], a[href="marks.html"]').forEach(a => a.remove());
 
         // Inject exactly one role-specific link before Profile
-        const pLink = sidebar.querySelector('a[href="profile.html"]');
+        const pLink = sidebarEl.querySelector('a[href="profile.html"]');
         const a = document.createElement("a");
         if (user.role === "teacher") {
             a.href = "marks.html";
@@ -137,8 +137,8 @@ function initNav() {
             if (window.location.pathname.endsWith("grades.html")) a.classList.add("active");
             a.innerHTML = '<span class="icon">📊</span> Grades';
         }
-        if (pLink) sidebar.insertBefore(a, pLink);
-        else sidebar.appendChild(a);
+        if (pLink) sidebarEl.insertBefore(a, pLink);
+        else sidebarEl.appendChild(a);
     }
 }
 
