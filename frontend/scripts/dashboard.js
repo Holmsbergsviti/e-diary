@@ -63,10 +63,16 @@ async function loadRecentGrades() {
     try {
         const res = await apiFetch("/grades/");
         const data = await res.json();
-        const grades = (data.grades || []).slice(0, 10);
+        const now = new Date();
+        const weekAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6); // 7 days including today
+        const grades = (data.grades || []).filter(g => {
+            if (!g.date) return false;
+            const d = new Date(g.date);
+            return d >= weekAgo && d <= now;
+        });
 
         if (grades.length === 0) {
-            container.innerHTML = '<p class="empty-state">No grades recorded yet.</p>';
+            container.innerHTML = '<p class="empty-state">No grades recorded in the past week.</p>';
             return;
         }
 

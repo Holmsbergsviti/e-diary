@@ -33,6 +33,19 @@
 }
 
 @media (max-width: 768px) {
+        /* Timetable: restore horizontal scroll and min-widths */
+        .timetable {
+            display: block;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            white-space: nowrap;
+        }
+        .timetable th,
+        .timetable td {
+            min-width: 90px;
+            padding: 8px 10px;
+            font-size: 0.85rem;
+        }
     .dashboard-page table { font-size: 0.78rem; }
     .dashboard-page th, .dashboard-page td { padding: 6px 4px; }
     .dashboard-page th:nth-child(1), .dashboard-page td:nth-child(1) { width: auto; min-width: 40px; }
