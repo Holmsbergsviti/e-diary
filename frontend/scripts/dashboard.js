@@ -77,7 +77,6 @@ async function loadRecentGrades() {
                         <th>Subject</th>
                         <th>Assessment</th>
                         <th>Grade</th>
-                        <th>Date</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -86,7 +85,6 @@ async function loadRecentGrades() {
                             <td>${escHtml(g.subject)}</td>
                             <td>${escHtml(g.assessment || "\u2013")}</td>
                             <td><span class="grade-badge ${gradeClass(g.grade_code)}">${escHtml(g.grade_code || "\u2013")}</span></td>
-                            <td>${formatDate(g.date)}</td>
                         </tr>
                     `).join("")}
                 </tbody>
