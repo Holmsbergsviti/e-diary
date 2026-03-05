@@ -74,6 +74,40 @@ function initNav() {
         logoutBtn.addEventListener("click", logout);
     }
 
+    // ---------- Mobile hamburger menu ----------
+    const topnav = document.querySelector(".topnav");
+    const sidebar = document.querySelector(".sidebar");
+    if (topnav && sidebar && !document.querySelector(".hamburger-btn")) {
+        // Create hamburger button
+        const hamBtn = document.createElement("button");
+        hamBtn.className = "hamburger-btn";
+        hamBtn.setAttribute("aria-label", "Menu");
+        hamBtn.innerHTML = "&#9776;";
+        topnav.insertBefore(hamBtn, topnav.firstChild);
+
+        // Create overlay
+        const overlay = document.createElement("div");
+        overlay.className = "sidebar-overlay";
+        document.body.appendChild(overlay);
+
+        function toggleSidebar() {
+            sidebar.classList.toggle("open");
+            overlay.classList.toggle("open");
+        }
+        function closeSidebar() {
+            sidebar.classList.remove("open");
+            overlay.classList.remove("open");
+        }
+
+        hamBtn.addEventListener("click", toggleSidebar);
+        overlay.addEventListener("click", closeSidebar);
+
+        // Close sidebar when a link is clicked (mobile)
+        sidebar.querySelectorAll("a").forEach(a => {
+            a.addEventListener("click", closeSidebar);
+        });
+    }
+
     // Update sidebar links based on role
     const sidebar = document.querySelector(".sidebar");
     if (sidebar && user && !sidebar.dataset.navDone) {
