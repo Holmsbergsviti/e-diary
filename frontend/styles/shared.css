@@ -1041,7 +1041,7 @@ tr:hover td {
    ============================================================ */
 .grades-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 20px;
 }
 .grade-subject-card {
@@ -1157,9 +1157,6 @@ tr:hover td {
    Responsive: tablets (max-width: 900px)
    ============================================================ */
 @media (max-width: 900px) {
-    .grades-grid {
-        grid-template-columns: 1fr;
-    }
     .content {
         padding: 20px;
     }
