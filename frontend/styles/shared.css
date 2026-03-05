@@ -1,3 +1,47 @@
+/* ---- Dashboard: align recent grades table like grades page ---- */
+.dashboard-page table {
+    table-layout: fixed;
+    width: 100%;
+}
+.dashboard-page th:nth-child(1),
+.dashboard-page td:nth-child(1) {
+    width: 32%;
+    min-width: 60px;
+    text-align: left;
+}
+.dashboard-page th:nth-child(2),
+.dashboard-page td:nth-child(2) {
+    width: 32%;
+    min-width: 60px;
+    text-align: left;
+}
+.dashboard-page th:nth-child(3),
+.dashboard-page td:nth-child(3) {
+    width: 60px;
+    min-width: 48px;
+    text-align: center;
+}
+.dashboard-page th:nth-child(4),
+.dashboard-page td:nth-child(4) {
+    width: 80px;
+    min-width: 50px;
+    text-align: center;
+}
+.dashboard-page .grade-badge {
+    margin: 0 auto;
+    display: block;
+}
+
+@media (max-width: 768px) {
+    .dashboard-page table { font-size: 0.78rem; }
+    .dashboard-page th, .dashboard-page td { padding: 6px 4px; }
+    .dashboard-page th:nth-child(1), .dashboard-page td:nth-child(1) { width: auto; min-width: 40px; }
+    .dashboard-page th:nth-child(2), .dashboard-page td:nth-child(2) { width: auto; min-width: 40px; }
+    .dashboard-page th:nth-child(3), .dashboard-page td:nth-child(3) { width: 36px; min-width: 36px; }
+    .dashboard-page th:nth-child(4), .dashboard-page td:nth-child(4) { width: 60px; min-width: 40px; }
+    .dashboard-page .grade-badge { width: 22px; height: 22px; line-height: 22px; font-size: 0.72rem; }
+    .card > table, .card > div > table { display: table; overflow-x: unset; white-space: normal; }
+}
 /* ============================================================
    Shared layout styles (nav, sidebar, page scaffold)
    ============================================================ */
