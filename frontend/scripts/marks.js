@@ -148,6 +148,68 @@ function renderActiveGroup(container) {
     }
 }
 
+/* ---- Shared helper: build stats HTML for one student ---- */
+function buildStatsHtml(stats) {
+    const st = stats || {};
+    if (!st.attendance && !st.grades && !st.homework && !st.behavioral) return '';
+
+    const att = st.attendance || {};
+    const attTotal = att.total || 0;
+    const present = att.Present || 0;
+    const late = att.Late || 0;
+    const absent = att.Absent || 0;
+    const excused = att.Excused || 0;
+
+    const gr = st.grades || {};
+    const hw = st.homework || {};
+    const hwTotal = (hw.completed || 0) + (hw.partial || 0) + (hw.not_done || 0);
+    const beh = st.behavioral || {};
+    const behTotal = (beh.positive || 0) + (beh.negative || 0) + (beh.note || 0);
+
+    return `<div class="student-stats-grid">
+        <div class="student-stat-card">
+            <div class="student-stat-label">📋 Attendance</div>
+            ${attTotal > 0 ? `
+            <div class="student-stat-bar">
+                <div class="stat-bar-seg stat-bar-present" style="width:${(present/attTotal*100).toFixed(1)}%" title="Present: ${present}"></div>
+                <div class="stat-bar-seg stat-bar-late" style="width:${(late/attTotal*100).toFixed(1)}%" title="Late: ${late}"></div>
+                <div class="stat-bar-seg stat-bar-absent" style="width:${(absent/attTotal*100).toFixed(1)}%" title="Absent: ${absent}"></div>
+                <div class="stat-bar-seg stat-bar-excused" style="width:${(excused/attTotal*100).toFixed(1)}%" title="Excused: ${excused}"></div>
+            </div>
+            <div class="student-stat-nums">
+                <span class="stat-present">${present} present</span>
+                <span class="stat-late">${late} late</span>
+                <span class="stat-absent">${absent} absent</span>
+                <span class="stat-excused">${excused} excused</span>
+            </div>` : `<div class="student-stat-empty">No records</div>`}
+        </div>
+        <div class="student-stat-card">
+            <div class="student-stat-label">📊 Grades</div>
+            ${gr.average != null ? `
+            <div class="student-stat-big">${gr.average}%</div>
+            <div class="student-stat-sub">${gr.count} grade${gr.count !== 1 ? 's' : ''} total</div>` : `<div class="student-stat-empty">No grades</div>`}
+        </div>
+        <div class="student-stat-card">
+            <div class="student-stat-label">📝 Homework</div>
+            ${hwTotal > 0 ? `
+            <div class="student-stat-hw">
+                <span class="stat-hw-pill stat-hw-done">${hw.completed || 0} done</span>
+                <span class="stat-hw-pill stat-hw-partial">${hw.partial || 0} partial</span>
+                <span class="stat-hw-pill stat-hw-not">${hw.not_done || 0} missing</span>
+            </div>` : `<div class="student-stat-empty">No records</div>`}
+        </div>
+        <div class="student-stat-card">
+            <div class="student-stat-label">⭐ Behavioral</div>
+            ${behTotal > 0 ? `
+            <div class="student-stat-hw">
+                <span class="stat-hw-pill" style="background:#d1fae5;color:#065f46;">👍 ${beh.positive || 0}</span>
+                <span class="stat-hw-pill" style="background:#fee2e2;color:#991b1b;">👎 ${beh.negative || 0}</span>
+                <span class="stat-hw-pill" style="background:#e0e7ff;color:#3730a3;">📝 ${beh.note || 0}</span>
+            </div>` : `<div class="student-stat-empty">No entries</div>`}
+        </div>
+    </div>`;
+}
+
 /* ---- Class Overview: student list with expandable all-subject grades ---- */
 function renderClassOverview(container, group) {
     if (!group || !group.students || group.students.length === 0) {
@@ -189,67 +251,7 @@ function renderClassOverview(container, group) {
 
         // --- Per-student stat cards ---
         if (st.attendance || st.grades || st.homework || st.behavioral) {
-            html += `<div class="student-stats-grid">`;
-
-            // Attendance mini card
-            const attTotal = att.total || 0;
-            const present = att.Present || 0;
-            const late = att.Late || 0;
-            const absent = att.Absent || 0;
-            const excused = att.Excused || 0;
-            html += `<div class="student-stat-card">
-                <div class="student-stat-label">📋 Attendance</div>
-                ${attTotal > 0 ? `
-                <div class="student-stat-bar">
-                    <div class="stat-bar-seg stat-bar-present" style="width:${(present/attTotal*100).toFixed(1)}%" title="Present: ${present}"></div>
-                    <div class="stat-bar-seg stat-bar-late" style="width:${(late/attTotal*100).toFixed(1)}%" title="Late: ${late}"></div>
-                    <div class="stat-bar-seg stat-bar-absent" style="width:${(absent/attTotal*100).toFixed(1)}%" title="Absent: ${absent}"></div>
-                    <div class="stat-bar-seg stat-bar-excused" style="width:${(excused/attTotal*100).toFixed(1)}%" title="Excused: ${excused}"></div>
-                </div>
-                <div class="student-stat-nums">
-                    <span class="stat-present">${present} present</span>
-                    <span class="stat-late">${late} late</span>
-                    <span class="stat-absent">${absent} absent</span>
-                    <span class="stat-excused">${excused} excused</span>
-                </div>` : `<div class="student-stat-empty">No records</div>`}
-            </div>`;
-
-            // Grade average mini card
-            const gr = st.grades || {};
-            html += `<div class="student-stat-card">
-                <div class="student-stat-label">📊 Grades</div>
-                ${gr.average != null ? `
-                <div class="student-stat-big">${gr.average}%</div>
-                <div class="student-stat-sub">${gr.count} grade${gr.count !== 1 ? 's' : ''} total</div>` : `<div class="student-stat-empty">No grades</div>`}
-            </div>`;
-
-            // Homework mini card
-            const hw = st.homework || {};
-            const hwTotal = (hw.completed || 0) + (hw.partial || 0) + (hw.not_done || 0);
-            html += `<div class="student-stat-card">
-                <div class="student-stat-label">📝 Homework</div>
-                ${hwTotal > 0 ? `
-                <div class="student-stat-hw">
-                    <span class="stat-hw-pill stat-hw-done">${hw.completed || 0} done</span>
-                    <span class="stat-hw-pill stat-hw-partial">${hw.partial || 0} partial</span>
-                    <span class="stat-hw-pill stat-hw-not">${hw.not_done || 0} missing</span>
-                </div>` : `<div class="student-stat-empty">No records</div>`}
-            </div>`;
-
-            // Behavioral mini card
-            const beh = st.behavioral || {};
-            const behTotal = (beh.positive || 0) + (beh.negative || 0) + (beh.note || 0);
-            html += `<div class="student-stat-card">
-                <div class="student-stat-label">⭐ Behavioral</div>
-                ${behTotal > 0 ? `
-                <div class="student-stat-hw">
-                    <span class="stat-hw-pill" style="background:#d1fae5;color:#065f46;">👍 ${beh.positive || 0}</span>
-                    <span class="stat-hw-pill" style="background:#fee2e2;color:#991b1b;">👎 ${beh.negative || 0}</span>
-                    <span class="stat-hw-pill" style="background:#e0e7ff;color:#3730a3;">📝 ${beh.note || 0}</span>
-                </div>` : `<div class="student-stat-empty">No entries</div>`}
-            </div>`;
-
-            html += `</div>`;
+            html += buildStatsHtml(st);
         }
 
         if (student.subjects && student.subjects.length > 0) {
@@ -391,6 +393,8 @@ function renderGroup(container, group) {
     }
     const assessments = Array.from(assessmentSet).sort();
 
+    const colCount = 3 + (assessments.length > 0 ? assessments.length : 1) + 1; // #, Student, Class, assessments, Predicted
+
     html += `<table>
         <thead>
             <tr>
@@ -425,9 +429,12 @@ function renderGroup(container, group) {
             // Predicted grade for current term filter
             const pred = predictGrade(s.grades);
 
-            html += `<tr>
+            html += `<tr class="student-main-row" data-stats-target="stats-row-${i}">
                 <td>${i + 1}</td>
-                <td class="student-name-clickable" data-student-id="${s.student_id}" data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">${escHtml(s.surname)} ${escHtml(s.name)}</td>
+                <td>
+                    <span class="student-name-toggle" data-student-id="${s.student_id}" data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">${escHtml(s.surname)} ${escHtml(s.name)}</span>
+                    <button class="add-grade-inline-btn" data-student-id="${s.student_id}" title="Add grade">＋</button>
+                </td>
                 <td><span class="class-tag">${escHtml(s.class_name)}</span></td>`;
 
             if (assessments.length > 0) {
@@ -455,6 +462,14 @@ function renderGroup(container, group) {
             }
 
             html += `</tr>`;
+
+            // Hidden stats expansion row
+            const statsHtml = buildStatsHtml(s.stats);
+            if (statsHtml) {
+                html += `<tr class="student-stats-row" id="stats-row-${i}" style="display:none;">
+                    <td colspan="${colCount}" class="stats-expansion-cell">${statsHtml}</td>
+                </tr>`;
+            }
         });
 
     html += `</tbody></table>`;
@@ -478,10 +493,24 @@ function renderGroup(container, group) {
         });
     });
 
-    // Wire clickable student names to open Add Grade with student pre-selected
-    container.querySelectorAll(".student-name-clickable").forEach(cell => {
-        cell.addEventListener("click", () => {
-            openGradeModal(null, null, cell.dataset.studentId);
+    // Wire student name toggles to expand/collapse stats row
+    container.querySelectorAll(".student-name-toggle").forEach(el => {
+        el.addEventListener("click", () => {
+            const mainRow = el.closest(".student-main-row");
+            const targetId = mainRow.dataset.statsTarget;
+            const statsRow = document.getElementById(targetId);
+            if (!statsRow) return;
+            const isVisible = statsRow.style.display !== "none";
+            statsRow.style.display = isVisible ? "none" : "table-row";
+            mainRow.classList.toggle("stats-expanded", !isVisible);
+        });
+    });
+
+    // Wire inline add-grade buttons
+    container.querySelectorAll(".add-grade-inline-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            openGradeModal(null, null, btn.dataset.studentId);
         });
     });
 }

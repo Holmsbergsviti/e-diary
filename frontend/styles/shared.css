@@ -992,3 +992,46 @@ tr:hover td {
     letter-spacing: 0.3px;
     margin-bottom: 4px;
 }
+
+/* ── Subject-group: student name toggle + inline add button ── */
+.student-name-toggle {
+    cursor: pointer;
+    color: #2563eb;
+    font-weight: 500;
+    transition: color 0.15s;
+}
+.student-name-toggle:hover { color: #1d4ed8; text-decoration: underline; }
+.student-main-row.stats-expanded .student-name-toggle { color: #1d4ed8; font-weight: 600; }
+
+.add-grade-inline-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 6px;
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 50%;
+    background: #e0e7ff;
+    color: #4338ca;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    vertical-align: middle;
+    line-height: 1;
+    transition: background 0.15s, color 0.15s;
+}
+.add-grade-inline-btn:hover { background: #4338ca; color: #fff; }
+
+/* Stats expansion row inside subject-group table */
+.student-stats-row td { padding: 0 !important; }
+.stats-expansion-cell {
+    padding: 12px 16px !important;
+    background: #f8fafc;
+    border-left: 3px solid #4338ca;
+}
+.stats-expansion-cell .student-stats-grid {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
