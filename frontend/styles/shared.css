@@ -157,7 +157,6 @@ body {
     font-size: 0.78rem;
 }
 
-/* ---- Tables ---- */
 table {
     width: 100%;
     border-collapse: collapse;
@@ -184,6 +183,39 @@ tr:last-child td {
 
 tr:hover td {
     background: #f9fafb;
+}
+
+/* ---- Grades page: align all grade badges in one column ---- */
+.grades-page table {
+    table-layout: fixed;
+}
+.grades-page th:nth-child(1),
+.grades-page td:nth-child(1) {
+    width: 50%;
+    min-width: 120px;
+    text-align: left;
+}
+.grades-page th:nth-child(2),
+.grades-page td:nth-child(2) {
+    width: 80px;
+    min-width: 80px;
+    text-align: center;
+}
+.grades-page th:nth-child(3),
+.grades-page td:nth-child(3) {
+    width: 80px;
+    min-width: 60px;
+    text-align: center;
+}
+.grades-page th:nth-child(4),
+.grades-page td:nth-child(4) {
+    width: 120px;
+    min-width: 90px;
+    text-align: center;
+}
+.grades-page .grade-badge {
+    margin: 0 auto;
+    display: block;
 }
 
 /* ---- Grade badge ---- */
