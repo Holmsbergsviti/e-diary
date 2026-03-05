@@ -65,11 +65,12 @@ async function loadRecentGrades() {
         const data = await res.json();
         const now = new Date();
         const weekAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6); // 7 days including today
-        const grades = (data.grades || []).filter(g => {
+        let grades = (data.grades || []).filter(g => {
             if (!g.date) return false;
             const d = new Date(g.date);
             return d >= weekAgo && d <= now;
         });
+        grades = grades.slice(0, 7);
 
         if (grades.length === 0) {
             container.innerHTML = '<p class="empty-state">No grades recorded in the past week.</p>';
