@@ -1,4 +1,4 @@
-const API_BASE = "https://e-diary-backend-qsly.onrender.com/api";
+const API_BASE = "https://e-diary-1.onrender.com/api";
 
 document.getElementById("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
