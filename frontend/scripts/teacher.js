@@ -12,10 +12,6 @@ let allSlots = [];      // full schedule
 let currentSlot = null; // slot being attended
 let weekOffset = 0;     // 0 = this week, -1 = last week, etc.
 
-/* ----Layout Setting----------*/
-function setting(){
-
-}
 
 /* ---- Bootstrap ------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
@@ -850,18 +846,32 @@ async function saveBehavioral() {
         btn.textContent = "Save Note";
     }
 }
+var1 = true
+function Setting(){
+    if (var1 == true){
+        hideSetting("group-checkbox")
+    }
+    else{
 
-function showSettings() {
+    }
+}
+
+function showSettings(classname) {
         // Get all elements with the class "group-checkbox"
-    const checkboxes = document.querySelectorAll('.group-checkbox');
-    // Iterate over the collection and set the display style
-    checkboxes.forEach(checkbox => {
-        if (checkbox.checked == true){
-            checkbox.style.display ='block'
-        }
-        else{
-            checkbox.style.display='none'
-        }
-    });
+    const elements = document.getElementsByClassName(classname);
+    
+    // Iterate over the elements and hide them
+    for (const element of elements) {
+        element.style.display = 'block';
+    }
+}
+function hideSetting(classname) {
+         // Get all elements with the class "group-checkbox"
+    const elements = document.getElementsByClassName(classname);
+    
+    // Iterate over the elements and hide them
+    for (const element of elements) {
+        element.style.display = 'none';
+    }
 }
 
