@@ -5,8 +5,8 @@
 }
 
 body {
-    font-family: Arial, sans-serif;
-    background: #f0f2f5;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(180deg, #e8ecf1 0%, #f5f8fb 100%);
     min-height: 100vh;
     display: flex;
     align-items: center;
@@ -20,10 +20,11 @@ body {
 }
 
 .login-card {
-    background: #fff;
-    border-radius: 10px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+    background: linear-gradient(145deg, #f8fafb, #f0f4f8);
+    border-radius: 24px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8);
     padding: 40px 36px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
 }
 
 .login-header {
@@ -36,17 +37,21 @@ body {
     height: 64px;
     object-fit: contain;
     margin-bottom: 12px;
+    filter: drop-shadow(0 4px 12px rgba(76, 124, 179, 0.15));
 }
 
 .login-header h1 {
     font-size: 1.6rem;
-    color: #1a2a3a;
+    color: #4c7cb3;
+    font-weight: 700;
+    letter-spacing: -0.5px;
 }
 
 .login-subtitle {
-    color: #6b7280;
+    color: #8b9ab3;
     font-size: 0.9rem;
     margin-top: 4px;
+    font-weight: 400;
 }
 
 .form-group {
@@ -57,50 +62,66 @@ body {
     display: block;
     font-size: 0.85rem;
     font-weight: 600;
-    color: #374151;
+    color: #6b8aad;
     margin-bottom: 6px;
+    letter-spacing: 0.3px;
 }
 
 .form-group input {
     width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
+    padding: 11px 14px;
+    background: linear-gradient(145deg, #fafbfd, #f5f8fb);
+    border: 1px solid rgba(203, 219, 235, 0.5);
+    border-radius: 12px;
     font-size: 1rem;
-    transition: border-color 0.2s;
+    transition: all 0.3s ease;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.02), inset 0 1px 2px rgba(255, 255, 255, 0.5);
+    font-family: inherit;
 }
 
 .form-group input:focus {
     outline: none;
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    border-color: rgba(76, 124, 179, 0.4);
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.02), inset 0 1px 2px rgba(255, 255, 255, 0.5), 0 0 0 4px rgba(76, 124, 179, 0.1);
+    background: #fafcfd;
 }
 
 .error-msg {
-    color: #dc2626;
+    color: #d97c5e;
     font-size: 0.85rem;
     margin-bottom: 12px;
     min-height: 20px;
+    font-weight: 500;
 }
 
 button[type="submit"] {
     width: 100%;
-    padding: 11px;
-    background: #2563eb;
+    padding: 12px;
+    background: linear-gradient(145deg, #6b9ec9, #5a8fb5);
     color: #fff;
     border: none;
-    border-radius: 6px;
-    font-size: 1rem;
-    font-weight: 600;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 700;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: all 0.3s ease;
+    box-shadow: 0 8px 24px rgba(76, 124, 179, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
 }
 
 button[type="submit"]:hover {
-    background: #1d4ed8;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(76, 124, 179, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+button[type="submit"]:active {
+    transform: translateY(0);
+    box-shadow: 0 4px 12px rgba(76, 124, 179, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 button[type="submit"]:disabled {
-    background: #93c5fd;
+    background: linear-gradient(145deg, #b5c7d9, #a8bdd1);
     cursor: not-allowed;
+    transform: none;
 }
