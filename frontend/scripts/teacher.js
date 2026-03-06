@@ -853,9 +853,9 @@ async function saveBehavioral() {
 
 function showSettings() {
     checkbox = document.getElementByID("checkboxListContainer")
-    if (checkbox.hidden) {
-        checkbox.hidden = false;
+    if (checkbox.style.display='none') {
+        checkbox.style.display='block'
     } else {
-        checkbox.hidden = true;
+        checkbox.style.display='none'
     }
 }
