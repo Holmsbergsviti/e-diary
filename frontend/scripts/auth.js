@@ -1,6 +1,25 @@
 // Shared authentication utilities
 const API_BASE = "https://e-diary-1.onrender.com/api";
 
+// Load saved color theme on every page
+(function loadTheme() {
+    const savedTheme = localStorage.getItem("selectedTheme") || "bright-blue";
+    const themeMap = {
+        "bright-blue": "",
+        "ocean": "ocean",
+        "purple": "purple",
+        "emerald": "emerald",
+        "rose": "rose",
+        "amber": "amber",
+        "indigo": "indigo"
+    };
+    
+    const themeAttr = themeMap[savedTheme] || "";
+    if (themeAttr) {
+        document.documentElement.setAttribute("data-theme", themeAttr);
+    }
+})();
+
 function getToken() {
     return localStorage.getItem("token");
 }

@@ -4,6 +4,37 @@
     padding: 0;
 }
 
+/* Animations */
+@keyframes slideInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes glow {
+    0%, 100% { box-shadow: 0 0 5px rgba(37, 99, 235, 0.3); }
+    50% { box-shadow: 0 0 20px rgba(37, 99, 235, 0.6); }
+}
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: linear-gradient(180deg, #e8ecf1 0%, #f5f8fb 100%);
@@ -17,6 +48,7 @@ body {
     width: 100%;
     max-width: 400px;
     padding: 16px;
+    animation: slideInUp 0.6s ease;
 }
 
 .login-card {
@@ -25,6 +57,7 @@ body {
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8);
     padding: 40px 36px;
     border: 1px solid rgba(255, 255, 255, 0.5);
+    animation: scaleIn 0.6s ease;
 }
 
 .login-header {
@@ -37,14 +70,16 @@ body {
     height: 64px;
     object-fit: contain;
     margin-bottom: 12px;
-    filter: drop-shadow(0 4px 12px rgba(76, 124, 179, 0.15));
+    filter: drop-shadow(0 4px 12px rgba(37, 99, 235, 0.15));
+    animation: bounce 2s ease-in-out infinite;
 }
 
 .login-header h1 {
     font-size: 1.6rem;
-    color: #4c7cb3;
+    color: var(--primary-blue);
     font-weight: 700;
     letter-spacing: -0.5px;
+    animation: slideInDown 0.5s ease;
 }
 
 .login-subtitle {
@@ -97,7 +132,7 @@ body {
 button[type="submit"] {
     width: 100%;
     padding: 12px;
-    background: linear-gradient(145deg, #6b9ec9, #5a8fb5);
+    background: linear-gradient(145deg, linear-gradient(145deg, var(--gradient-from), var(--gradient-to)), #5a8fb5);
     color: #fff;
     border: none;
     border-radius: 12px;
