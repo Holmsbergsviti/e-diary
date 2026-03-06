@@ -857,12 +857,11 @@ function showSettings() {
     // Iterate over the collection and set the display style
     checkboxes.forEach(checkbox => {
         if (checkbox.style.display='block'){
-            checkbox.style.display = 'none'
+            checkbox.style.display ='none'
         }
-        else {
+        else if(checkbox.style.display='none'){
             checkbox.style.display='block'
         }
-        
     });
 }
 
