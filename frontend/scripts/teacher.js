@@ -852,7 +852,7 @@ async function saveBehavioral() {
 }
 
 function showSettings() {
-    checkbox = document.getElementByClass("hideText")
+    checkbox = document.getElementsByClassName("hideText")
     if (checkbox.hidden) {
         checkbox.hidden = false;
     } else {
