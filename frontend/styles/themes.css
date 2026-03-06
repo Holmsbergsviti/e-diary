@@ -13,11 +13,75 @@
     
     --text-dark: #1e3a8a;
     --text-muted: #64748b;
+    --text-muted-alt: #5a7a99;
+    --text-light: #7a92ac;
+    --text-lighter: #8b9ab3;
+    --text-label: #6b8aad;
     --shadow-color: rgba(37, 99, 235, 0.15);
     
     --sidebar-hover: rgba(37, 99, 235, 0.08);
     --border-color: rgba(37, 99, 235, 0.15);
     --secondary-light: #6b9ec9;
+    
+    --bg-light: #f5f9fe;
+    --bg-lighter: #f0f4f8;
+    --bg-lightest: #f8fafb;
+    --bg-card: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    --bg-button: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    --bg-nav: linear-gradient(145deg, #e8ecf1, #dfe7ed);
+    --bg-page: linear-gradient(180deg, #e8ecf1 0%, #f0f4f8 50%, #e8ecf1 100%);
+    --bg-table-header: linear-gradient(145deg, #f0f4f8, #eaf0f6);
+    --bg-hover: linear-gradient(145deg, #eef4fa, #e8ecf1);
+    --bg-lesson: linear-gradient(145deg, #e3f0ff, #d7e8f8);
+    --bg-lesson-hover: linear-gradient(145deg, #d7e8f8, #cfe2f5);
+    
+    --grade-a: linear-gradient(145deg, #7db8a8, #6ba892);
+    --grade-b: linear-gradient(145deg, #6b9ec9, #5a8fb5);
+    --grade-c: linear-gradient(145deg, #5ab5c7, #47a5b7);
+    --grade-d: linear-gradient(145deg, #c9a06b, #b5915d);
+    --grade-e: linear-gradient(145deg, #c98080, #b57170);
+    --grade-u: linear-gradient(145deg, #8a6b7a, #7a5b6a);
+    
+    --status-present-bg: linear-gradient(145deg, #d7e8d0, #cde0c6);
+    --status-present-border: #9fb59a;
+    --status-present-text: #4a6b48;
+    
+    --status-late-bg: linear-gradient(145deg, #f5e8c7, #ede0bd);
+    --status-late-border: #d4be8b;
+    --status-late-text: #8b7a3e;
+    
+    --status-absent-bg: linear-gradient(145deg, #f0d4d4, #e8caca);
+    --status-absent-border: #d4a5a5;
+    --status-absent-text: #8b4a4a;
+    
+    --status-excused-bg: linear-gradient(145deg, #d7e8f5, #cfe2f0);
+    --status-excused-border: #9fb5d4;
+    --status-excused-text: #3a5a8b;
+    
+    --cat-exam-bg: linear-gradient(145deg, #f5d7d7, #ead4cb);
+    --cat-exam-text: #a56b6b;
+    --cat-test-bg: linear-gradient(145deg, #f5ead7, #eae0cb);
+    --cat-test-text: #a89b6b;
+    --cat-project-bg: linear-gradient(145deg, #d7e8f5, #cbd4ea);
+    --cat-project-text: #6b8aad;
+    --cat-homework-bg: linear-gradient(145deg, #d7f0d7, #cbead4);
+    --cat-homework-text: #6b9a6b;
+    --cat-classwork-bg: linear-gradient(145deg, #ead7f5, #dccbea);
+    --cat-classwork-text: #8a6bad;
+    --cat-other-bg: linear-gradient(145deg, #f0f4f8, #eaf0f6);
+    --cat-other-text: #7a92ac;
+    
+    --hw-badge-done-bg: linear-gradient(145deg, #d1fae5, #c1f0dd);
+    --hw-badge-done-text: #065f46;
+    --hw-badge-partial-bg: linear-gradient(145deg, #fef3c7, #fef0b5);
+    --hw-badge-partial-text: #92400e;
+    --hw-badge-notdone-bg: linear-gradient(145deg, #fee2e2, #fecaca);
+    --hw-badge-notdone-text: #991b1b;
+    
+    --stat-present: #34d399;
+    --stat-late: #fbbf24;
+    --stat-absent: #f87171;
+    --stat-excused: #a78bfa;
 }
 
 /* Dark Ocean Theme */
@@ -33,11 +97,75 @@
     
     --text-dark: #0c2d4a;
     --text-muted: #475569;
+    --text-muted-alt: #475569;
+    --text-light: #0c4a6e;
+    --text-lighter: #475569;
+    --text-label: #0c4a6e;
     --shadow-color: rgba(3, 105, 161, 0.15);
     
     --sidebar-hover: rgba(3, 105, 161, 0.08);
     --border-color: rgba(3, 105, 161, 0.15);
     --secondary-light: #0ea5e9;
+    
+    --bg-light: #cffafe;
+    --bg-lighter: #a5f3fc;
+    --bg-lightest: #ecf8fb;
+    --bg-card: linear-gradient(145deg, #cffafe, #a5f3fc);
+    --bg-button: linear-gradient(145deg, #cffafe, #a5f3fc);
+    --bg-nav: linear-gradient(145deg, #7dd3fc, #38bdf8);
+    --bg-page: linear-gradient(180deg, #7dd3fc 0%, #38bdf8 50%, #7dd3fc 100%);
+    --bg-table-header: linear-gradient(145deg, #a5f3fc, #67e8f9);
+    --bg-hover: linear-gradient(145deg, #67e8f9, #06b6d4);
+    --bg-lesson: linear-gradient(145deg, #cffafe, #a5f3fc);
+    --bg-lesson-hover: linear-gradient(145deg, #a5f3fc, #67e8f9);
+    
+    --grade-a: linear-gradient(145deg, #06b6d4, #0ea5e9);
+    --grade-b: linear-gradient(145deg, #0369a1, #0284c7);
+    --grade-c: linear-gradient(145deg, #0c4a6e, #164e63);
+    --grade-d: linear-gradient(145deg, #0d9488, #14b8a6);
+    --grade-e: linear-gradient(145deg, #0891b2, #06b6d4);
+    --grade-u: linear-gradient(145deg, #0369a1, #0284c7);
+    
+    --status-present-bg: linear-gradient(145deg, #a7f3d0, #86efac);
+    --status-present-border: #4ade80;
+    --status-present-text: #166534;
+    
+    --status-late-bg: linear-gradient(145deg, #fef08a, #fef3c7);
+    --status-late-border: #fcd34d;
+    --status-late-text: #713f12;
+    
+    --status-absent-bg: linear-gradient(145deg, #fca5a5, #f87171);
+    --status-absent-border: #f87171;
+    --status-absent-text: #7f1d1d;
+    
+    --status-excused-bg: linear-gradient(145deg, #a5f3fc, #67e8f9);
+    --status-excused-border: #06b6d4;
+    --status-excused-text: #0c4a6e;
+    
+    --cat-exam-bg: linear-gradient(145deg, #fed7aa, #fdba74);
+    --cat-exam-text: #92400e;
+    --cat-test-bg: linear-gradient(145deg, #fef08a, #fef3c7);
+    --cat-test-text: #713f12;
+    --cat-project-bg: linear-gradient(145deg, #a5f3fc, #67e8f9);
+    --cat-project-text: #0c4a6e;
+    --cat-homework-bg: linear-gradient(145deg, #a7f3d0, #86efac);
+    --cat-homework-text: #166534;
+    --cat-classwork-bg: linear-gradient(145deg, #c4b5fd, #a78bfa);
+    --cat-classwork-text: #4c0519;
+    --cat-other-bg: linear-gradient(145deg, #a5f3fc, #67e8f9);
+    --cat-other-text: #0c4a6e;
+    
+    --hw-badge-done-bg: linear-gradient(145deg, #a7f3d0, #86efac);
+    --hw-badge-done-text: #166534;
+    --hw-badge-partial-bg: linear-gradient(145deg, #fef08a, #fef3c7);
+    --hw-badge-partial-text: #713f12;
+    --hw-badge-notdone-bg: linear-gradient(145deg, #fca5a5, #f87171);
+    --hw-badge-notdone-text: #7f1d1d;
+    
+    --stat-present: #4ade80;
+    --stat-late: #fcd34d;
+    --stat-absent: #f87171;
+    --stat-excused: #06b6d4;
 }
 
 /* Purple Gradient Theme */
@@ -53,11 +181,75 @@
     
     --text-dark: #5b21b6;
     --text-muted: #6b7280;
+    --text-muted-alt: #7c3aed;
+    --text-light: #7c3aed;
+    --text-lighter: #9333ea;
+    --text-label: #6d28d9;
     --shadow-color: rgba(124, 58, 237, 0.15);
     
     --sidebar-hover: rgba(124, 58, 237, 0.08);
     --border-color: rgba(124, 58, 237, 0.15);
     --secondary-light: #a78bfa;
+    
+    --bg-light: #f3e8ff;
+    --bg-lighter: #ede9fe;
+    --bg-lightest: #faf5ff;
+    --bg-card: linear-gradient(145deg, #f3e8ff, #ede9fe);
+    --bg-button: linear-gradient(145deg, #f3e8ff, #ede9fe);
+    --bg-nav: linear-gradient(145deg, #d8b4fe, #c084fc);
+    --bg-page: linear-gradient(180deg, #d8b4fe 0%, #c084fc 50%, #d8b4fe 100%);
+    --bg-table-header: linear-gradient(145deg, #ede9fe, #ddd6fe);
+    --bg-hover: linear-gradient(145deg, #ddd6fe, #c084fc);
+    --bg-lesson: linear-gradient(145deg, #e9d5ff, #d8b4fe);
+    --bg-lesson-hover: linear-gradient(145deg, #d8b4fe, #c084fc);
+    
+    --grade-a: linear-gradient(145deg, #c084fc, #a78bfa);
+    --grade-b: linear-gradient(145deg, #7c3aed, #9333ea);
+    --grade-c: linear-gradient(145deg, #6d28d9, #7c3aed);
+    --grade-d: linear-gradient(145deg, #9333ea, #a855f7);
+    --grade-e: linear-gradient(145deg, #a855f7, #c084fc);
+    --grade-u: linear-gradient(145deg, #7c3aed, #6d28d9);
+    
+    --status-present-bg: linear-gradient(145deg, #d1fae5, #c1f0dd);
+    --status-present-border: #10b981;
+    --status-present-text: #065f46;
+    
+    --status-late-bg: linear-gradient(145deg, #fef3c7, #fef0b5);
+    --status-late-border: #fcd34d;
+    --status-late-text: #92400e;
+    
+    --status-absent-bg: linear-gradient(145deg, #fee2e2, #fecaca);
+    --status-absent-border: #f87171;
+    --status-absent-text: #991b1b;
+    
+    --status-excused-bg: linear-gradient(145deg, #e9d5ff, #d8b4fe);
+    --status-excused-border: #9333ea;
+    --status-excused-text: #5b21b6;
+    
+    --cat-exam-bg: linear-gradient(145deg, #fed7aa, #fdba74);
+    --cat-exam-text: #92400e;
+    --cat-test-bg: linear-gradient(145deg, #fef3c7, #fef0b5);
+    --cat-test-text: #92400e;
+    --cat-project-bg: linear-gradient(145deg, #e9d5ff, #d8b4fe);
+    --cat-project-text: #5b21b6;
+    --cat-homework-bg: linear-gradient(145deg, #d1fae5, #c1f0dd);
+    --cat-homework-text: #065f46;
+    --cat-classwork-bg: linear-gradient(145deg, #e9d5ff, #d8b4fe);
+    --cat-classwork-text: #5b21b6;
+    --cat-other-bg: linear-gradient(145deg, #ede9fe, #ddd6fe);
+    --cat-other-text: #6d28d9;
+    
+    --hw-badge-done-bg: linear-gradient(145deg, #d1fae5, #c1f0dd);
+    --hw-badge-done-text: #065f46;
+    --hw-badge-partial-bg: linear-gradient(145deg, #fef3c7, #fef0b5);
+    --hw-badge-partial-text: #92400e;
+    --hw-badge-notdone-bg: linear-gradient(145deg, #fee2e2, #fecaca);
+    --hw-badge-notdone-text: #991b1b;
+    
+    --stat-present: #10b981;
+    --stat-late: #fcd34d;
+    --stat-absent: #f87171;
+    --stat-excused: #7c3aed;
 }
 
 /* Emerald Green Theme */
@@ -73,11 +265,75 @@
     
     --text-dark: #065f46;
     --text-muted: #4b5563;
+    --text-muted-alt: #059669;
+    --text-light: #047857;
+    --text-lighter: #10b981;
+    --text-label: #065f46;
     --shadow-color: rgba(5, 150, 105, 0.15);
     
     --sidebar-hover: rgba(5, 150, 105, 0.08);
     --border-color: rgba(5, 150, 105, 0.15);
     --secondary-light: #10b981;
+    
+    --bg-light: #d1fae5;
+    --bg-lighter: #a7f3d0;
+    --bg-lightest: #ecfdf5;
+    --bg-card: linear-gradient(145deg, #d1fae5, #a7f3d0);
+    --bg-button: linear-gradient(145deg, #d1fae5, #a7f3d0);
+    --bg-nav: linear-gradient(145deg, #6ee7b7, #34d399);
+    --bg-page: linear-gradient(180deg, #6ee7b7 0%, #34d399 50%, #6ee7b7 100%);
+    --bg-table-header: linear-gradient(145deg, #a7f3d0, #86efac);
+    --bg-hover: linear-gradient(145deg, #86efac, #6ee7b7);
+    --bg-lesson: linear-gradient(145deg, #c1f0dd, #a7f3d0);
+    --bg-lesson-hover: linear-gradient(145deg, #a7f3d0, #86efac);
+    
+    --grade-a: linear-gradient(145deg, #6ee7b7, #34d399);
+    --grade-b: linear-gradient(145deg, #059669, #10b981);
+    --grade-c: linear-gradient(145deg, #047857, #059669);
+    --grade-d: linear-gradient(145deg, #34d399, #6ee7b7);
+    --grade-e: linear-gradient(145deg, #10b981, #34d399);
+    --grade-u: linear-gradient(145deg, #059669, #047857);
+    
+    --status-present-bg: linear-gradient(145deg, #d1fae5, #c1f0dd);
+    --status-present-border: #10b981;
+    --status-present-text: #065f46;
+    
+    --status-late-bg: linear-gradient(145deg, #fef3c7, #fef0b5);
+    --status-late-border: #fcd34d;
+    --status-late-text: #92400e;
+    
+    --status-absent-bg: linear-gradient(145deg, #fee2e2, #fecaca);
+    --status-absent-border: #f87171;
+    --status-absent-text: #991b1b;
+    
+    --status-excused-bg: linear-gradient(145deg, #c1f0dd, #a7f3d0);
+    --status-excused-border: #10b981;
+    --status-excused-text: #065f46;
+    
+    --cat-exam-bg: linear-gradient(145deg, #fed7aa, #fdba74);
+    --cat-exam-text: #92400e;
+    --cat-test-bg: linear-gradient(145deg, #fef3c7, #fef0b5);
+    --cat-test-text: #92400e;
+    --cat-project-bg: linear-gradient(145deg, #c1f0dd, #a7f3d0);
+    --cat-project-text: #065f46;
+    --cat-homework-bg: linear-gradient(145deg, #d1fae5, #c1f0dd);
+    --cat-homework-text: #065f46;
+    --cat-classwork-bg: linear-gradient(145deg, #c4b5fd, #a78bfa);
+    --cat-classwork-text: #4c0519;
+    --cat-other-bg: linear-gradient(145deg, #a7f3d0, #86efac);
+    --cat-other-text: #065f46;
+    
+    --hw-badge-done-bg: linear-gradient(145deg, #d1fae5, #c1f0dd);
+    --hw-badge-done-text: #065f46;
+    --hw-badge-partial-bg: linear-gradient(145deg, #fef3c7, #fef0b5);
+    --hw-badge-partial-text: #92400e;
+    --hw-badge-notdone-bg: linear-gradient(145deg, #fee2e2, #fecaca);
+    --hw-badge-notdone-text: #991b1b;
+    
+    --stat-present: #10b981;
+    --stat-late: #fcd34d;
+    --stat-absent: #f87171;
+    --stat-excused: #059669;
 }
 
 /* Rose Pink Theme */
@@ -93,11 +349,75 @@
     
     --text-dark: #831843;
     --text-muted: #5f5f5f;
+    --text-muted-alt: #e11d48;
+    --text-light: #be181d;
+    --text-lighter: #f43f5e;
+    --text-label: #831843;
     --shadow-color: rgba(225, 29, 72, 0.15);
     
     --sidebar-hover: rgba(225, 29, 72, 0.08);
     --border-color: rgba(225, 29, 72, 0.15);
     --secondary-light: #f43f5e;
+    
+    --bg-light: #ffe4e6;
+    --bg-lighter: #fecdd3;
+    --bg-lightest: #fff1f2;
+    --bg-card: linear-gradient(145deg, #ffe4e6, #fecdd3);
+    --bg-button: linear-gradient(145deg, #ffe4e6, #fecdd3);
+    --bg-nav: linear-gradient(145deg, #fb7185, #f43f5e);
+    --bg-page: linear-gradient(180deg, #fb7185 0%, #f43f5e 50%, #fb7185 100%);
+    --bg-table-header: linear-gradient(145deg, #fecdd3, #fbcfe8);
+    --bg-hover: linear-gradient(145deg, #fbcfe8, #f8bbd0);
+    --bg-lesson: linear-gradient(145deg, #fda4af, #fb7185);
+    --bg-lesson-hover: linear-gradient(145deg, #fb7185, #f43f5e);
+    
+    --grade-a: linear-gradient(145deg, #fb7185, #f43f5e);
+    --grade-b: linear-gradient(145deg, #e11d48, #f43f5e);
+    --grade-c: linear-gradient(145deg, #be181d, #e11d48);
+    --grade-d: linear-gradient(145deg, #f43f5e, #f72585);
+    --grade-e: linear-gradient(145deg, #f72585, #fb7185);
+    --grade-u: linear-gradient(145deg, #e11d48, #be181d);
+    
+    --status-present-bg: linear-gradient(145deg, #d1fae5, #c1f0dd);
+    --status-present-border: #10b981;
+    --status-present-text: #065f46;
+    
+    --status-late-bg: linear-gradient(145deg, #fef3c7, #fef0b5);
+    --status-late-border: #fcd34d;
+    --status-late-text: #92400e;
+    
+    --status-absent-bg: linear-gradient(145deg, #fee2e2, #fecaca);
+    --status-absent-border: #f87171;
+    --status-absent-text: #991b1b;
+    
+    --status-excused-bg: linear-gradient(145deg, #fda4af, #fb7185);
+    --status-excused-border: #f43f5e;
+    --status-excused-text: #831843;
+    
+    --cat-exam-bg: linear-gradient(145deg, #fed7aa, #fdba74);
+    --cat-exam-text: #92400e;
+    --cat-test-bg: linear-gradient(145deg, #fef3c7, #fef0b5);
+    --cat-test-text: #92400e;
+    --cat-project-bg: linear-gradient(145deg, #fda4af, #fb7185);
+    --cat-project-text: #831843;
+    --cat-homework-bg: linear-gradient(145deg, #d1fae5, #c1f0dd);
+    --cat-homework-text: #065f46;
+    --cat-classwork-bg: linear-gradient(145deg, #fda4af, #fb7185);
+    --cat-classwork-text: #831843;
+    --cat-other-bg: linear-gradient(145deg, #fecdd3, #fbcfe8);
+    --cat-other-text: #be181d;
+    
+    --hw-badge-done-bg: linear-gradient(145deg, #d1fae5, #c1f0dd);
+    --hw-badge-done-text: #065f46;
+    --hw-badge-partial-bg: linear-gradient(145deg, #fef3c7, #fef0b5);
+    --hw-badge-partial-text: #92400e;
+    --hw-badge-notdone-bg: linear-gradient(145deg, #fee2e2, #fecaca);
+    --hw-badge-notdone-text: #991b1b;
+    
+    --stat-present: #10b981;
+    --stat-late: #fcd34d;
+    --stat-absent: #f87171;
+    --stat-excused: #e11d48;
 }
 
 /* Amber Orange Theme */
@@ -113,11 +433,75 @@
     
     --text-dark: #b45309;
     --text-muted: #556b6b;
+    --text-muted-alt: #ea580c;
+    --text-light: #c2410c;
+    --text-lighter: #f97316;
+    --text-label: #b45309;
     --shadow-color: rgba(234, 88, 12, 0.15);
     
     --sidebar-hover: rgba(234, 88, 12, 0.08);
     --border-color: rgba(234, 88, 12, 0.15);
     --secondary-light: #f97316;
+    
+    --bg-light: #fed7aa;
+    --bg-lighter: #fdba74;
+    --bg-lightest: #fef3c7;
+    --bg-card: linear-gradient(145deg, #fed7aa, #fdba74);
+    --bg-button: linear-gradient(145deg, #fed7aa, #fdba74);
+    --bg-nav: linear-gradient(145deg, #fbbf24, #f97316);
+    --bg-page: linear-gradient(180deg, #fbbf24 0%, #f97316 50%, #fbbf24 100%);
+    --bg-table-header: linear-gradient(145deg, #fdba74, #fb923c);
+    --bg-hover: linear-gradient(145deg, #fb923c, #f97316);
+    --bg-lesson: linear-gradient(145deg, #fed7aa, #fdba74);
+    --bg-lesson-hover: linear-gradient(145deg, #fdba74, #fb923c);
+    
+    --grade-a: linear-gradient(145deg, #fbbf24, #f97316);
+    --grade-b: linear-gradient(145deg, #ea580c, #f97316);
+    --grade-c: linear-gradient(145deg, #c2410c, #ea580c);
+    --grade-d: linear-gradient(145deg, #f97316, #fb923c);
+    --grade-e: linear-gradient(145deg, #fb923c, #fbbf24);
+    --grade-u: linear-gradient(145deg, #ea580c, #c2410c);
+    
+    --status-present-bg: linear-gradient(145deg, #d1fae5, #c1f0dd);
+    --status-present-border: #10b981;
+    --status-present-text: #065f46;
+    
+    --status-late-bg: linear-gradient(145deg, #fef3c7, #fef0b5);
+    --status-late-border: #fcd34d;
+    --status-late-text: #92400e;
+    
+    --status-absent-bg: linear-gradient(145deg, #fee2e2, #fecaca);
+    --status-absent-border: #f87171;
+    --status-absent-text: #991b1b;
+    
+    --status-excused-bg: linear-gradient(145deg, #fed7aa, #fdba74);
+    --status-excused-border: #f97316;
+    --status-excused-text: #b45309;
+    
+    --cat-exam-bg: linear-gradient(145deg, #fed7aa, #fdba74);
+    --cat-exam-text: #b45309;
+    --cat-test-bg: linear-gradient(145deg, #fef3c7, #fef0b5);
+    --cat-test-text: #92400e;
+    --cat-project-bg: linear-gradient(145deg, #fed7aa, #fdba74);
+    --cat-project-text: #b45309;
+    --cat-homework-bg: linear-gradient(145deg, #d1fae5, #c1f0dd);
+    --cat-homework-text: #065f46;
+    --cat-classwork-bg: linear-gradient(145deg, #fed7aa, #fdba74);
+    --cat-classwork-text: #b45309;
+    --cat-other-bg: linear-gradient(145deg, #fdba74, #fb923c);
+    --cat-other-text: #c2410c;
+    
+    --hw-badge-done-bg: linear-gradient(145deg, #d1fae5, #c1f0dd);
+    --hw-badge-done-text: #065f46;
+    --hw-badge-partial-bg: linear-gradient(145deg, #fef3c7, #fef0b5);
+    --hw-badge-partial-text: #92400e;
+    --hw-badge-notdone-bg: linear-gradient(145deg, #fee2e2, #fecaca);
+    --hw-badge-notdone-text: #991b1b;
+    
+    --stat-present: #10b981;
+    --stat-late: #fcd34d;
+    --stat-absent: #f87171;
+    --stat-excused: #ea580c;
 }
 
 /* Indigo Theme */
@@ -133,9 +517,73 @@
     
     --text-dark: #312e81;
     --text-muted: #555;
+    --text-muted-alt: #4f46e5;
+    --text-light: #4338ca;
+    --text-lighter: #6366f1;
+    --text-label: #312e81;
     --shadow-color: rgba(79, 70, 229, 0.15);
     
     --sidebar-hover: rgba(79, 70, 229, 0.08);
     --border-color: rgba(79, 70, 229, 0.15);
     --secondary-light: #6366f1;
+    
+    --bg-light: #e0e7ff;
+    --bg-lighter: #c7d2fe;
+    --bg-lightest: #f0f4ff;
+    --bg-card: linear-gradient(145deg, #e0e7ff, #c7d2fe);
+    --bg-button: linear-gradient(145deg, #e0e7ff, #c7d2fe);
+    --bg-nav: linear-gradient(145deg, #a5b4fc, #818cf8);
+    --bg-page: linear-gradient(180deg, #a5b4fc 0%, #818cf8 50%, #a5b4fc 100%);
+    --bg-table-header: linear-gradient(145deg, #c7d2fe, #a5b4fc);
+    --bg-hover: linear-gradient(145deg, #a5b4fc, #818cf8);
+    --bg-lesson: linear-gradient(145deg, #dbeafe, #bfdbfe);
+    --bg-lesson-hover: linear-gradient(145deg, #bfdbfe, #93c5fd);
+    
+    --grade-a: linear-gradient(145deg, #a5b4fc, #818cf8);
+    --grade-b: linear-gradient(145deg, #4f46e5, #6366f1);
+    --grade-c: linear-gradient(145deg, #4338ca, #4f46e5);
+    --grade-d: linear-gradient(145deg, #6366f1, #818cf8);
+    --grade-e: linear-gradient(145deg, #818cf8, #a5b4fc);
+    --grade-u: linear-gradient(145deg, #4f46e5, #4338ca);
+    
+    --status-present-bg: linear-gradient(145deg, #d1fae5, #c1f0dd);
+    --status-present-border: #10b981;
+    --status-present-text: #065f46;
+    
+    --status-late-bg: linear-gradient(145deg, #fef3c7, #fef0b5);
+    --status-late-border: #fcd34d;
+    --status-late-text: #92400e;
+    
+    --status-absent-bg: linear-gradient(145deg, #fee2e2, #fecaca);
+    --status-absent-border: #f87171;
+    --status-absent-text: #991b1b;
+    
+    --status-excused-bg: linear-gradient(145deg, #e0e7ff, #c7d2fe);
+    --status-excused-border: #6366f1;
+    --status-excused-text: #312e81;
+    
+    --cat-exam-bg: linear-gradient(145deg, #fed7aa, #fdba74);
+    --cat-exam-text: #92400e;
+    --cat-test-bg: linear-gradient(145deg, #fef3c7, #fef0b5);
+    --cat-test-text: #92400e;
+    --cat-project-bg: linear-gradient(145deg, #e0e7ff, #c7d2fe);
+    --cat-project-text: #312e81;
+    --cat-homework-bg: linear-gradient(145deg, #d1fae5, #c1f0dd);
+    --cat-homework-text: #065f46;
+    --cat-classwork-bg: linear-gradient(145deg, #e0e7ff, #c7d2fe);
+    --cat-classwork-text: #312e81;
+    --cat-other-bg: linear-gradient(145deg, #c7d2fe, #a5b4fc);
+    --cat-other-text: #4338ca;
+    
+    --hw-badge-done-bg: linear-gradient(145deg, #d1fae5, #c1f0dd);
+    --hw-badge-done-text: #065f46;
+    --hw-badge-partial-bg: linear-gradient(145deg, #fef3c7, #fef0b5);
+    --hw-badge-partial-text: #92400e;
+    --hw-badge-notdone-bg: linear-gradient(145deg, #fee2e2, #fecaca);
+    --hw-badge-notdone-text: #991b1b;
+    
+    --stat-present: #10b981;
+    --stat-late: #fcd34d;
+    --stat-absent: #f87171;
+    --stat-excused: #4f46e5;
 }

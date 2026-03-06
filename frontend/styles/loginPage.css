@@ -37,7 +37,7 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(180deg, #e8ecf1 0%, #f5f8fb 100%);
+    background: var(--bg-page);
     min-height: 100vh;
     display: flex;
     align-items: center;
@@ -83,7 +83,7 @@ body {
 }
 
 .login-subtitle {
-    color: #8b9ab3;
+    color: var(--text-lighter);
     font-size: 0.9rem;
     margin-top: 4px;
     font-weight: 400;
@@ -97,7 +97,7 @@ body {
     display: block;
     font-size: 0.85rem;
     font-weight: 600;
-    color: #6b8aad;
+    color: var(--text-label);
     margin-bottom: 6px;
     letter-spacing: 0.3px;
 }

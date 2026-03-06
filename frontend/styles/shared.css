@@ -125,15 +125,15 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(180deg, #e8ecf1 0%, #f0f4f8 50%, #e8ecf1 100%);
-    color: #5a7a99;
+    background: var(--bg-page);
+    color: var(--text-muted-alt);
     min-height: 100vh;
 }
 
 /* ---- Top nav ---- */
 .topnav {
-    background: linear-gradient(145deg, #e8ecf1, #dfe7ed);
-    color: #5a7a99;
+    background: var(--bg-nav);
+    color: var(--text-muted-alt);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -161,9 +161,9 @@ body {
 }
 
 #logoutBtn {
-    background: linear-gradient(145deg, #f5f9fe, #eef4fa);
+    background: var(--bg-button);
     border: 1px solid rgba(var(--primary-blue-rgb), 0.2);
-    color: #5a7a99;
+    color: var(--text-muted-alt);
     padding: 6px 14px;
     border-radius: 8px;
     cursor: pointer;
@@ -175,7 +175,7 @@ body {
 }
 
 #logoutBtn:hover {
-    background: linear-gradient(145deg, #eef4fa, #e8ecf1);
+    background: var(--bg-hover);
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
@@ -187,7 +187,7 @@ body {
 
 .sidebar {
     width: 220px;
-    background: linear-gradient(180deg, #f5f8fb, #f0f4f8);
+    background: var(--bg-lighter);
     border-right: 1px solid rgba(var(--primary-blue-rgb), 0.1);
     padding: 24px 0;
     flex-shrink: 0;
@@ -199,7 +199,7 @@ body {
     align-items: center;
     gap: 12px;
     padding: 12px 20px;
-    color: #7a92ac;
+    color: var(--text-light);
     text-decoration: none;
     font-size: 0.92rem;
     transition: all 0.25s ease;
@@ -210,7 +210,7 @@ body {
 
 .sidebar a:hover {
     background: linear-gradient(90deg, rgba(var(--primary-blue-rgb), 0.08), transparent);
-    color: #5a7a99;
+    color: var(--text-muted-alt);
     border-left-color: var(--secondary-light);
 }
 
@@ -230,12 +230,12 @@ body {
     flex: 1;
     padding: 32px;
     overflow-x: auto;
-    background: linear-gradient(180deg, #e8ecf1 0%, #f5f8fb 50%, #e8ecf1 100%);
+    background: var(--bg-page);
 }
 
 /* ---- Cards ---- */
 .card {
-    background: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    background: var(--bg-card);
     border-radius: 18px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06), inset 0 1px 2px rgba(255, 255, 255, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.5);
@@ -268,14 +268,14 @@ body {
     gap: 10px;
 }
 .week-arrow {
-    background: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    background: var(--bg-button);
     border: 1px solid rgba(var(--primary-blue-rgb), 0.2);
     border-radius: 10px;
     width: 36px;
     height: 36px;
     font-size: 1.2rem;
     font-weight: 700;
-    color: #5a7a99;
+    color: var(--text-muted-alt);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -284,20 +284,20 @@ body {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 .week-arrow:hover {
-    background: linear-gradient(145deg, #eef4fa, #e8ecf1);
+    background: var(--bg-hover);
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6);
     transform: translateY(-1px);
 }
 #weekLabel {
     font-weight: 700;
     font-size: 0.95rem;
-    color: #5a7a99;
+    color: var(--text-muted-alt);
 }
 #weekLabel.week-current {
     color: var(--primary-blue);
 }
 .day-date {
-    color: #8b9ab3;
+    color: var(--text-lighter);
     font-weight: 400;
     font-size: 0.78rem;
 }
@@ -309,11 +309,11 @@ table {
 }
 
 th {
-    background: linear-gradient(145deg, #f0f4f8, #eaf0f6);
+    background: var(--bg-table-header);
     text-align: left;
     padding: 12px 14px;
     font-weight: 700;
-    color: #6b8aad;
+    color: var(--text-label);
     border-bottom: 1px solid rgba(var(--primary-blue-rgb), 0.15);
     letter-spacing: 0.3px;
 }
@@ -321,7 +321,7 @@ th {
 td {
     padding: 12px 14px;
     border-bottom: 1px solid rgba(var(--primary-blue-rgb), 0.08);
-    color: #5a7a99;
+    color: var(--text-muted-alt);
 }
 
 tr:last-child td {
@@ -387,16 +387,16 @@ tr:hover td {
 }
 
 /* Grade badge colours – Cambridge letter grades (neomorphism style) */
-.grade-a  { background: linear-gradient(145deg, #7db8a8, #6ba892); } /* A* / A – excellent */
-.grade-b  { background: linear-gradient(145deg, #6b9ec9, #5a8fb5); } /* B  – very good */
-.grade-c  { background: linear-gradient(145deg, #5ab5c7, #47a5b7); } /* C  – good */
-.grade-d  { background: linear-gradient(145deg, #c9a06b, #b5915d); } /* D  – satisfactory */
-.grade-e  { background: linear-gradient(145deg, #c98080, #b57170); } /* E  – acceptable */
-.grade-u  { background: linear-gradient(145deg, #8a6b7a, #7a5b6a); } /* U  – ungraded */
+.grade-a  { background: var(--grade-a); } /* A* / A – excellent */
+.grade-b  { background: var(--grade-b); } /* B  – very good */
+.grade-c  { background: var(--grade-c); } /* C  – good */
+.grade-d  { background: var(--grade-d); } /* D  – satisfactory */
+.grade-e  { background: var(--grade-e); } /* E  – acceptable */
+.grade-u  { background: var(--grade-u); } /* U  – ungraded */
 
 /* ---- Loading / empty state ---- */
 .loading {
-    color: #8b9ab3;
+    color: var(--text-lighter);
     font-style: italic;
     padding: 20px 0;
     font-weight: 500;
@@ -404,7 +404,7 @@ tr:hover td {
 
 .empty-state {
     text-align: center;
-    color: #8b9ab3;
+    color: var(--text-lighter);
     padding: 40px 20px;
     font-weight: 500;
 }
@@ -425,13 +425,13 @@ tr:hover td {
 
 .announcement-meta {
     font-size: 0.78rem;
-    color: #8b9ab3;
+    color: var(--text-lighter);
     margin-bottom: 6px;
 }
 
 .announcement-body {
     font-size: 0.88rem;
-    color: #6b8aad;
+    color: var(--text-label);
     line-height: 1.5;
 }
 
@@ -446,7 +446,7 @@ tr:hover td {
 .stat-card {
     flex: 1;
     min-width: 140px;
-    background: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    background: var(--bg-card);
     border-radius: 16px;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06), inset 0 1px 2px rgba(255, 255, 255, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.5);
@@ -469,7 +469,7 @@ tr:hover td {
 
 .stat-label {
     font-size: 0.8rem;
-    color: #7a92ac;
+    color: var(--text-light);
     margin-top: 6px;
     font-weight: 600;
     text-transform: uppercase;
@@ -492,13 +492,13 @@ tr:hover td {
 }
 
 .timetable th {
-    background: linear-gradient(145deg, #f0f4f8, #eaf0f6);
-    color: #6b8aad;
+    background: var(--bg-table-header);
+    color: var(--text-label);
     font-weight: 700;
 }
 
 .timetable td.lesson {
-    background: linear-gradient(145deg, #e3f0ff, #d7e8f8);
+    background: var(--bg-lesson);
     color: var(--primary-blue);
     font-weight: 700;
     line-height: 1.3;
@@ -507,7 +507,7 @@ tr:hover td {
 
 .lesson-room {
     font-size: 0.75rem;
-    color: #7a92ac;
+    color: var(--text-light);
     font-weight: normal;
 }
 
@@ -517,7 +517,7 @@ tr:hover td {
     transition: all 0.25s ease;
 }
 .clickable-lesson:hover {
-    background: linear-gradient(145deg, #d7e8f8, #cfe2f5) !important;
+    background: var(--bg-lesson-hover) !important;
     box-shadow: inset 0 0 0 2px var(--primary-blue), inset 0 1px 2px rgba(255, 255, 255, 0.4);
     transform: scale(1.02);
 }
@@ -533,10 +533,10 @@ tr:hover td {
     margin-bottom: 10px;
     cursor: pointer;
     transition: all 0.25s ease;
-    background: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    background: var(--bg-card);
 }
 .class-card:hover {
-    background: linear-gradient(145deg, #f0f4f8, #e8ecf1);
+    background: var(--bg-hover);
     border-color: var(--primary-blue);
     box-shadow: 0 6px 16px rgba(var(--primary-blue-rgb), 0.12), inset 0 1px 2px rgba(255, 255, 255, 0.4);
     transform: translateY(-2px);
@@ -555,7 +555,7 @@ tr:hover td {
 }
 .class-card-meta {
     font-size: 0.8rem;
-    color: #8b9ab3;
+    color: var(--text-lighter);
 }
 .class-card-action {
     flex-shrink: 0;
@@ -585,17 +585,17 @@ tr:hover td {
     box-shadow: 0 6px 16px rgba(var(--primary-blue-rgb), 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 .btn-secondary { 
-    background: linear-gradient(145deg, #f5f9fe, #f0f4f8); 
-    color: #6b8aad;
+    background: var(--bg-button);
+    color: var(--text-label);
     border: 1px solid rgba(var(--primary-blue-rgb), 0.2);
 }
 .btn-secondary:hover { 
-    background: linear-gradient(145deg, #f0f4f8, #e8ecf1);
+    background: var(--bg-hover);
     box-shadow: 0 6px 16px rgba(var(--primary-blue-rgb), 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.4);
     transform: translateY(-2px);
 }
 .btn-success   { 
-    background: linear-gradient(145deg, #7db8a8, #6ba892); 
+    background: var(--grade-a); 
     color: #fff; 
 }
 .btn:disabled  { 
@@ -647,10 +647,10 @@ tr:hover td {
     font-weight: 500;
 }
 .modal-close-btn {
-    background: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    background: var(--bg-button);
     border: 1px solid rgba(var(--primary-blue-rgb), 0.15);
     font-size: 1.5rem;
-    color: #8b9ab3;
+    color: var(--text-lighter);
     cursor: pointer;
     line-height: 1;
     padding: 4px 8px;
@@ -660,7 +660,7 @@ tr:hover td {
 }
 .modal-close-btn:hover { 
     color: var(--primary-blue);
-    background: linear-gradient(145deg, #f0f4f8, #e8ecf1);
+    background: var(--bg-hover);
 }
 .modal-body {
     flex: 1;
@@ -688,7 +688,7 @@ tr:hover td {
     border-radius: 8px;
     padding: 8px 12px;
     font-size: 0.85rem;
-    background: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    background: var(--bg-button);
     box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.4);
     transition: all 0.25s ease;
 }
@@ -705,15 +705,15 @@ tr:hover td {
 .attendance-table th { 
     text-align: left; 
     padding: 10px 12px; 
-    background: linear-gradient(145deg, #f0f4f8, #eaf0f6);
+    background: var(--bg-table-header);
     border-bottom: 1px solid rgba(var(--primary-blue-rgb), 0.15);
-    color: #6b8aad;
+    color: var(--text-label);
     font-weight: 700;
 }
 .attendance-table td { 
     padding: 10px 12px; 
     border-bottom: 1px solid rgba(var(--primary-blue-rgb), 0.08);
-    color: #5a7a99;
+    color: var(--text-muted-alt);
 }
 
 .status-select {
@@ -723,7 +723,7 @@ tr:hover td {
     font-size: 0.82rem;
     cursor: pointer;
     min-width: 120px;
-    background: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    background: var(--bg-button);
     transition: all 0.25s ease;
     box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.4);
 }
@@ -733,24 +733,24 @@ tr:hover td {
     box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.4), 0 0 0 3px rgba(var(--primary-blue-rgb), 0.1);
 }
 .status-present { 
-    background: linear-gradient(145deg, #d7e8d0, #cde0c6) !important; 
-    border-color: #9fb59a !important; 
-    color: #4a6b48 !important;
+    background: var(--status-present-bg) !important; 
+    border-color: var(--status-present-border) !important; 
+    color: var(--status-present-text) !important;
 }
 .status-late    { 
-    background: linear-gradient(145deg, #f5e8c7, #ede0bd) !important; 
-    border-color: #d4be8b !important; 
-    color: #8b7a3e !important;
+    background: var(--status-late-bg) !important; 
+    border-color: var(--status-late-border) !important; 
+    color: var(--status-late-text) !important;
 }
 .status-absent  { 
-    background: linear-gradient(145deg, #f0d4d4, #e8caca) !important; 
-    border-color: #d4a5a5 !important; 
-    color: #8b4a4a !important;
+    background: var(--status-absent-bg) !important; 
+    border-color: var(--status-absent-border) !important; 
+    color: var(--status-absent-text) !important;
 }
 .status-excused { 
-    background: linear-gradient(145deg, #d7e8f5, #cfe2f0) !important; 
-    border-color: #9fb5d4 !important; 
-    color: #3a5a8b !important;
+    background: var(--status-excused-bg) !important; 
+    border-color: var(--status-excused-border) !important; 
+    color: var(--status-excused-text) !important;
 }
 
 .comment-input {
@@ -760,7 +760,7 @@ tr:hover td {
     padding: 6px 10px;
     font-size: 0.82rem;
     min-width: 140px;
-    background: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    background: var(--bg-button);
     box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.4);
     transition: all 0.25s ease;
 }
@@ -774,8 +774,8 @@ tr:hover td {
 
 .class-tag {
     display: inline-block;
-    background: linear-gradient(145deg, #f0f4f8, #eaf0f6);
-    color: #6b8aad;
+    background: var(--bg-table-header);
+    color: var(--text-label);
     padding: 3px 10px;
     border-radius: 8px;
     font-size: 0.78rem;
@@ -791,7 +791,7 @@ tr:hover td {
     display: block;
     font-size: 0.85rem;
     font-weight: 700;
-    color: #6b8aad;
+    color: var(--text-label);
     margin-bottom: 6px;
     letter-spacing: 0.2px;
 }
@@ -802,7 +802,7 @@ tr:hover td {
     padding: 10px 14px;
     font-size: 0.88rem;
     transition: all 0.25s ease;
-    background: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    background: var(--bg-button);
     box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.4);
     font-family: inherit;
 }
@@ -843,15 +843,15 @@ tr:hover td {
     font-size: 0.7rem;
     vertical-align: middle;
     margin-left: 2px;
-    color: #8b9ab3;
+    color: var(--text-lighter);
 }
 .grade-pct {
-    color: #8b9ab3;
+    color: var(--text-lighter);
     font-size: 0.75rem;
 }
 /* Danger button for modal delete */
 .btn-danger {
-    background: linear-gradient(145deg, #c98080, #b57170);
+    background: var(--grade-e);
     color: #fff;
     border: none;
     padding: 9px 18px;
@@ -909,7 +909,7 @@ tr:hover td {
     border-radius: 8px;
     padding: 7px 12px;
     font-size: 0.85rem;
-    background: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    background: var(--bg-button);
     cursor: pointer;
     transition: all 0.25s ease;
     box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.4);
@@ -927,13 +927,13 @@ tr:hover td {
     margin-bottom: 14px;
 }
 .term-btn {
-    background: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    background: var(--bg-button);
     border: 1px solid rgba(var(--primary-blue-rgb), 0.2);
     border-radius: 8px;
     padding: 7px 16px;
     font-size: 0.82rem;
     font-weight: 700;
-    color: #7a92ac;
+    color: var(--text-light);
     cursor: pointer;
     transition: all 0.25s ease;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
@@ -962,17 +962,17 @@ tr:hover td {
     letter-spacing: 0.3px;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
-.cat-exam      { background: linear-gradient(145deg, #f5d7d7, #ead4cb); color: #a56b6b; }
-.cat-test      { background: linear-gradient(145deg, #f5ead7, #eae0cb); color: #a89b6b; }
-.cat-project   { background: linear-gradient(145deg, #d7e8f5, #cbd4ea); color: #6b8aad; }
-.cat-homework  { background: linear-gradient(145deg, #d7f0d7, #cbead4); color: #6b9a6b; }
-.cat-classwork { background: linear-gradient(145deg, #ead7f5, #dccbea); color: #8a6bad; }
-.cat-other     { background: linear-gradient(145deg, #f0f4f8, #eaf0f6); color: #7a92ac; }
+.cat-exam      { background: var(--cat-exam-bg); color: var(--cat-exam-text); }
+.cat-test      { background: var(--cat-test-bg); color: var(--cat-test-text); }
+.cat-project   { background: var(--cat-project-bg); color: var(--cat-project-text); }
+.cat-homework  { background: var(--cat-homework-bg); color: var(--cat-homework-text); }
+.cat-classwork { background: var(--cat-classwork-bg); color: var(--cat-classwork-text); }
+.cat-other     { background: var(--cat-other-bg); color: var(--cat-other-text); }
 
 /* ---- Predicted grade column ---- */
 .predicted-cell {
     text-align: center;
-    background: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    background: var(--bg-button);
     box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.4);
 }
 
@@ -1008,10 +1008,10 @@ tr:hover td {
 .hw-item:last-child { border-bottom: none; }
 .hw-item-main { flex: 1; min-width: 0; }
 .hw-item-title { font-weight: 600; color: #2d3e5f; }
-.hw-item-meta { font-size: 0.82rem; color: #8b9ab3; margin-top: 2px; }
+.hw-item-meta { font-size: 0.82rem; color: var(--text-lighter); margin-top: 2px; }
 .hw-item-desc { font-size: 0.85rem; color: #5a6e8a; margin-top: 4px; white-space: pre-wrap; }
 .hw-past { opacity: 0.6; }
-.hw-delete-btn { flex-shrink: 0; font-size: 1.1rem; line-height: 1; padding: 4px 8px; cursor: pointer; color: #8b9ab3; transition: all 0.25s ease; }
+.hw-delete-btn { flex-shrink: 0; font-size: 1.1rem; line-height: 1; padding: 4px 8px; cursor: pointer; color: var(--text-lighter); transition: all 0.25s ease; }
 .hw-delete-btn:hover { color: #c98080; transform: scale(1.1); }
 
 /* ---- Behavioral entries ---- */
@@ -1031,12 +1031,12 @@ tr:hover td {
 .beh-item:last-child { border-bottom: none; }
 .beh-item-main { flex: 1; min-width: 0; }
 .beh-item-title { font-weight: 600; color: #2d3e5f; }
-.beh-item-meta { font-size: 0.82rem; color: #8b9ab3; margin-top: 2px; }
+.beh-item-meta { font-size: 0.82rem; color: var(--text-lighter); margin-top: 2px; }
 .beh-item-content { font-size: 0.85rem; color: #5a6e8a; margin-top: 4px; white-space: pre-wrap; }
 .beh-low { border-left-color: #6b8aad; }
 .beh-medium { border-left-color: #c9a06b; }
 .beh-high { border-left-color: #c98080; }
-.beh-delete-btn { flex-shrink: 0; font-size: 1.1rem; line-height: 1; padding: 4px 8px; cursor: pointer; color: #8b9ab3; transition: all 0.25s ease; }
+.beh-delete-btn { flex-shrink: 0; font-size: 1.1rem; line-height: 1; padding: 4px 8px; cursor: pointer; color: var(--text-lighter); transition: all 0.25s ease; }
 .beh-delete-btn:hover { color: #c98080; transform: scale(1.1); }
 
 /* ---- Homework completion badges (student view) ---- */
@@ -1049,21 +1049,21 @@ tr:hover td {
     margin-left: 6px;
     vertical-align: middle;
 }
-.hw-badge-done { background: linear-gradient(145deg, #d1fae5, #c1f0dd); color: #065f46; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15); }
-.hw-badge-partial { background: linear-gradient(145deg, #fef3c7, #fef0b5); color: #92400e; box-shadow: 0 2px 8px rgba(202, 138, 4, 0.15); }
-.hw-badge-notdone { background: linear-gradient(145deg, #fee2e2, #fecaca); color: #991b1b; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15); }
+.hw-badge-done { background: var(--hw-badge-done-bg); color: var(--hw-badge-done-text); box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15); }
+.hw-badge-partial { background: var(--hw-badge-partial-bg); color: var(--hw-badge-partial-text); box-shadow: 0 2px 8px rgba(202, 138, 4, 0.15); }
+.hw-badge-notdone { background: var(--hw-badge-notdone-bg); color: var(--hw-badge-notdone-text); box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15); }
 
 /* ---- Homework completion select (teacher modal) ---- */
-.hw-comp-select { font-size: 0.85rem; padding: 6px 10px; border-radius: 8px; cursor: pointer; border: 1px solid rgba(var(--primary-blue-rgb), 0.2); background: linear-gradient(145deg, #f5f9fe, #f0f4f8); box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.4); transition: all 0.25s ease; }
+.hw-comp-select { font-size: 0.85rem; padding: 6px 10px; border-radius: 8px; cursor: pointer; border: 1px solid rgba(var(--primary-blue-rgb), 0.2); background: var(--bg-button); box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.4); transition: all 0.25s ease; }
 .hw-comp-select:focus { outline: none; border-color: var(--primary-blue); box-shadow: 0 0 0 3px rgba(var(--primary-blue-rgb), 0.1), inset 0 1px 2px rgba(255, 255, 255, 0.4); }
-.hwc-completed { background: linear-gradient(145deg, #d1fae5, #c1f0dd) !important; color: #065f46 !important; }
-.hwc-partial { background: linear-gradient(145deg, #fef3c7, #fef0b5) !important; color: #92400e !important; }
-.hwc-not_done { background: linear-gradient(145deg, #fee2e2, #fecaca) !important; color: #991b1b !important; }
+.hwc-completed { background: var(--hw-badge-done-bg) !important; color: var(--hw-badge-done-text) !important; }
+.hwc-partial { background: var(--hw-badge-partial-bg) !important; color: var(--hw-badge-partial-text) !important; }
+.hwc-not_done { background: var(--hw-badge-notdone-bg) !important; color: var(--hw-badge-notdone-text) !important; }
 
 /* ---- Attendance rows (student dashboard) ---- */
-.att-row.att-late td:nth-child(3) { color: #d97706; }
-.att-row.att-absent td:nth-child(3) { color: #dc2626; font-weight: 600; }
-.att-row.att-excused td:nth-child(3) { color: #6366f1; }
+.att-row.att-late td:nth-child(3) { color: var(--stat-late); }
+.att-row.att-absent td:nth-child(3) { color: var(--stat-absent); font-weight: 600; }
+.att-row.att-excused td:nth-child(3) { color: var(--stat-excused); }
 
 /* ---- Class Statistics cards ---- */
 .stat-card {
@@ -1087,7 +1087,7 @@ tr:hover td {
     margin-bottom: 10px;
 }
 .stat-card-title { font-weight: 700; font-size: 0.95rem; color: #2d3e5f; }
-.stat-card-students { font-size: 0.8rem; color: #8b9ab3; background: linear-gradient(145deg, #f0f4f8, #eaf0f6); padding: 4px 12px; border-radius: 12px; box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.3); }
+.stat-card-students { font-size: 0.8rem; color: var(--text-lighter); background: var(--bg-table-header); padding: 4px 12px; border-radius: 12px; box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.3); }
 
 .stat-grid {
     display: grid;
@@ -1108,7 +1108,7 @@ tr:hover td {
 .stat-block-title {
     font-size: 0.78rem;
     font-weight: 600;
-    color: #8b9ab3;
+    color: var(--text-lighter);
     text-transform: uppercase;
     letter-spacing: 0.3px;
     margin-bottom: 6px;
@@ -1124,9 +1124,9 @@ tr:hover td {
     display: flex;
 }
 .stat-bar-fill { height: 100%; transition: width 0.3s; }
-.stat-bar-present { background: #34d399; }
-.stat-bar-late { background: #fbbf24; }
-.stat-bar-absent { background: #f87171; }
+.stat-bar-present { background: var(--stat-present); }
+.stat-bar-late { background: var(--stat-late); }
+.stat-bar-absent { background: var(--stat-absent); }
 
 .stat-legend {
     display: flex;
@@ -1143,10 +1143,10 @@ tr:hover td {
     margin-left: 6px;
 }
 .stat-dot:first-child { margin-left: 0; }
-.stat-dot-present { background: #34d399; }
-.stat-dot-late { background: #fbbf24; }
-.stat-dot-absent { background: #f87171; }
-.stat-dot-excused { background: #a78bfa; }
+.stat-dot-present { background: var(--stat-present); }
+.stat-dot-late { background: var(--stat-late); }
+.stat-dot-absent { background: var(--stat-absent); }
+.stat-dot-excused { background: var(--stat-excused); }
 
 /* Big number for grades */
 .stat-big {
@@ -1173,9 +1173,9 @@ tr:hover td {
     border-radius: 10px;
     font-weight: 600;
 }
-.stat-hw-done { background: #d1fae5; color: #065f46; }
-.stat-hw-partial { background: #fef3c7; color: #92400e; }
-.stat-hw-not { background: #fee2e2; color: #991b1b; }
+.stat-hw-done { background: var(--hw-badge-done-bg); color: var(--hw-badge-done-text); }
+.stat-hw-partial { background: var(--hw-badge-partial-bg); color: var(--hw-badge-partial-text); }
+.stat-hw-not { background: var(--hw-badge-notdone-bg); color: var(--hw-badge-notdone-text); }
 
 /* ── Class Overview (My Class tab) ── */
 .class-overview-list {
@@ -1193,7 +1193,7 @@ tr:hover td {
 .overview-student.expanded {
     box-shadow: 0 6px 16px rgba(var(--primary-blue-rgb), 0.1);
     border-color: var(--primary-blue);
-    background: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    background: var(--bg-card);
 }
 .overview-student-header {
     display: flex;
@@ -1391,7 +1391,7 @@ tr:hover td {
     transition: all 0.25s ease;
     box-shadow: 0 2px 6px rgba(var(--primary-blue-rgb), 0.12);
 }
-}
+
 .add-grade-inline-btn:hover { background: #4338ca; color: #fff; }
 
 /* Stats expansion row inside subject-group table */
