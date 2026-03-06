@@ -1557,17 +1557,52 @@ tr:hover td {
     animation: slideInUp 0.5s ease;
 }
 
-.palette-btn:hover {
-    border-color: var(--primary-blue);
-    box-shadow: 0 4px 12px rgba(var(--primary-blue-rgb), 0.2);
+/* Theme-specific hover colors */
+.palette-btn[data-theme="bright-blue"]:hover {
+    border-color: #2563eb;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
     transform: translateY(-2px);
+}
 
+.palette-btn[data-theme="ocean"]:hover {
+    border-color: #0369a1;
+    box-shadow: 0 4px 12px rgba(3, 105, 161, 0.2);
+    transform: translateY(-2px);
+}
+
+.palette-btn[data-theme="purple"]:hover {
+    border-color: #7c3aed;
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.2);
+    transform: translateY(-2px);
+}
+
+.palette-btn[data-theme="emerald"]:hover {
+    border-color: #059669;
+    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.2);
+    transform: translateY(-2px);
+}
+
+.palette-btn[data-theme="rose"]:hover {
+    border-color: #e11d48;
+    box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2);
+    transform: translateY(-2px);
+}
+
+.palette-btn[data-theme="amber"]:hover {
+    border-color: #ea580c;
+    box-shadow: 0 4px 12px rgba(234, 88, 12, 0.2);
+    transform: translateY(-2px);
+}
+
+.palette-btn[data-theme="indigo"]:hover {
+    border-color: #4f46e5;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+    transform: translateY(-2px);
 }
 
 .palette-btn.palette-active {
-    border-color: var(--primary-blue);
-    background: linear-gradient(145deg, rgba(var(--primary-blue-rgb), 0.08), rgba(var(--primary-blue-rgb), 0.04));
-    box-shadow: 0 6px 16px rgba(var(--primary-blue-rgb), 0.25);
+    border-color: #333;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
     font-weight: 600;
 }
 
