@@ -1,5 +1,5 @@
 // Shared authentication utilities
-const API_BASE = "https://e-diary-backend-qsly.onrender.com/api";
+const API_BASE = "https://e-diary-i8wq.onrender.com/api";
 
 function getToken() {
     return localStorage.getItem("token");
