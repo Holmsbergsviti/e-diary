@@ -1600,6 +1600,24 @@ tr:hover td {
     transform: translateY(-2px);
 }
 
+.palette-btn[data-theme="teal"]:hover {
+    border-color: #14b8a6;
+    box-shadow: 0 4px 12px rgba(20, 184, 166, 0.2);
+    transform: translateY(-2px);
+}
+
+.palette-btn[data-theme="mint"]:hover {
+    border-color: #10b981;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+    transform: translateY(-2px);
+}
+
+.palette-btn[data-theme="coral"]:hover {
+    border-color: #ff6b6b;
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.2);
+    transform: translateY(-2px);
+}
+
 .palette-btn.palette-active {
     border-color: #333;
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
