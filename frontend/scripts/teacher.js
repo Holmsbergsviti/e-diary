@@ -856,11 +856,11 @@ function showSettings() {
     const checkboxes = document.querySelectorAll('.group-checkbox');
     // Iterate over the collection and set the display style
     checkboxes.forEach(checkbox => {
-        if (checkbox.style.display='block'){
-            checkbox.style.display ='none'
+        if (checkbox.checked == true){
+            checkbox.style.display ='block'
         }
-        else if(checkbox.style.display='none'){
-            checkbox.style.display='block'
+        else{
+            checkbox.style.display='none'
         }
     });
 }
