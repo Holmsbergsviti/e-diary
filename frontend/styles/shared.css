@@ -177,7 +177,6 @@ body {
 #logoutBtn:hover {
     background: linear-gradient(145deg, #eef4fa, #e8ecf1);
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5);
-    animation: glow 2s ease-in-out infinite;
 }
 
 /* ---- Sidebar + content ---- */
@@ -212,7 +211,7 @@ body {
 .sidebar a:hover {
     background: linear-gradient(90deg, rgba(var(--primary-blue-rgb), 0.08), transparent);
     color: #5a7a99;
-    border-left-color: #6b9ec9;
+    border-left-color: var(--secondary-light);
 }
 
 .sidebar a.active {
@@ -249,7 +248,6 @@ body {
 .card:hover {
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08), inset 0 1px 2px rgba(255, 255, 255, 0.6);
     transform: translateY(-4px);
-    animation: glow 2s ease-in-out infinite;
 }
 
 .card-title {
@@ -1563,7 +1561,7 @@ tr:hover td {
     border-color: var(--primary-blue);
     box-shadow: 0 4px 12px rgba(var(--primary-blue-rgb), 0.2);
     transform: translateY(-2px);
-    animation: glow 2s ease-in-out infinite;
+
 }
 
 .palette-btn.palette-active {
@@ -1620,7 +1618,6 @@ tr:hover td {
 .btn-primary:hover {
     transform: translateY(-3px);
     box-shadow: 0 8px 20px rgba(var(--primary-blue-rgb), 0.3);
-    animation: glow 2s ease-in-out infinite;
 }
 
 .btn-success {
