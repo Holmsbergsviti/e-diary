@@ -12,6 +12,11 @@ let allSlots = [];      // full schedule
 let currentSlot = null; // slot being attended
 let weekOffset = 0;     // 0 = this week, -1 = last week, etc.
 
+/* ----Layout Setting----------*/
+function setting(){
+
+}
+
 /* ---- Bootstrap ------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
     if (!requireAuth()) return;
@@ -843,5 +848,14 @@ async function saveBehavioral() {
     } finally {
         btn.disabled = false;
         btn.textContent = "Save Note";
+    }
+}
+
+function showSettings() {
+    checkbox = document.getElementById("showSettings")
+    if (checkbox.checked) {
+        checkbox.hidden = false;
+    } else {
+        checkbox.hidden = true;
     }
 }

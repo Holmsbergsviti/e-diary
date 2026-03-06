@@ -13,6 +13,7 @@
     <span class="topnav-brand">Chartwell E-Diary</span>
     <div class="topnav-right">
         <span id="navUserName"></span>
+        <input type="checkbox" id="showSettings" name="checkbox" onchange="showSettings()">
         <button id="settingBtn">Setting</button>
         <button id="logoutBtn">Log out</button>
     </div>
@@ -21,8 +22,8 @@
 <div class="page-layout">
     <aside class="sidebar">
         <a href="teacher.html" class="active"><span class="icon">🏠</span> Dashboard</a>
-        <a href="schedule.html"><span class="icon">📅</span> Schedule</a>
-        <a href="profile.html"><span class="icon">👤</span> Profile</a>
+        <a href="schedule.html" id="hidden"><span class="icon" id="hidden">📅</span> Schedule</a>
+        <a href="profile.html" id="hidden"><span class="icon" id="hidden">👤</span> Profile</a>
     </aside>
 
     <main class="content">
