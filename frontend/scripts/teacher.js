@@ -854,11 +854,15 @@ async function saveBehavioral() {
 function showSettings() {
         // Get all elements with the class "group-checkbox"
     const checkboxes = document.querySelectorAll('.group-checkbox');
-
     // Iterate over the collection and set the display style
     checkboxes.forEach(checkbox => {
-        checkbox.style.display = 'none';
-        // You might also want to hide the associated labels if they exist separately
+        if (checkbox.style.display='none'){
+            checkbox.style.display = 'block'
+        }
+        else {
+            checkbox.style.display='none'
+        }
+        
     });
 }
 
