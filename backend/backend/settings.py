@@ -64,6 +64,7 @@ MIDDLEWARE = [
 # --------------------------------------------------
 CORS_ALLOWED_ORIGINS = [
     "https://chartwell-e-diary.netlify.app",
+    "https://bill-e-diary.netlify.app"
 ]
 
 if DEBUG:
