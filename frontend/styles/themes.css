@@ -359,17 +359,17 @@
     --border-color: rgba(225, 29, 72, 0.15);
     --secondary-light: #f43f5e;
     
-    --bg-light: #ffe4e6;
-    --bg-lighter: #fecdd3;
-    --bg-lightest: #fff1f2;
-    --bg-card: linear-gradient(145deg, #ffe4e6, #fecdd3);
-    --bg-button: linear-gradient(145deg, #ffe4e6, #fecdd3);
-    --bg-nav: linear-gradient(145deg, #fb7185, #f43f5e);
-    --bg-page: linear-gradient(180deg, #fb7185 0%, #f43f5e 50%, #fb7185 100%);
-    --bg-table-header: linear-gradient(145deg, #fecdd3, #fbcfe8);
-    --bg-hover: linear-gradient(145deg, #fbcfe8, #f8bbd0);
-    --bg-lesson: linear-gradient(145deg, #fda4af, #fb7185);
-    --bg-lesson-hover: linear-gradient(145deg, #fb7185, #f43f5e);
+    --bg-light: #f5f9fe;
+    --bg-lighter: #f0f4f8;
+    --bg-lightest: #f8fafb;
+    --bg-card: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    --bg-button: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    --bg-nav: linear-gradient(145deg, #e8ecf1, #dfe7ed);
+    --bg-page: linear-gradient(180deg, #e8ecf1 0%, #f0f4f8 50%, #e8ecf1 100%);
+    --bg-table-header: linear-gradient(145deg, #f0f4f8, #eaf0f6);
+    --bg-hover: linear-gradient(145deg, #eef4fa, #e8ecf1);
+    --bg-lesson: linear-gradient(145deg, #e3f0ff, #d7e8f8);
+    --bg-lesson-hover: linear-gradient(145deg, #d7e8f8, #cfe2f5);
     
     --grade-a: linear-gradient(145deg, #fb7185, #f43f5e);
     --grade-b: linear-gradient(145deg, #e11d48, #f43f5e);
