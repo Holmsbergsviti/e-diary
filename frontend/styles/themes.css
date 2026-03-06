@@ -107,17 +107,17 @@
     --border-color: rgba(3, 105, 161, 0.15);
     --secondary-light: #0ea5e9;
     
-    --bg-light: #cffafe;
-    --bg-lighter: #a5f3fc;
-    --bg-lightest: #ecf8fb;
-    --bg-card: linear-gradient(145deg, #cffafe, #a5f3fc);
-    --bg-button: linear-gradient(145deg, #cffafe, #a5f3fc);
-    --bg-nav: linear-gradient(145deg, #7dd3fc, #38bdf8);
-    --bg-page: linear-gradient(180deg, #7dd3fc 0%, #38bdf8 50%, #7dd3fc 100%);
-    --bg-table-header: linear-gradient(145deg, #a5f3fc, #67e8f9);
-    --bg-hover: linear-gradient(145deg, #67e8f9, #06b6d4);
-    --bg-lesson: linear-gradient(145deg, #cffafe, #a5f3fc);
-    --bg-lesson-hover: linear-gradient(145deg, #a5f3fc, #67e8f9);
+    --bg-light: #f5f9fe;
+    --bg-lighter: #f0f4f8;
+    --bg-lightest: #f8fafb;
+    --bg-card: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    --bg-button: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    --bg-nav: linear-gradient(145deg, #e8ecf1, #dfe7ed);
+    --bg-page: linear-gradient(180deg, #e8ecf1 0%, #f0f4f8 50%, #e8ecf1 100%);
+    --bg-table-header: linear-gradient(145deg, #f0f4f8, #eaf0f6);
+    --bg-hover: linear-gradient(145deg, #eef4fa, #e8ecf1);
+    --bg-lesson: linear-gradient(145deg, #e3f0ff, #d7e8f8);
+    --bg-lesson-hover: linear-gradient(145deg, #d7e8f8, #cfe2f5);
     
     --grade-a: linear-gradient(145deg, #06b6d4, #0ea5e9);
     --grade-b: linear-gradient(145deg, #0369a1, #0284c7);
@@ -191,17 +191,17 @@
     --border-color: rgba(124, 58, 237, 0.15);
     --secondary-light: #a78bfa;
     
-    --bg-light: #f3e8ff;
-    --bg-lighter: #ede9fe;
-    --bg-lightest: #faf5ff;
-    --bg-card: linear-gradient(145deg, #f3e8ff, #ede9fe);
-    --bg-button: linear-gradient(145deg, #f3e8ff, #ede9fe);
-    --bg-nav: linear-gradient(145deg, #d8b4fe, #c084fc);
-    --bg-page: linear-gradient(180deg, #d8b4fe 0%, #c084fc 50%, #d8b4fe 100%);
-    --bg-table-header: linear-gradient(145deg, #ede9fe, #ddd6fe);
-    --bg-hover: linear-gradient(145deg, #ddd6fe, #c084fc);
-    --bg-lesson: linear-gradient(145deg, #e9d5ff, #d8b4fe);
-    --bg-lesson-hover: linear-gradient(145deg, #d8b4fe, #c084fc);
+    --bg-light: #f5f9fe;
+    --bg-lighter: #f0f4f8;
+    --bg-lightest: #f8fafb;
+    --bg-card: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    --bg-button: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    --bg-nav: linear-gradient(145deg, #e8ecf1, #dfe7ed);
+    --bg-page: linear-gradient(180deg, #e8ecf1 0%, #f0f4f8 50%, #e8ecf1 100%);
+    --bg-table-header: linear-gradient(145deg, #f0f4f8, #eaf0f6);
+    --bg-hover: linear-gradient(145deg, #eef4fa, #e8ecf1);
+    --bg-lesson: linear-gradient(145deg, #e3f0ff, #d7e8f8);
+    --bg-lesson-hover: linear-gradient(145deg, #d7e8f8, #cfe2f5);
     
     --grade-a: linear-gradient(145deg, #c084fc, #a78bfa);
     --grade-b: linear-gradient(145deg, #7c3aed, #9333ea);
@@ -275,17 +275,17 @@
     --border-color: rgba(5, 150, 105, 0.15);
     --secondary-light: #10b981;
     
-    --bg-light: #d1fae5;
-    --bg-lighter: #a7f3d0;
-    --bg-lightest: #ecfdf5;
-    --bg-card: linear-gradient(145deg, #d1fae5, #a7f3d0);
-    --bg-button: linear-gradient(145deg, #d1fae5, #a7f3d0);
-    --bg-nav: linear-gradient(145deg, #6ee7b7, #34d399);
-    --bg-page: linear-gradient(180deg, #6ee7b7 0%, #34d399 50%, #6ee7b7 100%);
-    --bg-table-header: linear-gradient(145deg, #a7f3d0, #86efac);
-    --bg-hover: linear-gradient(145deg, #86efac, #6ee7b7);
-    --bg-lesson: linear-gradient(145deg, #c1f0dd, #a7f3d0);
-    --bg-lesson-hover: linear-gradient(145deg, #a7f3d0, #86efac);
+    --bg-light: #f5f9fe;
+    --bg-lighter: #f0f4f8;
+    --bg-lightest: #f8fafb;
+    --bg-card: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    --bg-button: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    --bg-nav: linear-gradient(145deg, #e8ecf1, #dfe7ed);
+    --bg-page: linear-gradient(180deg, #e8ecf1 0%, #f0f4f8 50%, #e8ecf1 100%);
+    --bg-table-header: linear-gradient(145deg, #f0f4f8, #eaf0f6);
+    --bg-hover: linear-gradient(145deg, #eef4fa, #e8ecf1);
+    --bg-lesson: linear-gradient(145deg, #e3f0ff, #d7e8f8);
+    --bg-lesson-hover: linear-gradient(145deg, #d7e8f8, #cfe2f5);
     
     --grade-a: linear-gradient(145deg, #6ee7b7, #34d399);
     --grade-b: linear-gradient(145deg, #059669, #10b981);
@@ -443,17 +443,17 @@
     --border-color: rgba(234, 88, 12, 0.15);
     --secondary-light: #f97316;
     
-    --bg-light: #fed7aa;
-    --bg-lighter: #fdba74;
-    --bg-lightest: #fef3c7;
-    --bg-card: linear-gradient(145deg, #fed7aa, #fdba74);
-    --bg-button: linear-gradient(145deg, #fed7aa, #fdba74);
-    --bg-nav: linear-gradient(145deg, #fbbf24, #f97316);
-    --bg-page: linear-gradient(180deg, #fbbf24 0%, #f97316 50%, #fbbf24 100%);
-    --bg-table-header: linear-gradient(145deg, #fdba74, #fb923c);
-    --bg-hover: linear-gradient(145deg, #fb923c, #f97316);
-    --bg-lesson: linear-gradient(145deg, #fed7aa, #fdba74);
-    --bg-lesson-hover: linear-gradient(145deg, #fdba74, #fb923c);
+    --bg-light: #f5f9fe;
+    --bg-lighter: #f0f4f8;
+    --bg-lightest: #f8fafb;
+    --bg-card: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    --bg-button: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    --bg-nav: linear-gradient(145deg, #e8ecf1, #dfe7ed);
+    --bg-page: linear-gradient(180deg, #e8ecf1 0%, #f0f4f8 50%, #e8ecf1 100%);
+    --bg-table-header: linear-gradient(145deg, #f0f4f8, #eaf0f6);
+    --bg-hover: linear-gradient(145deg, #eef4fa, #e8ecf1);
+    --bg-lesson: linear-gradient(145deg, #e3f0ff, #d7e8f8);
+    --bg-lesson-hover: linear-gradient(145deg, #d7e8f8, #cfe2f5);
     
     --grade-a: linear-gradient(145deg, #fbbf24, #f97316);
     --grade-b: linear-gradient(145deg, #ea580c, #f97316);
@@ -527,17 +527,17 @@
     --border-color: rgba(79, 70, 229, 0.15);
     --secondary-light: #6366f1;
     
-    --bg-light: #e0e7ff;
-    --bg-lighter: #c7d2fe;
-    --bg-lightest: #f0f4ff;
-    --bg-card: linear-gradient(145deg, #e0e7ff, #c7d2fe);
-    --bg-button: linear-gradient(145deg, #e0e7ff, #c7d2fe);
-    --bg-nav: linear-gradient(145deg, #a5b4fc, #818cf8);
-    --bg-page: linear-gradient(180deg, #a5b4fc 0%, #818cf8 50%, #a5b4fc 100%);
-    --bg-table-header: linear-gradient(145deg, #c7d2fe, #a5b4fc);
-    --bg-hover: linear-gradient(145deg, #a5b4fc, #818cf8);
-    --bg-lesson: linear-gradient(145deg, #dbeafe, #bfdbfe);
-    --bg-lesson-hover: linear-gradient(145deg, #bfdbfe, #93c5fd);
+    --bg-light: #f5f9fe;
+    --bg-lighter: #f0f4f8;
+    --bg-lightest: #f8fafb;
+    --bg-card: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    --bg-button: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    --bg-nav: linear-gradient(145deg, #e8ecf1, #dfe7ed);
+    --bg-page: linear-gradient(180deg, #e8ecf1 0%, #f0f4f8 50%, #e8ecf1 100%);
+    --bg-table-header: linear-gradient(145deg, #f0f4f8, #eaf0f6);
+    --bg-hover: linear-gradient(145deg, #eef4fa, #e8ecf1);
+    --bg-lesson: linear-gradient(145deg, #e3f0ff, #d7e8f8);
+    --bg-lesson-hover: linear-gradient(145deg, #d7e8f8, #cfe2f5);
     
     --grade-a: linear-gradient(145deg, #a5b4fc, #818cf8);
     --grade-b: linear-gradient(145deg, #4f46e5, #6366f1);
@@ -611,17 +611,17 @@
     --border-color: rgba(20, 184, 166, 0.15);
     --secondary-light: #2dd4bf;
     
-    --bg-light: #ccf9f4;
-    --bg-lighter: #b3f0eb;
-    --bg-lightest: #e8f9f7;
-    --bg-card: linear-gradient(145deg, #ccf9f4, #b3f0eb);
-    --bg-button: linear-gradient(145deg, #ccf9f4, #b3f0eb);
-    --bg-nav: linear-gradient(145deg, #5eead4, #2dd4bf);
-    --bg-page: linear-gradient(180deg, #5eead4 0%, #2dd4bf 50%, #5eead4 100%);
-    --bg-table-header: linear-gradient(145deg, #b3f0eb, #99ede9);
-    --bg-hover: linear-gradient(145deg, #99ede9, #80e7e0);
-    --bg-lesson: linear-gradient(145deg, #ccf9f4, #b3f0eb);
-    --bg-lesson-hover: linear-gradient(145deg, #b3f0eb, #99ede9);
+    --bg-light: #f5f9fe;
+    --bg-lighter: #f0f4f8;
+    --bg-lightest: #f8fafb;
+    --bg-card: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    --bg-button: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    --bg-nav: linear-gradient(145deg, #e8ecf1, #dfe7ed);
+    --bg-page: linear-gradient(180deg, #e8ecf1 0%, #f0f4f8 50%, #e8ecf1 100%);
+    --bg-table-header: linear-gradient(145deg, #f0f4f8, #eaf0f6);
+    --bg-hover: linear-gradient(145deg, #eef4fa, #e8ecf1);
+    --bg-lesson: linear-gradient(145deg, #e3f0ff, #d7e8f8);
+    --bg-lesson-hover: linear-gradient(145deg, #d7e8f8, #cfe2f5);
     
     --grade-a: linear-gradient(145deg, #5eead4, #2dd4bf);
     --grade-b: linear-gradient(145deg, #14b8a6, #2dd4bf);
@@ -695,17 +695,17 @@
     --border-color: rgba(16, 185, 129, 0.15);
     --secondary-light: #34d399;
     
-    --bg-light: #d1fae5;
-    --bg-lighter: #a7f3d0;
-    --bg-lightest: #ecfdf5;
-    --bg-card: linear-gradient(145deg, #d1fae5, #a7f3d0);
-    --bg-button: linear-gradient(145deg, #d1fae5, #a7f3d0);
-    --bg-nav: linear-gradient(145deg, #6ee7b7, #34d399);
-    --bg-page: linear-gradient(180deg, #6ee7b7 0%, #34d399 50%, #6ee7b7 100%);
-    --bg-table-header: linear-gradient(145deg, #a7f3d0, #86efac);
-    --bg-hover: linear-gradient(145deg, #86efac, #6ee7b7);
-    --bg-lesson: linear-gradient(145deg, #c1f0dd, #a7f3d0);
-    --bg-lesson-hover: linear-gradient(145deg, #a7f3d0, #86efac);
+    --bg-light: #f5f9fe;
+    --bg-lighter: #f0f4f8;
+    --bg-lightest: #f8fafb;
+    --bg-card: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    --bg-button: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    --bg-nav: linear-gradient(145deg, #e8ecf1, #dfe7ed);
+    --bg-page: linear-gradient(180deg, #e8ecf1 0%, #f0f4f8 50%, #e8ecf1 100%);
+    --bg-table-header: linear-gradient(145deg, #f0f4f8, #eaf0f6);
+    --bg-hover: linear-gradient(145deg, #eef4fa, #e8ecf1);
+    --bg-lesson: linear-gradient(145deg, #e3f0ff, #d7e8f8);
+    --bg-lesson-hover: linear-gradient(145deg, #d7e8f8, #cfe2f5);
     
     --grade-a: linear-gradient(145deg, #6ee7b7, #34d399);
     --grade-b: linear-gradient(145deg, #10b981, #34d399);
@@ -779,17 +779,17 @@
     --border-color: rgba(255, 107, 107, 0.15);
     --secondary-light: #ff8787;
     
-    --bg-light: #ffe3e3;
-    --bg-lighter: #ffc9c9;
-    --bg-lightest: #fff5f5;
-    --bg-card: linear-gradient(145deg, #ffe3e3, #ffc9c9);
-    --bg-button: linear-gradient(145deg, #ffe3e3, #ffc9c9);
-    --bg-nav: linear-gradient(145deg, #ffb3b3, #ff8787);
-    --bg-page: linear-gradient(180deg, #ffb3b3 0%, #ff8787 50%, #ffb3b3 100%);
-    --bg-table-header: linear-gradient(145deg, #ffc9c9, #ffb3b3);
-    --bg-hover: linear-gradient(145deg, #ffb3b3, #ff9999);
-    --bg-lesson: linear-gradient(145deg, #ffe3e3, #ffc9c9);
-    --bg-lesson-hover: linear-gradient(145deg, #ffc9c9, #ffb3b3);
+    --bg-light: #f5f9fe;
+    --bg-lighter: #f0f4f8;
+    --bg-lightest: #f8fafb;
+    --bg-card: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    --bg-button: linear-gradient(145deg, #f5f9fe, #f0f4f8);
+    --bg-nav: linear-gradient(145deg, #e8ecf1, #dfe7ed);
+    --bg-page: linear-gradient(180deg, #e8ecf1 0%, #f0f4f8 50%, #e8ecf1 100%);
+    --bg-table-header: linear-gradient(145deg, #f0f4f8, #eaf0f6);
+    --bg-hover: linear-gradient(145deg, #eef4fa, #e8ecf1);
+    --bg-lesson: linear-gradient(145deg, #e3f0ff, #d7e8f8);
+    --bg-lesson-hover: linear-gradient(145deg, #d7e8f8, #cfe2f5);
     
     --grade-a: linear-gradient(145deg, #ffb3b3, #ff8787);
     --grade-b: linear-gradient(145deg, #ff6b6b, #ff8787);
