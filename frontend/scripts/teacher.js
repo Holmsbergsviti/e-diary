@@ -373,41 +373,60 @@ async function loadClassStats() {
 function generateAttendanceRing(present, late, absent, excused, total) {
     if (total === 0) return '<div style="text-align:center;padding:20px;color:#999;">No data</div>';
     
-    const presentPct = Math.round((present / total) * 100);
-    const latePct = Math.round((late / total) * 100);
-    const absentPct = Math.round((absent / total) * 100);
-    const excusedPct = Math.round((excused / total) * 100);
+    const presentPct = (present / total) * 100;
+    const latePct = (late / total) * 100;
+    const absentPct = (absent / total) * 100;
+    const excusedPct = (excused / total) * 100;
+    
+    const presentRnd = Math.max(Math.round(presentPct), present > 0 ? 1 : 0);
+    const lateRnd = Math.max(Math.round(latePct), late > 0 ? 1 : 0);
+    const absentRnd = Math.max(Math.round(absentPct), absent > 0 ? 1 : 0);
+    const excusedRnd = Math.max(Math.round(excusedPct), excused > 0 ? 1 : 0);
+    
+    let offset = 0;
+    const sectors = [];
+    if (present > 0) {
+        sectors.push(generateRingSector(offset, presentRnd, '#10b981', 'Present', presentRnd));
+        offset += presentRnd;
+    }
+    if (late > 0) {
+        sectors.push(generateRingSector(offset, lateRnd, '#fcd34d', 'Late', lateRnd));
+        offset += lateRnd;
+    }
+    if (absent > 0) {
+        sectors.push(generateRingSector(offset, absentRnd, '#f87171', 'Absent', absentRnd));
+        offset += absentRnd;
+    }
+    if (excused > 0) {
+        sectors.push(generateRingSector(offset, excusedRnd, '#60a5fa', 'Excused', excusedRnd));
+        offset += excusedRnd;
+    }
     
     return `
         <svg class="stat-ring" viewBox="0 0 100 100" width="120" height="120">
-            ${generateRingSector(0, presentPct, '#10b981', 'Present', presentPct)}
-            ${generateRingSector(presentPct, latePct, '#fcd34d', 'Late', latePct)}
-            ${generateRingSector(presentPct + latePct, absentPct, '#f87171', 'Absent', absentPct)}
-            ${generateRingSector(presentPct + latePct + absentPct, excusedPct, '#60a5fa', 'Excused', excusedPct)}
+            ${sectors.join('')}
         </svg>
     `;
 }
 
 function generateRingSector(startPct, sizePct, color, label, percent) {
-    const startAngle = (startPct / 100) * 360 - 90;
-    const arcAngle = (sizePct / 100) * 360;
+    if (sizePct < 1) return ''; // Skip sectors smaller than 1%
+    
     const radius = 35;
     const circumference = 2 * Math.PI * radius;
-    const offset = (100 - startPct) / 100 * circumference;
     const dasharray = (sizePct / 100) * circumference;
-    
-    const cx = 50, cy = 50;
-    const angle = (startAngle + arcAngle / 2) * Math.PI / 180;
-    const labelX = cx + Math.cos(angle) * 50;
-    const labelY = cy + Math.sin(angle) * 50;
+    const offset = (startPct / 100) * circumference;
     
     return `
-        <circle class="stat-ring-sector" cx="${cx}" cy="${cy}" r="${radius}" 
-                fill="none" stroke="${color}" stroke-width="14"
-                stroke-dasharray="${dasharray} ${circumference - dasharray}"
-                stroke-dashoffset="${-offset}"
-                data-label="${label}: ${percent}%">
-        </circle>
+        <g class="stat-ring-sector-group">
+            <circle class="stat-ring-sector" cx="50" cy="50" r="${radius}" 
+                    fill="none" stroke="${color}" stroke-width="14"
+                    stroke-dasharray="${dasharray} ${circumference}"
+                    stroke-dashoffset="${-offset}"
+                    stroke-linecap="round">
+            </circle>
+            <title>${label}: ${percent}%</title>
+        </g>
     `;
 }
 
@@ -415,15 +434,32 @@ function generateBehavioralRing(positive, negative, note) {
     const total = positive + negative + note;
     if (total === 0) return '<div style="text-align:center;padding:20px;color:#999;">No data</div>';
     
-    const positivePct = Math.round((positive / total) * 100);
-    const negativePct = Math.round((negative / total) * 100);
-    const notePct = Math.round((note / total) * 100);
+    const positivePct = (positive / total) * 100;
+    const negativePct = (negative / total) * 100;
+    const notePct = (note / total) * 100;
+    
+    const positiveRnd = Math.max(Math.round(positivePct), positive > 0 ? 1 : 0);
+    const negativeRnd = Math.max(Math.round(negativePct), negative > 0 ? 1 : 0);
+    const noteRnd = Math.max(Math.round(notePct), note > 0 ? 1 : 0);
+    
+    let offset = 0;
+    const sectors = [];
+    if (positive > 0) {
+        sectors.push(generateRingSector(offset, positiveRnd, '#10b981', 'Positive', positiveRnd));
+        offset += positiveRnd;
+    }
+    if (negative > 0) {
+        sectors.push(generateRingSector(offset, negativeRnd, '#f87171', 'Negative', negativeRnd));
+        offset += negativeRnd;
+    }
+    if (note > 0) {
+        sectors.push(generateRingSector(offset, noteRnd, '#fbbf24', 'Note', noteRnd));
+        offset += noteRnd;
+    }
     
     return `
         <svg class="stat-ring" viewBox="0 0 100 100" width="120" height="120">
-            ${generateRingSector(0, positivePct, '#10b981', 'Positive', positivePct)}
-            ${generateRingSector(positivePct, negativePct, '#f87171', 'Negative', negativePct)}
-            ${generateRingSector(positivePct + negativePct, notePct, '#fbbf24', 'Note', notePct)}
+            ${sectors.join('')}
         </svg>
     `;
 }
@@ -532,14 +568,6 @@ function renderClassStats(stats) {
         if (card) {
             card.classList.add("stat-collapsed");
         }
-    });
-    
-    // Add hover tooltips to ring sectors
-    container.querySelectorAll(".stat-ring-sector").forEach(sector => {
-        sector.addEventListener("mouseenter", (e) => {
-            const label = sector.getAttribute("data-label");
-            e.target.setAttribute("title", label);
-        });
     });
 }
 
