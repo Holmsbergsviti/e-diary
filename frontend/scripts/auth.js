@@ -159,6 +159,23 @@ function initNav() {
         if (pLink) sidebarEl.insertBefore(a, pLink);
         else sidebarEl.appendChild(a);
     }
+
+    // Initialize sidebar collapse toggle
+    const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
+    const pageLayout = document.querySelector(".page-layout");
+    if (sidebarToggleBtn && pageLayout) {
+        // Load saved state
+        const isCollapsed = localStorage.getItem("sidebarCollapsed") === "true";
+        if (isCollapsed) {
+            pageLayout.classList.add("sidebar-collapsed");
+        }
+
+        sidebarToggleBtn.addEventListener("click", () => {
+            pageLayout.classList.toggle("sidebar-collapsed");
+            const collapsed = pageLayout.classList.contains("sidebar-collapsed");
+            localStorage.setItem("sidebarCollapsed", collapsed);
+        });
+    }
 }
 
 // Shared utilities used across page scripts

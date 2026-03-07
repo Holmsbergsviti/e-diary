@@ -53,6 +53,32 @@ function isoDate(d) {
     return d.toISOString().slice(0, 10);
 }
 
+function getCurrentPeriod() {
+    const now = new Date();
+    const hour = now.getHours();
+    const minute = now.getMinutes();
+    const time = hour * 60 + minute;
+    
+    const periodTimesInMinutes = [
+        { start: 8 * 60 + 30, end: 9 * 60 + 10 },   // 08:30–09:10
+        { start: 9 * 60 + 15, end: 10 * 60 + 0 },   // 09:15–10:00
+        { start: 10 * 60 + 15, end: 10 * 60 + 55 }, // 10:15–10:55
+        { start: 11 * 60 + 0, end: 11 * 60 + 45 },  // 11:00–11:45
+        { start: 11 * 60 + 50, end: 12 * 60 + 30 }, // 11:50–12:30
+        { start: 13 * 60 + 15, end: 13 * 60 + 55 }, // 13:15–13:55
+        { start: 14 * 60 + 0, end: 14 * 60 + 45 },  // 14:00–14:45
+        { start: 14 * 60 + 50, end: 15 * 60 + 30 }, // 14:50–15:30
+    ];
+    
+    for (let i = 0; i < periodTimesInMinutes.length; i++) {
+        if (time >= periodTimesInMinutes[i].start && time < periodTimesInMinutes[i].end) {
+            return i + 1; // Return period number (1-8)
+        }
+    }
+    return null;
+}
+
+
 function renderSchedule() {
     const container = document.getElementById("scheduleContainer");
     const user = getUser();
@@ -91,9 +117,20 @@ function renderSchedule() {
     }
     html += "</tr></thead><tbody>";
 
+    // Get current period only if viewing current week and it's a weekday
+    let currentPeriod = null;
+    if (isCurrentWeek) {
+        const today = new Date();
+        const dayOfWeek = today.getDay(); // 0=Sunday, 1=Monday, ..., 5=Friday
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) { // Monday to Friday
+            currentPeriod = getCurrentPeriod();
+        }
+    }
+
     for (let p = 1; p <= 8; p++) {
         const time = PERIOD_TIMES[p - 1] || `Period ${p}`;
-        html += `<tr><td><strong>${p}</strong><br><small style="color:#9ca3af">${time}</small></td>`;
+        const rowClass = (p === currentPeriod) ? 'period-current' : '';
+        html += `<tr ${rowClass ? `class="${rowClass}"` : ''}><td><strong>${p}</strong><br><small style="color:#9ca3af">${time}</small></td>`;
         for (let d = 1; d <= 5; d++) {
             const slot = (grid[d] || {})[p];
             if (slot) {
