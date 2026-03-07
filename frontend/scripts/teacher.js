@@ -363,6 +363,7 @@ async function loadClassStats() {
         const res = await apiFetch("/teacher/class-stats/");
         const data = await res.json();
         const stats = data.stats || [];
+        console.log("Class stats loaded:", stats);
         renderClassStats(stats);
     } catch (err) {
         container.innerHTML = '<p class="empty-state">Failed to load statistics.</p>';
