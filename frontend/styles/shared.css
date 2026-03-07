@@ -672,6 +672,7 @@ tr:hover td {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.85rem;
+    table-layout: fixed;
 }
 
 .timetable th,
@@ -2076,6 +2077,35 @@ tr:hover td {
     .marks-page .student-name-toggle { font-weight: 600; color: var(--primary-blue); cursor: pointer; }
     .marks-page .add-grade-inline-btn { padding: 4px 6px; width: 22px; height: 22px; font-size: 0.7rem; }
     .marks-page .cat-label { font-size: 0.6rem; }
+    /* Schedule table: horizontal scroll on mobile */
+    .schedule-page .card {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        display: block;
+    }
+    .schedule-page .timetable {
+        display: table;
+        margin: 0;
+        font-size: 0.75rem;
+    }
+    .schedule-page .timetable th,
+    .schedule-page .timetable td {
+        padding: 8px 6px;
+        min-width: 70px;
+        border: 1px solid rgba(var(--primary-blue-rgb), 0.1);
+    }
+    .schedule-page .timetable th:first-child,
+    .schedule-page .timetable td:first-child {
+        min-width: 50px;
+        position: sticky;
+        left: 0;
+        z-index: 10;
+        background: var(--bg-card);
+    }
+    .schedule-page .timetable th:first-child {
+        background: var(--bg-table-header);
+    }
+    .schedule-page .day-date { font-size: 0.65rem; }
     .form-row { flex-direction: column; gap: 12px; }
     .attendance-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .class-card { flex-wrap: wrap; gap: 10px; padding: 14px 14px; min-height: 50px; }
@@ -2104,7 +2134,7 @@ tr:hover td {
    Responsive: scroll indicators for tables on mobile
    ============================================================ */
 @media (max-width: 768px) {
-    .card > table, .card > div > table {
+    .card > table, .card > div > table, .schedule-page .card {
         display: block;
         width: 100%;
         overflow-x: auto;
@@ -2237,12 +2267,34 @@ tr:hover td {
     .marks-page th:nth-child(2), .marks-page td:nth-child(2) { min-width: 100px; }
     .marks-page .grade-badge { width: 24px; height: 24px; line-height: 24px; font-size: 0.65rem; }
     .marks-page .add-grade-inline-btn { display: none; }
-    /* Schedule table - very compact */
+    /* Schedule table - very compact with horizontal scroll */
+    .schedule-page .card {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        display: block;
+        margin-bottom: 10px;
+    }
+    .schedule-page .timetable {
+        display: table;
+        font-size: 0.65rem;
+        min-width: 100%;
+    }
     .timetable th,
     .timetable td {
         min-width: 60px;
         padding: 6px 4px;
         font-size: 0.65rem;
+    }
+    .schedule-page .timetable th:first-child,
+    .schedule-page .timetable td:first-child {
+        min-width: 50px;
+        position: sticky;
+        left: 0;
+        z-index: 10;
+        background: var(--bg-card);
+    }
+    .schedule-page .timetable th:first-child {
+        background: var(--bg-table-header);
     }
     .lesson-room {
         font-size: 0.65rem;
