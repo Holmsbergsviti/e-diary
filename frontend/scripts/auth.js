@@ -129,9 +129,7 @@ function initNav() {
 
     // Update sidebar links based on role
     const sidebarEl = document.querySelector(".sidebar");
-    if (sidebarEl && user && !sidebarEl.dataset.navDone) {
-        sidebarEl.dataset.navDone = "1";
-
+    if (sidebarEl && user) {
         // Rewrite dashboard link for the correct role
         sidebarEl.querySelectorAll("a").forEach(a => {
             if (a.getAttribute("href") === "dashboard.html" && user.role === "teacher") {
@@ -141,10 +139,10 @@ function initNav() {
             }
         });
 
-        // Remove any existing grades/marks links first (clean slate)
+        // Always remove any existing grades/marks links first (clean slate)
         sidebarEl.querySelectorAll('a[href="grades.html"], a[href="marks.html"]').forEach(a => a.remove());
 
-        // Inject exactly one role-specific link before Profile
+        // Always inject the correct role-specific link before Profile
         const pLink = sidebarEl.querySelector('a[href="profile.html"]');
         const a = document.createElement("a");
         if (user.role === "teacher") {

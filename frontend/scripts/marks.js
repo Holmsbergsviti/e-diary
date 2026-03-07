@@ -61,7 +61,7 @@ function currentTerm() {
     return (m >= 9 && m <= 12) ? 1 : 2;
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
+function initMarks() {
     if (!requireAuth()) return;
     const user = getUser();
     if (user && user.role !== "teacher") {
@@ -73,7 +73,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Default to current term
     activeTerm = currentTerm();
 
-    await loadMarks();
+    loadMarks();
 
     document.getElementById("addGradeBtn").addEventListener("click", () => openGradeModal());
 
@@ -85,7 +85,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("gradeModal").addEventListener("click", (e) => {
         if (e.target === document.getElementById("gradeModal")) closeGradeModal();
     });
-});
+}
+
+// Initialize immediately - scripts run after HTML parsing
+initMarks();
 
 async function loadMarks() {
     const container = document.getElementById("marksContainer");

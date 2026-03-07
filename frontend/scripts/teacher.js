@@ -13,7 +13,7 @@ let currentSlot = null; // slot being attended
 let weekOffset = 0;     // 0 = this week, -1 = last week, etc.
 
 /* ---- Bootstrap ------------------------------------------------ */
-document.addEventListener("DOMContentLoaded", async () => {
+function initTeacher() {
     if (!requireAuth()) return;
 
     // Redirect students away from teacher page
@@ -24,8 +24,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     initNav();
-    await loadSchedule();
-    await Promise.all([loadHomework(), loadBehavioral(), loadClassStats()]);
+    loadSchedule();
+    Promise.all([loadHomework(), loadBehavioral(), loadClassStats()]);
     
     // Initialize card collapse functionality
     initCardCollapse();
@@ -43,7 +43,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             openAttendanceModal(slot);
         } catch (e) { /* ignore */ }
     }
-});
+}
+
+// Initialize immediately - scripts run after HTML parsing
+initTeacher();
 
 /* ---- Load schedule from API ----------------------------------- */
 async function loadSchedule() {

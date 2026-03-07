@@ -1,9 +1,12 @@
-document.addEventListener("DOMContentLoaded", async () => {
+function initProfile() {
     if (!requireAuth()) return;
     initNav();
-    await loadProfile();
+    loadProfile();
     initAccountForm();
-});
+}
+
+// Initialize immediately - scripts run after HTML parsing
+initProfile();
 
 async function loadProfile() {
     const container = document.getElementById("profileContainer");

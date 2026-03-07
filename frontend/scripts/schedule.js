@@ -13,14 +13,17 @@ const PERIOD_TIMES = [
 let scheduleSlots = [];
 let weekOffset = 0;   // 0 = this week, -1 = last week, +1 = next week
 
-document.addEventListener("DOMContentLoaded", async () => {
+function initSchedule() {
     if (!requireAuth()) return;
     initNav();
-    await fetchSchedule();
+    fetchSchedule();
 
     document.getElementById("weekPrev").addEventListener("click", () => { weekOffset--; renderSchedule(); });
     document.getElementById("weekNext").addEventListener("click", () => { weekOffset++; renderSchedule(); });
-});
+}
+
+// Initialize immediately - scripts run after HTML parsing
+initSchedule();
 
 async function fetchSchedule() {
     const container = document.getElementById("scheduleContainer");

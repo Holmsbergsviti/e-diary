@@ -1,4 +1,5 @@
-document.addEventListener("DOMContentLoaded", async () => {
+// Ensure initialization happens when DOM is ready
+function initDashboard() {
     if (!requireAuth()) return;
 
     // Teachers have their own dashboard
@@ -8,12 +9,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
     }
 
+    // Call initNav FIRST to set up navigation, logout, and inject grades/marks tab
     initNav();
-    await Promise.all([loadAnnouncements(), loadRecentGrades(), loadAttendance(), loadBehavioral()]);
     
-    // Initialize card collapse functionality
+    // Then initialize cards and load data
     initCardCollapse();
-});
+    loadAnnouncements();
+    loadRecentGrades();
+    loadAttendance();
+    loadBehavioral();
+}
+
+// Initialize immediately - scripts run after HTML parsing
+initDashboard();
 
 // ---------- helper: grade code -> CSS class ----------
 function gradeClass(code) {

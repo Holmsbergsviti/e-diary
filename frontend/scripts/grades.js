@@ -26,7 +26,7 @@ function catLabel(cat) {
 let allGrades = [];
 let activeTerm = null;
 
-document.addEventListener("DOMContentLoaded", async () => {
+function initGrades() {
     if (!requireAuth()) return;
     initNav();
 
@@ -42,8 +42,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     });
 
-    await loadGrades();
-});
+    loadGrades();
+}
+
+// Initialize immediately - scripts run after HTML parsing
+initGrades();
 
 async function loadGrades() {
     const container = document.getElementById("gradesContainer");
