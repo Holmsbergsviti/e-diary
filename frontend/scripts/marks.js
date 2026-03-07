@@ -87,8 +87,8 @@ function initMarks() {
     });
 }
 
-// Initialize immediately - scripts run after HTML parsing
-initMarks();
+// Initialize immediately with slight delay to ensure sidebar is rendered
+setTimeout(initMarks, 0);
 
 async function loadMarks() {
     const container = document.getElementById("marksContainer");

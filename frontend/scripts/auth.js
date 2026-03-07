@@ -144,18 +144,19 @@ function initNav() {
 
         // Always inject the correct role-specific link before Profile
         const pLink = sidebarEl.querySelector('a[href="profile.html"]');
-        const a = document.createElement("a");
-        if (user.role === "teacher") {
-            a.href = "marks.html";
-            if (window.location.pathname.endsWith("marks.html")) a.classList.add("active");
-            a.innerHTML = '<span class="icon">📝</span> Marks';
-        } else {
-            a.href = "grades.html";
-            if (window.location.pathname.endsWith("grades.html")) a.classList.add("active");
-            a.innerHTML = '<span class="icon">📊</span> Grades';
+        if (pLink) {
+            const a = document.createElement("a");
+            if (user.role === "teacher") {
+                a.href = "marks.html";
+                if (window.location.pathname.endsWith("marks.html")) a.classList.add("active");
+                a.innerHTML = '<span class="icon">📝</span> Marks';
+            } else {
+                a.href = "grades.html";
+                if (window.location.pathname.endsWith("grades.html")) a.classList.add("active");
+                a.innerHTML = '<span class="icon">📊</span> Grades';
+            }
+            sidebarEl.insertBefore(a, pLink);
         }
-        if (pLink) sidebarEl.insertBefore(a, pLink);
-        else sidebarEl.appendChild(a);
     }
 
     // Initialize sidebar collapse toggle

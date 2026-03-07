@@ -45,8 +45,8 @@ function initTeacher() {
     }
 }
 
-// Initialize immediately - scripts run after HTML parsing
-initTeacher();
+// Initialize immediately with slight delay to ensure sidebar is rendered
+setTimeout(initTeacher, 0);
 
 /* ---- Load schedule from API ----------------------------------- */
 async function loadSchedule() {

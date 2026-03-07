@@ -21,7 +21,8 @@ function initDashboard() {
 }
 
 // Initialize immediately - scripts run after HTML parsing
-initDashboard();
+// Use a small timeout to ensure sidebar is fully rendered
+setTimeout(initDashboard, 0);
 
 // ---------- helper: grade code -> CSS class ----------
 function gradeClass(code) {

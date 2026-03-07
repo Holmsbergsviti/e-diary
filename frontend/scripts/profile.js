@@ -5,8 +5,8 @@ function initProfile() {
     initAccountForm();
 }
 
-// Initialize immediately - scripts run after HTML parsing
-initProfile();
+// Initialize immediately with slight delay to ensure sidebar is rendered
+setTimeout(initProfile, 0);
 
 async function loadProfile() {
     const container = document.getElementById("profileContainer");

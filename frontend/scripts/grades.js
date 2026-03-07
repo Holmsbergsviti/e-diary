@@ -45,8 +45,8 @@ function initGrades() {
     loadGrades();
 }
 
-// Initialize immediately - scripts run after HTML parsing
-initGrades();
+// Initialize immediately with slight delay to ensure sidebar is rendered
+setTimeout(initGrades, 0);
 
 async function loadGrades() {
     const container = document.getElementById("gradesContainer");

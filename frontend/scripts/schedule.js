@@ -22,8 +22,8 @@ function initSchedule() {
     document.getElementById("weekNext").addEventListener("click", () => { weekOffset++; renderSchedule(); });
 }
 
-// Initialize immediately - scripts run after HTML parsing
-initSchedule();
+// Initialize immediately with slight delay to ensure sidebar is rendered
+setTimeout(initSchedule, 0);
 
 async function fetchSchedule() {
     const container = document.getElementById("scheduleContainer");
