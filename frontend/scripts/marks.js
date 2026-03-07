@@ -88,7 +88,9 @@ async function initMarks() {
 }
 
 // Initialize immediately with slight delay to ensure sidebar is rendered
-setTimeout(initMarks, 0);
+setTimeout(() => {
+    initMarks().catch(err => console.error("Marks init error:", err));
+}, 0);
 
 async function loadMarks() {
     const container = document.getElementById("marksContainer");

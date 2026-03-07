@@ -16,17 +16,22 @@ async function initDashboard() {
     initCardCollapse();
     
     // Load all data - use Promise.all to load in parallel
-    await Promise.all([
-        loadAnnouncements(),
-        loadRecentGrades(),
-        loadAttendance(),
-        loadBehavioral()
-    ]);
+    try {
+        await Promise.all([
+            loadAnnouncements(),
+            loadRecentGrades(),
+            loadAttendance(),
+            loadBehavioral()
+        ]);
+    } catch (err) {
+        console.error("Error loading dashboard data:", err);
+    }
 }
 
-// Initialize immediately - scripts run after HTML parsing
-// Use a small timeout to ensure sidebar is fully rendered
-setTimeout(initDashboard, 0);
+// Initialize immediately with slight delay to ensure sidebar is rendered
+setTimeout(() => {
+    initDashboard().catch(err => console.error("Dashboard init error:", err));
+}, 0);
 
 // ---------- helper: grade code -> CSS class ----------
 function gradeClass(code) {

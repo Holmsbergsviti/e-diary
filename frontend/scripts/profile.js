@@ -6,7 +6,9 @@ async function initProfile() {
 }
 
 // Initialize immediately with slight delay to ensure sidebar is rendered
-setTimeout(initProfile, 0);
+setTimeout(() => {
+    initProfile().catch(err => console.error("Profile init error:", err));
+}, 0);
 
 async function loadProfile() {
     const container = document.getElementById("profileContainer");

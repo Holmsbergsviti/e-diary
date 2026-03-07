@@ -130,6 +130,8 @@ function initNav() {
     // Update sidebar links based on role
     const sidebarEl = document.querySelector(".sidebar");
     if (sidebarEl && user) {
+        console.log("[initNav] Updating sidebar for user role:", user.role);
+        
         // Rewrite dashboard link for the correct role
         sidebarEl.querySelectorAll("a").forEach(a => {
             if (a.getAttribute("href") === "dashboard.html" && user.role === "teacher") {
@@ -139,24 +141,31 @@ function initNav() {
             }
         });
 
-        // Always remove any existing grades/marks links first (clean slate)
-        sidebarEl.querySelectorAll('a[href="grades.html"], a[href="marks.html"]').forEach(a => a.remove());
+        // Remove any existing grades/marks links first (clean slate)
+        const existingLinks = sidebarEl.querySelectorAll('a[href="grades.html"], a[href="marks.html"]');
+        existingLinks.forEach(a => a.remove());
 
-        // Always inject the correct role-specific link before Profile
+        // Inject the correct role-specific link before Profile
         const pLink = sidebarEl.querySelector('a[href="profile.html"]');
         if (pLink) {
-            const a = document.createElement("a");
+            const newLink = document.createElement("a");
             if (user.role === "teacher") {
-                a.href = "marks.html";
-                if (window.location.pathname.endsWith("marks.html")) a.classList.add("active");
-                a.innerHTML = '<span class="icon">📝</span> Marks';
+                newLink.href = "marks.html";
+                if (window.location.pathname.endsWith("marks.html")) newLink.classList.add("active");
+                newLink.innerHTML = '<span class="icon">📝</span> Marks';
+                console.log("[initNav] Injected Marks tab");
             } else {
-                a.href = "grades.html";
-                if (window.location.pathname.endsWith("grades.html")) a.classList.add("active");
-                a.innerHTML = '<span class="icon">📊</span> Grades';
+                newLink.href = "grades.html";
+                if (window.location.pathname.endsWith("grades.html")) newLink.classList.add("active");
+                newLink.innerHTML = '<span class="icon">📊</span> Grades';
+                console.log("[initNav] Injected Grades tab");
             }
-            sidebarEl.insertBefore(a, pLink);
+            sidebarEl.insertBefore(newLink, pLink);
+        } else {
+            console.warn("[initNav] Profile link not found in sidebar");
         }
+    } else {
+        console.log("[initNav] Sidebar or user not found. Sidebar:", !!sidebarEl, "User:", !!user);
     }
 
     // Initialize sidebar collapse toggle
