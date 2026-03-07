@@ -136,33 +136,34 @@ function initNav() {
     if (sidebarEl && user) {
         // Rewrite dashboard link for the correct role
         sidebarEl.querySelectorAll("a").forEach(a => {
-            if (a.getAttribute("href") === "dashboard.html" && user.role === "teacher") {
-                a.setAttribute("href", "teacher.html");
-            } else if (a.getAttribute("href") === "teacher.html" && user.role !== "teacher") {
-                a.setAttribute("href", "dashboard.html");
+            const href = a.getAttribute("href");
+            if ((href === "dashboard.html" || href === "/dashboard" || href === "/teacher") && user.role === "teacher") {
+                a.setAttribute("href", "/teacher");
+            } else if ((href === "teacher.html" || href === "/teacher") && user.role !== "teacher") {
+                a.setAttribute("href", "/dashboard");
             }
         });
 
         // Remove any existing grades/marks links first (clean slate)
-        const existingLinks = sidebarEl.querySelectorAll('a[href="grades.html"], a[href="marks.html"]');
+        const existingLinks = sidebarEl.querySelectorAll('a[href="/grades"], a[href="/marks"], a[href="grades.html"], a[href="marks.html"]');
         console.log("[initNav] Removing existing links:", existingLinks.length);
         existingLinks.forEach(a => a.remove());
 
         // Inject the correct role-specific link before Profile
-        const pLink = sidebarEl.querySelector('a[href="profile.html"]');
+        const pLink = sidebarEl.querySelector('a[href="/profile"], a[href="profile.html"]');
         console.log("[initNav] Profile link found:", !!pLink);
         console.log("[initNav] All sidebar links:", Array.from(sidebarEl.querySelectorAll("a")).map(a => a.getAttribute("href")));
         
         if (pLink) {
             const newLink = document.createElement("a");
             if (user.role === "teacher") {
-                newLink.href = "marks.html";
-                if (window.location.pathname.endsWith("marks.html")) newLink.classList.add("active");
+                newLink.href = "/marks";
+                if (window.location.pathname.endsWith("marks") || window.location.pathname.endsWith("marks.html")) newLink.classList.add("active");
                 newLink.innerHTML = '<span class="icon">📝</span> Marks';
                 console.log("[initNav] ✅ Injected Marks tab");
             } else {
-                newLink.href = "grades.html";
-                if (window.location.pathname.endsWith("grades.html")) newLink.classList.add("active");
+                newLink.href = "/grades";
+                if (window.location.pathname.endsWith("grades") || window.location.pathname.endsWith("grades.html")) newLink.classList.add("active");
                 newLink.innerHTML = '<span class="icon">📊</span> Grades';
                 console.log("[initNav] ✅ Injected Grades tab");
             }
