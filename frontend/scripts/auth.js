@@ -83,7 +83,6 @@ async function apiFetch(path, options = {}) {
 
 // Populate the nav with the logged-in user's name
 function initNav() {
-    console.log("[initNav] Starting initialization");
     const user = getUser();
     const nameEl = document.getElementById("navUserName");
     if (nameEl && user) {
@@ -131,8 +130,6 @@ function initNav() {
     // Update sidebar links based on role
     const sidebarEl = document.querySelector(".sidebar");
     if (sidebarEl && user) {
-        console.log("[initNav] Updating sidebar for user role:", user.role);
-        
         // Rewrite dashboard link for the correct role
         sidebarEl.querySelectorAll("a").forEach(a => {
             if (a.getAttribute("href") === "dashboard.html" && user.role === "teacher") {
@@ -154,19 +151,13 @@ function initNav() {
                 newLink.href = "marks.html";
                 if (window.location.pathname.endsWith("marks.html")) newLink.classList.add("active");
                 newLink.innerHTML = '<span class="icon">📝</span> Marks';
-                console.log("[initNav] Injected Marks tab");
             } else {
                 newLink.href = "grades.html";
                 if (window.location.pathname.endsWith("grades.html")) newLink.classList.add("active");
                 newLink.innerHTML = '<span class="icon">📊</span> Grades';
-                console.log("[initNav] Injected Grades tab");
             }
             sidebarEl.insertBefore(newLink, pLink);
-        } else {
-            console.warn("[initNav] Profile link not found in sidebar");
         }
-    } else {
-        console.log("[initNav] Sidebar or user not found. Sidebar:", !!sidebarEl, "User:", !!user);
     }
 
     // Initialize sidebar collapse toggle
