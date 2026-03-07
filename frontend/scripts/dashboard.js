@@ -1,5 +1,5 @@
 // Ensure initialization happens when DOM is ready
-function initDashboard() {
+async function initDashboard() {
     if (!requireAuth()) return;
 
     // Teachers have their own dashboard
@@ -12,12 +12,16 @@ function initDashboard() {
     // Call initNav FIRST to set up navigation, logout, and inject grades/marks tab
     initNav();
     
-    // Then initialize cards and load data
+    // Initialize card collapse functionality
     initCardCollapse();
-    loadAnnouncements();
-    loadRecentGrades();
-    loadAttendance();
-    loadBehavioral();
+    
+    // Load all data - use Promise.all to load in parallel
+    await Promise.all([
+        loadAnnouncements(),
+        loadRecentGrades(),
+        loadAttendance(),
+        loadBehavioral()
+    ]);
 }
 
 // Initialize immediately - scripts run after HTML parsing

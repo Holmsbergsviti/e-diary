@@ -1,7 +1,7 @@
-function initProfile() {
+async function initProfile() {
     if (!requireAuth()) return;
     initNav();
-    loadProfile();
+    await loadProfile();
     initAccountForm();
 }
 

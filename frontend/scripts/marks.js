@@ -61,7 +61,7 @@ function currentTerm() {
     return (m >= 9 && m <= 12) ? 1 : 2;
 }
 
-function initMarks() {
+async function initMarks() {
     if (!requireAuth()) return;
     const user = getUser();
     if (user && user.role !== "teacher") {
@@ -73,7 +73,7 @@ function initMarks() {
     // Default to current term
     activeTerm = currentTerm();
 
-    loadMarks();
+    await loadMarks();
 
     document.getElementById("addGradeBtn").addEventListener("click", () => openGradeModal());
 

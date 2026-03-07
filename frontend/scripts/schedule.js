@@ -13,10 +13,10 @@ const PERIOD_TIMES = [
 let scheduleSlots = [];
 let weekOffset = 0;   // 0 = this week, -1 = last week, +1 = next week
 
-function initSchedule() {
+async function initSchedule() {
     if (!requireAuth()) return;
     initNav();
-    fetchSchedule();
+    await fetchSchedule();
 
     document.getElementById("weekPrev").addEventListener("click", () => { weekOffset--; renderSchedule(); });
     document.getElementById("weekNext").addEventListener("click", () => { weekOffset++; renderSchedule(); });

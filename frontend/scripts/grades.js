@@ -26,7 +26,7 @@ function catLabel(cat) {
 let allGrades = [];
 let activeTerm = null;
 
-function initGrades() {
+async function initGrades() {
     if (!requireAuth()) return;
     initNav();
 
@@ -42,7 +42,7 @@ function initGrades() {
         });
     });
 
-    loadGrades();
+    await loadGrades();
 }
 
 // Initialize immediately with slight delay to ensure sidebar is rendered

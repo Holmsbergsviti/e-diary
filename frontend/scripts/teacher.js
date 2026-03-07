@@ -13,7 +13,7 @@ let currentSlot = null; // slot being attended
 let weekOffset = 0;     // 0 = this week, -1 = last week, etc.
 
 /* ---- Bootstrap ------------------------------------------------ */
-function initTeacher() {
+async function initTeacher() {
     if (!requireAuth()) return;
 
     // Redirect students away from teacher page
@@ -24,8 +24,8 @@ function initTeacher() {
     }
 
     initNav();
-    loadSchedule();
-    Promise.all([loadHomework(), loadBehavioral(), loadClassStats()]);
+    await loadSchedule();
+    await Promise.all([loadHomework(), loadBehavioral(), loadClassStats()]);
     
     // Initialize card collapse functionality
     initCardCollapse();
