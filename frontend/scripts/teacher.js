@@ -26,6 +26,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     initNav();
     await loadSchedule();
     await Promise.all([loadHomework(), loadBehavioral(), loadClassStats()]);
+    
+    // Initialize card collapse functionality
+    initCardCollapse();
 
     // Week navigation arrows
     document.getElementById("weekPrev").addEventListener("click", () => { weekOffset--; renderWeeklySchedule(); });
@@ -754,6 +757,44 @@ function renderBehavioral() {
                 alert("Failed to delete note.");
             }
         });
+    });
+}
+
+// ---------- Card collapse functionality ----------
+function initCardCollapse() {
+    // Initialize card collapse buttons
+    document.querySelectorAll(".card-collapse-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            e.preventDefault();
+            const card = btn.closest(".card");
+            const cardId = card.getAttribute("data-card-id");
+            
+            card.classList.toggle("card-collapsed");
+            
+            // Save state to localStorage
+            if (card.classList.contains("card-collapsed")) {
+                // Add to collapsed list
+                let collapsed = JSON.parse(localStorage.getItem("collapsedCards") || "[]");
+                if (!collapsed.includes(cardId)) {
+                    collapsed.push(cardId);
+                }
+                localStorage.setItem("collapsedCards", JSON.stringify(collapsed));
+            } else {
+                // Remove from collapsed list
+                let collapsed = JSON.parse(localStorage.getItem("collapsedCards") || "[]");
+                collapsed = collapsed.filter(id => id !== cardId);
+                localStorage.setItem("collapsedCards", JSON.stringify(collapsed));
+            }
+        });
+    });
+    
+    // Restore collapsed state from localStorage
+    const collapsedCards = JSON.parse(localStorage.getItem("collapsedCards") || "[]");
+    collapsedCards.forEach(cardId => {
+        const card = document.querySelector(`.card[data-card-id="${cardId}"]`);
+        if (card) {
+            card.classList.add("card-collapsed");
+        }
     });
 }
 
