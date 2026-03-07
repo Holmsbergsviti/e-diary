@@ -293,7 +293,7 @@ body {
     border-bottom: 1px solid rgba(var(--primary-blue-rgb), 0.15);
     letter-spacing: 0.3px;
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
     gap: 10px;
     width: 100%;
@@ -311,11 +311,11 @@ body {
     justify-content: center;
     width: 32px;
     height: 32px;
-    transition: transform 0.3s ease, color 0.2s ease;
+    transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), color 0.2s ease;
     line-height: 1;
     flex-shrink: 0;
-    margin-left: auto;
     margin-top: -4px;
+    margin-right: 8px;
 }
 
 .card-collapse-btn:hover {
@@ -330,13 +330,16 @@ body {
 .card-content {
     max-height: 10000px;
     overflow: hidden;
-    transition: max-height 0.3s ease, opacity 0.3s ease;
+    transition: max-height 0.4s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.3s ease, margin-bottom 0.3s ease;
     opacity: 1;
+    margin-bottom: 0;
 }
 
 .card.card-collapsed .card-content {
     max-height: 0;
     opacity: 0;
+    margin-bottom: 0;
+    pointer-events: none;
 }
 
 /* ---- Week navigation header ---- */
