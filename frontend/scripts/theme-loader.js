@@ -8,7 +8,10 @@
         "emerald": "emerald",
         "rose": "rose",
         "amber": "amber",
-        "indigo": "indigo"
+        "indigo": "indigo",
+        "teal": "teal",
+        "mint": "mint",
+        "coral": "coral"
     };
     
     const themeAttr = themeMap[savedTheme] || "";
