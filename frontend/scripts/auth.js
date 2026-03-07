@@ -95,15 +95,16 @@ function initNav() {
 
     // ---------- Mobile hamburger menu ----------
     const topnav = document.querySelector(".topnav");
+    const topnavLeft = document.querySelector(".topnav-left");
     const sidebar = document.querySelector(".sidebar");
-    if (topnav && sidebar && !document.querySelector(".hamburger-btn")) {
+    if (topnav && topnavLeft && sidebar && !document.querySelector(".hamburger-btn")) {
         // Create hamburger button
         const hamBtn = document.createElement("button");
         hamBtn.className = "hamburger-btn";
         hamBtn.setAttribute("aria-label", "Menu");
         hamBtn.setAttribute("aria-expanded", "false");
         hamBtn.innerHTML = "&#9776;";
-        topnav.insertBefore(hamBtn, topnav.firstChild);
+        topnavLeft.insertBefore(hamBtn, topnavLeft.firstChild);
 
         // Create overlay
         const overlay = document.createElement("div");
