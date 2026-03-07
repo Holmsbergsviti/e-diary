@@ -295,6 +295,8 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 10px;
+    width: 100%;
 }
 
 .card-collapse-btn {
@@ -303,13 +305,17 @@ body {
     color: var(--primary-blue);
     font-size: 1.5rem;
     cursor: pointer;
-    padding: 0 4px;
-    display: flex;
+    padding: 4px 8px;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 32px;
+    height: 32px;
     transition: transform 0.3s ease, color 0.2s ease;
     line-height: 1;
     flex-shrink: 0;
+    margin-left: auto;
+    margin-top: -4px;
 }
 
 .card-collapse-btn:hover {
