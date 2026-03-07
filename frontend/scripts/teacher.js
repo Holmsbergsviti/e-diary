@@ -385,29 +385,35 @@ function renderClassStats(stats) {
         const hwTotal = s.homework.completed + s.homework.partial + s.homework.not_done;
 
         const gradeAvg = s.grades.average !== null ? s.grades.average.toFixed(1) : "–";
+        
+        const classId = `stat-${s.subject.replace(/\s+/g, '-')}-${s.class_name.replace(/\s+/g, '-')}`;
 
         return `
-        <div class="stat-card">
+        <div class="stat-card" data-class-id="${classId}">
             <div class="stat-card-header">
-                <span class="stat-card-title">${escHtml(s.subject)} – ${escHtml(s.class_name)}</span>
-                <span class="stat-card-students">${s.student_count} student${s.student_count !== 1 ? 's' : ''}</span>
+                <div style="display:flex;align-items:center;gap:8px;flex:1;">
+                    <button class="stat-collapse-btn" title="Hide/Show statistics" data-class-id="${classId}">−</button>
+                    <span class="stat-card-title">${escHtml(s.subject)} – ${escHtml(s.class_name)}</span>
+                    <span class="stat-card-students">${s.student_count} student${s.student_count !== 1 ? 's' : ''}</span>
+                </div>
             </div>
-            <div class="stat-grid">
-                <div class="stat-block">
-                    <div class="stat-block-title">📅 Attendance</div>
-                    <div class="stat-bar-row">
-                        <div class="stat-bar" style="flex:1;">
-                            <div class="stat-bar-fill stat-bar-present" style="width:${attRate}%" title="Present ${attRate}%"></div>
-                            <div class="stat-bar-fill stat-bar-late" style="width:${lateRate}%" title="Late ${lateRate}%"></div>
-                            <div class="stat-bar-fill stat-bar-absent" style="width:${absentRate}%" title="Absent ${absentRate}%"></div>
+            <div class="stat-card-content">
+                <div class="stat-grid">
+                    <div class="stat-block">
+                        <div class="stat-block-title">📅 Attendance</div>
+                        <div class="stat-bar-row">
+                            <div class="stat-bar" style="flex:1;">
+                                <div class="stat-bar-fill stat-bar-present" style="width:${attRate}%" title="Present ${attRate}%"></div>
+                                <div class="stat-bar-fill stat-bar-late" style="width:${lateRate}%" title="Late ${lateRate}%"></div>
+                                <div class="stat-bar-fill stat-bar-absent" style="width:${absentRate}%" title="Absent ${absentRate}%"></div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="stat-legend">
-                        <span class="stat-dot stat-dot-present"></span> ${s.attendance.present}
-                        <span class="stat-dot stat-dot-late"></span> ${s.attendance.late}
-                        <span class="stat-dot stat-dot-absent"></span> ${s.attendance.absent}
-                        <span class="stat-dot stat-dot-excused"></span> ${s.attendance.excused}
-                    </div>
+                        <div class="stat-legend">
+                            <span class="stat-dot stat-dot-present"></span> ${s.attendance.present}
+                            <span class="stat-dot stat-dot-late"></span> ${s.attendance.late}
+                            <span class="stat-dot stat-dot-absent"></span> ${s.attendance.absent}
+                            <span class="stat-dot stat-dot-excused"></span> ${s.attendance.excused}
+                        </div>
                 </div>
                 <div class="stat-block">
                     <div class="stat-block-title">📊 Grades</div>
@@ -432,9 +438,43 @@ function renderClassStats(stats) {
                         <span class="stat-hw-chip stat-hw-partial">📝 ${s.behavioral.note}</span>
                     </div>
                 </div>
+                </div>
             </div>
         </div>`;
     }).join("");
+    
+    // Initialize collapse buttons for class stats
+    container.querySelectorAll(".stat-collapse-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            e.preventDefault();
+            const classId = btn.getAttribute("data-class-id");
+            const card = container.querySelector(`.stat-card[data-class-id="${classId}"]`);
+            
+            card.classList.toggle("stat-collapsed");
+            
+            // Save state to localStorage
+            if (card.classList.contains("stat-collapsed")) {
+                let collapsed = JSON.parse(localStorage.getItem("collapsedStats") || "[]");
+                if (!collapsed.includes(classId)) {
+                    collapsed.push(classId);
+                }
+                localStorage.setItem("collapsedStats", JSON.stringify(collapsed));
+            } else {
+                let collapsed = JSON.parse(localStorage.getItem("collapsedStats") || "[]");
+                collapsed = collapsed.filter(id => id !== classId);
+                localStorage.setItem("collapsedStats", JSON.stringify(collapsed));
+            }
+        });
+    });
+    
+    // Restore collapsed state from localStorage
+    const collapsedStats = JSON.parse(localStorage.getItem("collapsedStats") || "[]");
+    collapsedStats.forEach(classId => {
+        const card = container.querySelector(`.stat-card[data-class-id="${classId}"]`);
+        if (card) {
+            card.classList.add("stat-collapsed");
+        }
+    });
 }
 
 
