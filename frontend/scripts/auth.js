@@ -83,6 +83,7 @@ async function apiFetch(path, options = {}) {
 
 // Populate the nav with the logged-in user's name
 function initNav() {
+    console.log("[initNav] Starting initialization");
     const user = getUser();
     const nameEl = document.getElementById("navUserName");
     if (nameEl && user) {
