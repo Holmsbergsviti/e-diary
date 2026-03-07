@@ -292,6 +292,45 @@ body {
     padding-bottom: 12px;
     border-bottom: 1px solid rgba(var(--primary-blue-rgb), 0.15);
     letter-spacing: 0.3px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-collapse-btn {
+    background: none;
+    border: none;
+    color: var(--primary-blue);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s ease, color 0.2s ease;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.card-collapse-btn:hover {
+    color: var(--primary-blue-dark);
+    transform: scale(1.2);
+}
+
+.card.card-collapsed .card-collapse-btn {
+    transform: rotate(180deg);
+}
+
+.card-content {
+    max-height: 10000px;
+    overflow: hidden;
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+    opacity: 1;
+}
+
+.card.card-collapsed .card-content {
+    max-height: 0;
+    opacity: 0;
 }
 
 /* ---- Week navigation header ---- */
