@@ -486,6 +486,75 @@ tr:hover td {
     display: block;
 }
 
+/* ---- Marks page: teacher marks table (horizontal scroll) ---- */
+.marks-page table {
+    width: 100%;
+    table-layout: auto;
+    border-collapse: collapse;
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    background: linear-gradient(to right, var(--bg-card) 0%, transparent 100%), 
+                linear-gradient(to right, transparent 0%, var(--bg-card) 100%);
+    background-attachment: local, local;
+    background-size: 20px 100%, 20px 100%;
+    background-position: 0 0, calc(100% - 0) 0;
+    background-repeat: no-repeat;
+}
+
+.marks-page thead,
+.marks-page tbody {
+    display: block;
+}
+
+.marks-page tr {
+    display: flex;
+    width: 100%;
+    border-bottom: 1px solid rgba(var(--primary-blue-rgb), 0.08);
+}
+
+.marks-page th,
+.marks-page td {
+    padding: 12px 14px;
+    text-align: left;
+    min-width: 80px;
+    flex: 0 0 auto;
+}
+
+.marks-page th {
+    background: var(--bg-table-header);
+    color: var(--text-label);
+    font-weight: 700;
+    border-bottom: 1px solid rgba(var(--primary-blue-rgb), 0.15);
+}
+
+.marks-page td {
+    border-right: 1px solid rgba(var(--primary-blue-rgb), 0.08);
+}
+
+.marks-page th:first-child,
+.marks-page td:first-child {
+    min-width: 40px;
+    width: 40px;
+}
+
+.marks-page th:nth-child(2),
+.marks-page td:nth-child(2) {
+    min-width: 140px;
+    flex: 0 0 140px;
+}
+
+.marks-page th:nth-child(3),
+.marks-page td:nth-child(3) {
+    min-width: 100px;
+    flex: 0 0 100px;
+}
+
+.marks-page td:last-child,
+.marks-page th:last-child {
+    border-right: none;
+}
+
 /* ---- Grade badge ---- */
 .grade-badge {
     display: inline-block;
@@ -1991,6 +2060,17 @@ tr:hover td {
     .grades-page th:nth-child(3), .grades-page td:nth-child(3) { width: 50px; min-width: 50px; }
     .grades-page th:nth-child(4), .grades-page td:nth-child(4) { width: 70px; min-width: 70px; }
     .grades-page .grade-badge { width: 32px; height: 32px; line-height: 32px; font-size: 0.78rem; }
+    /* Marks table: horizontal scroll on mobile */
+    .marks-page table { font-size: 0.78rem; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .marks-page thead, .marks-page tbody, .marks-page tr { display: block; width: 100%; }
+    .marks-page th, .marks-page td { padding: 8px 10px; min-width: 70px; }
+    .marks-page th:nth-child(1), .marks-page td:nth-child(1) { min-width: 36px; width: 36px; }
+    .marks-page th:nth-child(2), .marks-page td:nth-child(2) { min-width: 120px; }
+    .marks-page th:nth-child(3), .marks-page td:nth-child(3) { min-width: 80px; }
+    .marks-page .grade-badge { width: 28px; height: 28px; line-height: 28px; font-size: 0.72rem; }
+    .marks-page .student-name-toggle { font-weight: 600; color: var(--primary-blue); cursor: pointer; }
+    .marks-page .add-grade-inline-btn { padding: 4px 6px; width: 22px; height: 22px; font-size: 0.7rem; }
+    .marks-page .cat-label { font-size: 0.6rem; }
     .form-row { flex-direction: column; gap: 12px; }
     .attendance-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .class-card { flex-wrap: wrap; gap: 10px; padding: 14px 14px; min-height: 50px; }
@@ -2140,6 +2220,13 @@ tr:hover td {
         min-height: 36px;
         font-size: 0.78rem;
     }
+    /* Marks table - ultra-compact on small phones */
+    .marks-page table { font-size: 0.7rem; }
+    .marks-page th, .marks-page td { padding: 6px 6px; min-width: 60px; }
+    .marks-page th:nth-child(1), .marks-page td:nth-child(1) { min-width: 32px; width: 32px; }
+    .marks-page th:nth-child(2), .marks-page td:nth-child(2) { min-width: 100px; }
+    .marks-page .grade-badge { width: 24px; height: 24px; line-height: 24px; font-size: 0.65rem; }
+    .marks-page .add-grade-inline-btn { display: none; }
     /* Schedule table - very compact */
     .timetable th,
     .timetable td {
