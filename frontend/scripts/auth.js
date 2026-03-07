@@ -219,3 +219,28 @@ function formatDate(dateStr) {
     const d = new Date(dateStr);
     return isNaN(d) ? dateStr : d.toLocaleDateString("en-GB");
 }
+
+// Global modal escape key handler for better mobile UX
+function initGlobalModalEscapeSupport() {
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+            // Find any visible modal and close it
+            const visibleModals = document.querySelectorAll(".modal-overlay");
+            for (const modal of visibleModals) {
+                // Check if modal is visible (not display: none)
+                if (modal.style.display !== "none" && modal.offsetParent !== null) {
+                    // Try common close button selectors
+                    const closeBtn = modal.querySelector(".modal-close-btn, [data-dismiss='modal']");
+                    if (closeBtn) {
+                        closeBtn.click();
+                        e.preventDefault();
+                        return;
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Initialize on page load
+document.addEventListener("DOMContentLoaded", initGlobalModalEscapeSupport);
