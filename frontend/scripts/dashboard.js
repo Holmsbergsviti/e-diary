@@ -10,6 +10,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     initNav();
     await Promise.all([loadAnnouncements(), loadRecentGrades(), loadAttendance(), loadBehavioral()]);
+    
+    // Initialize card collapse functionality
+    initCardCollapse();
 });
 
 // ---------- helper: grade code -> CSS class ----------
@@ -180,7 +183,7 @@ async function loadBehavioral() {
 }
 
 // ---------- Card collapse functionality ----------
-document.addEventListener("DOMContentLoaded", () => {
+function initCardCollapse() {
     // Initialize card collapse buttons
     document.querySelectorAll(".card-collapse-btn").forEach(btn => {
         btn.addEventListener("click", (e) => {
@@ -215,4 +218,4 @@ document.addEventListener("DOMContentLoaded", () => {
             card.classList.add("card-collapsed");
         }
     });
-});
+}
