@@ -25,7 +25,7 @@ async function initSchedule() {
 // Initialize immediately with slight delay to ensure sidebar is rendered
 setTimeout(() => {
     initSchedule().catch(err => console.error("Schedule init error:", err));
-}, 0);
+}, 100);
 
 async function fetchSchedule() {
     const container = document.getElementById("scheduleContainer");

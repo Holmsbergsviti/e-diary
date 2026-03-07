@@ -31,7 +31,7 @@ async function initDashboard() {
 // Initialize immediately with slight delay to ensure sidebar is rendered
 setTimeout(() => {
     initDashboard().catch(err => console.error("Dashboard init error:", err));
-}, 0);
+}, 100);
 
 // ---------- helper: grade code -> CSS class ----------
 function gradeClass(code) {

@@ -48,7 +48,7 @@ async function initTeacher() {
 // Initialize immediately with slight delay to ensure sidebar is rendered
 setTimeout(() => {
     initTeacher().catch(err => console.error("Teacher init error:", err));
-}, 0);
+}, 100);
 
 /* ---- Load schedule from API ----------------------------------- */
 async function loadSchedule() {
@@ -629,21 +629,31 @@ function updateClassStats(stats) {
             attRingContainer.innerHTML = generateAttendanceRing(s.attendance.present, s.attendance.late, s.attendance.absent, s.attendance.excused, attTotal);
         }
         
-        // Update attendance numbers
-        card.querySelector(`.att-present-${classId}`).textContent = s.attendance.present;
-        card.querySelector(`.att-late-${classId}`).textContent = s.attendance.late;
-        card.querySelector(`.att-absent-${classId}`).textContent = s.attendance.absent;
-        card.querySelector(`.att-excused-${classId}`).textContent = s.attendance.excused;
+        // Update attendance numbers (with null checks)
+        const attPresentEl = card.querySelector(`.att-present-${classId}`);
+        if (attPresentEl) attPresentEl.textContent = s.attendance.present;
+        const attLateEl = card.querySelector(`.att-late-${classId}`);
+        if (attLateEl) attLateEl.textContent = s.attendance.late;
+        const attAbsentEl = card.querySelector(`.att-absent-${classId}`);
+        if (attAbsentEl) attAbsentEl.textContent = s.attendance.absent;
+        const attExcusedEl = card.querySelector(`.att-excused-${classId}`);
+        if (attExcusedEl) attExcusedEl.textContent = s.attendance.excused;
         
-        // Update grades
-        card.querySelector(`.grade-avg-${classId}`).textContent = gradeAvg;
-        card.querySelector(`.grade-count-${classId}`).textContent = `${s.grades.count} grade${s.grades.count !== 1 ? 's' : ''} recorded`;
+        // Update grades (with null checks)
+        const gradeAvgEl = card.querySelector(`.grade-avg-${classId}`);
+        if (gradeAvgEl) gradeAvgEl.textContent = gradeAvg;
+        const gradeCountEl = card.querySelector(`.grade-count-${classId}`);
+        if (gradeCountEl) gradeCountEl.textContent = `${s.grades.count} grade${s.grades.count !== 1 ? 's' : ''} recorded`;
         
-        // Update homework numbers
-        card.querySelector(`.hw-assigned-${classId}`).textContent = `${s.homework.assigned} assigned`;
-        card.querySelector(`.hw-completed-${classId}`).textContent = s.homework.completed;
-        card.querySelector(`.hw-partial-${classId}`).textContent = s.homework.partial;
-        card.querySelector(`.hw-not-${classId}`).textContent = s.homework.not_done;
+        // Update homework numbers (with null checks)
+        const hwAssignedEl = card.querySelector(`.hw-assigned-${classId}`);
+        if (hwAssignedEl) hwAssignedEl.textContent = `${s.homework.assigned} assigned`;
+        const hwCompletedEl = card.querySelector(`.hw-completed-${classId}`);
+        if (hwCompletedEl) hwCompletedEl.textContent = s.homework.completed;
+        const hwPartialEl = card.querySelector(`.hw-partial-${classId}`);
+        if (hwPartialEl) hwPartialEl.textContent = s.homework.partial;
+        const hwNotEl = card.querySelector(`.hw-not-${classId}`);
+        if (hwNotEl) hwNotEl.textContent = s.homework.not_done;
         
         // Update behavioral ring
         const behavRingContainer = card.querySelector(`#behav-ring-${classId}`);
