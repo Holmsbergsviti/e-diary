@@ -1,4 +1,40 @@
 /* ============================================================
+   Mobile-first improvements
+   ============================================================ */
+/* Prevent iOS zoom on input focus */
+@media (max-width: 900px) {
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="date"],
+    select,
+    textarea {
+        font-size: 16px;
+    }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+    /* Remove hover effects on touch devices, use active instead */
+    button:active,
+    a:active,
+    .clickable-lesson:active {
+        opacity: 0.8;
+        transform: scale(0.98);
+    }
+    
+    /* Larger touch targets */
+    button,
+    a,
+    input[type="button"],
+    input[type="submit"],
+    [role="button"] {
+        min-height: 44px;
+        min-width: 44px;
+    }
+}
+
+/* ============================================================
    ANIMATIONS
    ============================================================ */
 @keyframes slideInDown {
@@ -1707,16 +1743,32 @@ tr:hover td {
     color: #e8ecf1;
     font-size: 1.5rem;
     cursor: pointer;
-    padding: 6px 10px;
+    padding: 0;
     line-height: 1;
     border-radius: 8px;
     transition: all 0.25s ease;
     box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.2);
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    position: relative;
 }
 
 .hamburger-btn:hover {
     background: linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
-    transform: scale(1.05);
+    transform: scale(1.08);
+}
+
+.hamburger-btn:active {
+    transform: scale(0.95);
+}
+
+/* Hamburger button visual indicator for open state */
+.hamburger-btn[aria-expanded="true"] {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.08));
 }
 
 /* Sidebar overlay for mobile */
@@ -1727,6 +1779,8 @@ tr:hover td {
     background: rgba(0, 0, 0, 0.3);
     z-index: 149;
     backdrop-filter: blur(2px);
+    transition: opacity 0.25s ease;
+    opacity: 0;
 }
 
 /* ============================================================
@@ -1912,41 +1966,71 @@ tr:hover td {
     .topnav-brand { font-size: 0.95rem; }
     .topnav-right { gap: 10px; font-size: 0.82rem; }
     #navUserName { max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .sidebar { position: fixed; top: 50px; left: 0; bottom: 0; width: 220px; z-index: 150; transform: translateX(-100%); transition: transform 0.25s ease; box-shadow: 2px 0 12px rgba(0,0,0,0.15); }
+    .sidebar { position: fixed; top: 50px; left: 0; bottom: 0; width: 220px; z-index: 150; transform: translateX(-100%); transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); box-shadow: 2px 0 12px rgba(0,0,0,0.15); }
     .sidebar.open { transform: translateX(0); }
-    .sidebar-overlay.open { display: block; }
+    .sidebar-overlay.open { display: block; opacity: 1; }
     .page-layout { min-height: calc(100vh - 50px); }
-    .content { padding: 16px 6px; }
-    .card { padding: 12px 6px; margin-bottom: 12px; }
+    .content { padding: 16px 10px; }
+    .card { padding: 12px 14px; margin-bottom: 12px; border-radius: 12px; }
     .stat-row { gap: 10px; }
-    .stat-card { min-width: 100px; padding: 12px 8px; }
+    .stat-card { min-width: 100px; padding: 16px 12px; }
     .stat-value { font-size: 1.3rem; }
-    /* Grades table: shrink to fit screen, no horizontal scroll */
-    .grades-page table { font-size: 0.78rem; }
-    .grades-page th, .grades-page td { padding: 6px 4px; }
-    .grades-page th:nth-child(1), .grades-page td:nth-child(1) { width: auto; min-width: 60px; }
-    .grades-page th:nth-child(2), .grades-page td:nth-child(2) { width: 48px; min-width: 48px; }
-    .grades-page th:nth-child(3), .grades-page td:nth-child(3) { width: 48px; min-width: 36px; }
-    .grades-page th:nth-child(4), .grades-page td:nth-child(4) { width: 70px; min-width: 50px; }
-    .grades-page .grade-badge { width: 26px; height: 26px; line-height: 26px; font-size: 0.75rem; }
-    /* Remove table horizontal scroll */
-    .card > table, .card > div > table { display: table; overflow-x: unset; white-space: normal; }
-    /* ...existing code... */
-    .form-row { flex-direction: column; gap: 0; }
-    .attendance-table { display: block; overflow-x: auto; }
-    .class-card { flex-wrap: wrap; gap: 8px; padding: 12px 14px; }
-    .class-card-period { min-width: auto; }
-    .week-nav-header { gap: 6px; }
-    .week-arrow { width: 28px; height: 28px; font-size: 1.1rem; }
+    /* Touch target improvements */
+    .sidebar-toggle-btn { width: 44px; height: 44px; }
+    .btn, .btn-sm { padding: 12px 20px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+    .btn-sm { padding: 10px 16px; }
+    /* Form inputs: better touch targets */
+    .form-input, .status-select, .comment-input { min-height: 44px; padding: 12px 14px; font-size: 16px; }
+    .attendance-date-row input[type="date"] { min-height: 44px; padding: 10px 14px; }
+    /* Grades table: shrink to fit screen, horizontal scroll with visual indicator */
+    .grades-page table { font-size: 0.78rem; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .grades-page thead, .grades-page tbody, .grades-page tr, .grades-page th, .grades-page td { display: block; width: 100%; }
+    .grades-page th, .grades-page td { padding: 8px 6px; }
+    .grades-page th:nth-child(1), .grades-page td:nth-child(1) { width: auto; min-width: 80px; }
+    .grades-page th:nth-child(2), .grades-page td:nth-child(2) { width: 50px; min-width: 50px; }
+    .grades-page th:nth-child(3), .grades-page td:nth-child(3) { width: 50px; min-width: 50px; }
+    .grades-page th:nth-child(4), .grades-page td:nth-child(4) { width: 70px; min-width: 70px; }
+    .grades-page .grade-badge { width: 32px; height: 32px; line-height: 32px; font-size: 0.78rem; }
+    .form-row { flex-direction: column; gap: 12px; }
+    .attendance-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .class-card { flex-wrap: wrap; gap: 10px; padding: 14px 14px; min-height: 50px; }
+    .class-card-period { min-width: auto; font-size: 0.85rem; }
+    .week-nav-header { gap: 8px; }
+    .week-arrow { width: 36px; height: 36px; font-size: 1.1rem; }
     .grades-grid { grid-template-columns: 1fr; gap: 14px; }
-    .grade-subject-header { padding: 12px 14px; }
-    .grade-item-row { padding: 8px 14px; gap: 10px; }
+    .grade-subject-header { padding: 14px 14px; }
+    .grade-item-row { padding: 12px 14px; gap: 12px; }
     .stat-grid { grid-template-columns: 1fr; }
     .student-stats-grid { grid-template-columns: 1fr; }
-    .hw-item, .beh-item { flex-wrap: wrap; padding: 10px 12px; gap: 8px; }
-    .overview-student-header { padding: 10px 12px; gap: 8px; }
-    .overview-student-detail { padding: 8px 12px 12px; }
-    #logoutBtn { padding: 4px 10px; font-size: 0.78rem; }
+    .hw-item, .beh-item { flex-wrap: wrap; padding: 12px 14px; gap: 10px; min-height: 44px; }
+    .overview-student-header { padding: 12px 14px; gap: 10px; min-height: 50px; }
+    .overview-student-detail { padding: 10px 14px 14px; }
+    /* Buttons in models/forms must be touch-friendly */
+    #logoutBtn { padding: 10px 16px; font-size: 0.85rem; min-height: 40px; }
+    .modal-close-btn { padding: 8px 10px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
+    .modal { max-height: 95vh; }
+    .modal-body { max-height: calc(95vh - 120px); }
+    .modal-footer { padding: 12px 16px; }
+    .modal-header { padding: 16px 16px 12px; }
+    .tab-btn { padding: 12px 14px; font-size: 0.85rem; }
+}
+
+/* ============================================================
+   Responsive: scroll indicators for tables on mobile
+   ============================================================ */
+@media (max-width: 768px) {
+    .card > table, .card > div > table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        background: linear-gradient(to right, var(--bg-card) 0%, transparent 100%), 
+                    linear-gradient(to right, transparent 0%, var(--bg-card) 100%);
+        background-attachment: local, local;
+        background-size: 20px 100%, 20px 100%;
+        background-position: 0 0, calc(100% - 0) 0;
+        background-repeat: no-repeat;
+    }
 }
 
 /* ============================================================
@@ -1954,42 +2038,282 @@ tr:hover td {
    ============================================================ */
 @media (max-width: 480px) {
     .topnav {
-        padding: 0 10px;
+        padding: 0 8px;
+        height: 46px;
     }
     .topnav-brand {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
+        letter-spacing: 0.2px;
+    }
+    .topnav-left {
+        gap: 8px;
+    }
+    .sidebar-toggle-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 1.3rem;
     }
     #navUserName {
         display: none;
     }
+    .topnav-right {
+        gap: 6px;
+    }
+    #logoutBtn {
+        padding: 8px 12px;
+        font-size: 0.75rem;
+        min-height: 38px;
+    }
     .content {
-        padding: 12px 10px;
+        padding: 10px 8px;
+    }
+    .page-layout {
+        min-height: calc(100vh - 46px);
     }
     .card {
-        padding: 14px 12px;
+        padding: 12px 10px;
         border-radius: 8px;
+        margin-bottom: 10px;
+        overflow: hidden;
+    }
+    .card-title {
+        font-size: 0.95rem;
+        margin-bottom: 12px;
+    }
+    .card-collapse-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 1.2rem;
     }
     .stat-row {
         flex-direction: column;
-        gap: 8px;
+        gap: 6px;
+        margin-bottom: 12px;
     }
     .stat-card {
         min-width: unset;
+        padding: 14px 10px;
+        border-radius: 10px;
     }
-    .grade-item-name {
-        font-size: 0.82rem;
+    .stat-value {
+        font-size: 1.6rem;
+        margin-bottom: 2px;
     }
-    .grade-item-badge .grade-badge {
-        width: 30px;
-        height: 30px;
-        line-height: 30px;
-        font-size: 0.75rem;
+    .stat-label {
+        font-size: 0.72rem;
+        letter-spacing: 0.1px;
     }
-    /* Schedule table even smaller */
+    /* Form inputs - mobile friendly */
+    .form-input, .status-select, .comment-input {
+        min-height: 44px;
+        padding: 10px 12px;
+        font-size: 16px;
+        border-radius: 8px;
+    }
+    .form-group {
+        margin-bottom: 14px;
+    }
+    .form-group label {
+        font-size: 0.8rem;
+        margin-bottom: 6px;
+    }
+    .form-row {
+        flex-direction: column;
+        gap: 0;
+    }
+    .attendance-date-row {
+        flex-direction: column;
+        gap: 8px;
+    }
+    .attendance-date-row input[type="date"] {
+        width: 100%;
+        min-height: 44px;
+    }
+    /* Buttons - adequate touch targets */
+    .btn {
+        padding: 11px 16px;
+        min-height: 44px;
+        font-size: 0.85rem;
+    }
+    .btn-sm {
+        padding: 8px 14px;
+        min-height: 36px;
+        font-size: 0.78rem;
+    }
+    /* Schedule table - very compact */
     .timetable th,
     .timetable td {
-        min-width: 70px;
-        padding: 5px 6px;
-        font-size: 0.72rem;
+        min-width: 60px;
+        padding: 6px 4px;
+        font-size: 0.65rem;
+    }
+    .lesson-room {
+        font-size: 0.65rem;
+    }
+    /* Grade badges - smaller but readable */
+    .grade-item-name {
+        font-size: 0.78rem;
+    }
+    .grade-item-badge .grade-badge {
+        width: 28px;
+        height: 28px;
+        line-height: 28px;
+        font-size: 0.7rem;
+    }
+    .grades-page .grade-badge {
+        width: 28px;
+        height: 28px;
+        line-height: 28px;
+        font-size: 0.7rem;
+    }
+    .grade-item-pct {
+        font-size: 0.75rem;
+        min-width: 32px;
+    }
+    /* Navigation - compact */
+    .sidebar {
+        width: 200px;
+        top: 46px;
+    }
+    .sidebar a {
+        padding: 10px 12px;
+        font-size: 0.85rem;
+        gap: 10px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+    }
+    .sidebar a .icon {
+        font-size: 1rem;
+    }
+    /* Class cards - better spacing */
+    .class-card {
+        padding: 12px 10px;
+        gap: 8px;
+        min-height: 44px;
+    }
+    .class-card-period {
+        font-size: 0.75rem;
+        min-width: 50px;
+    }
+    .class-card-info {
+        gap: 2px;
+    }
+    /* Week navigation */
+    .week-nav-header {
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+    .week-arrow {
+        width: 32px;
+        height: 32px;
+        font-size: 1rem;
+        padding: 0;
+    }
+    #weekLabel {
+        font-size: 0.85rem;
+    }
+    .day-date {
+        font-size: 0.7rem;
+    }
+    /* Modals - full width on small phones */
+    .modal {
+        max-width: calc(100% - 16px);
+        max-height: 95vh;
+        border-radius: 12px;
+    }
+    .modal-header {
+        padding: 12px 12px 10px;
+    }
+    .modal-header h2 {
+        font-size: 1rem;
+    }
+    .modal-body {
+        padding: 12px;
+        max-height: calc(95vh - 100px);
+    }
+    .modal-footer {
+        padding: 10px 12px;
+        gap: 8px;
+    }
+    /* Tabs */
+    .tabs {
+        gap: 2px;
+        margin-bottom: 12px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .tab-btn {
+        padding: 10px 12px;
+        font-size: 0.8rem;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    /* Homework and behavioral items */
+    .hw-item, .beh-item {
+        padding: 10px 8px;
+        gap: 8px;
+        flex-wrap: wrap;
+        min-height: 44px;
+    }
+    .hw-item-title, .beh-item-title {
+        font-size: 0.85rem;
+    }
+    .hw-item-meta, .beh-item-meta {
+        font-size: 0.75rem;
+    }
+    .hw-delete-btn, .beh-delete-btn {
+        padding: 4px 6px;
+        font-size: 1rem;
+    }
+    /* Grid layouts - single column on small screens */
+    .stat-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    .student-stats-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    .stat-block {
+        padding: 10px 12px;
+    }
+    /* Overview student rows */
+    .overview-student-header {
+        padding: 10px 8px;
+        gap: 8px;
+        min-height: 44px;
+    }
+    .overview-num, .overview-meta {
+        font-size: 0.78rem;
+    }
+    .overview-name {
+        font-size: 0.9rem;
+    }
+    .overview-student-detail {
+        padding: 8px 8px 10px;
+    }
+    /* Category labels - smaller */
+    .cat-label {
+        font-size: 0.6rem;
+        padding: 2px 4px;
+    }
+    /* Scrollable tables with momentum */
+    table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-collapse: collapse;
+    }
+    thead, tbody {
+        display: block;
+    }
+    tr {
+        display: flex;
+        width: 100%;
+    }
+    th, td {
+        flex: none;
     }
 }
