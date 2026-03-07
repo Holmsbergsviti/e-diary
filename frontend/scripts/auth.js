@@ -101,6 +101,7 @@ function initNav() {
         const hamBtn = document.createElement("button");
         hamBtn.className = "hamburger-btn";
         hamBtn.setAttribute("aria-label", "Menu");
+        hamBtn.setAttribute("aria-expanded", "false");
         hamBtn.innerHTML = "&#9776;";
         topnav.insertBefore(hamBtn, topnav.firstChild);
 
@@ -110,12 +111,15 @@ function initNav() {
         document.body.appendChild(overlay);
 
         function toggleSidebar() {
+            const isOpen = sidebar.classList.contains("open");
             sidebar.classList.toggle("open");
             overlay.classList.toggle("open");
+            hamBtn.setAttribute("aria-expanded", !isOpen);
         }
         function closeSidebar() {
             sidebar.classList.remove("open");
             overlay.classList.remove("open");
+            hamBtn.setAttribute("aria-expanded", "false");
         }
 
         hamBtn.addEventListener("click", toggleSidebar);
@@ -124,6 +128,14 @@ function initNav() {
         // Close sidebar when a link is clicked (mobile)
         sidebar.querySelectorAll("a").forEach(a => {
             a.addEventListener("click", closeSidebar);
+        });
+
+        // Close sidebar when Escape key is pressed
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && sidebar.classList.contains("open")) {
+                closeSidebar();
+                hamBtn.focus();
+            }
         });
     }
 
