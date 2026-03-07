@@ -369,6 +369,65 @@ async function loadClassStats() {
     }
 }
 
+/* ---- Ring diagram generators ---- */
+function generateAttendanceRing(present, late, absent, excused, total) {
+    if (total === 0) return '<div style="text-align:center;padding:20px;color:#999;">No data</div>';
+    
+    const presentPct = Math.round((present / total) * 100);
+    const latePct = Math.round((late / total) * 100);
+    const absentPct = Math.round((absent / total) * 100);
+    const excusedPct = Math.round((excused / total) * 100);
+    
+    return `
+        <svg class="stat-ring" viewBox="0 0 100 100" width="120" height="120">
+            ${generateRingSector(0, presentPct, '#10b981', 'Present', presentPct)}
+            ${generateRingSector(presentPct, latePct, '#fcd34d', 'Late', latePct)}
+            ${generateRingSector(presentPct + latePct, absentPct, '#f87171', 'Absent', absentPct)}
+            ${generateRingSector(presentPct + latePct + absentPct, excusedPct, '#60a5fa', 'Excused', excusedPct)}
+        </svg>
+    `;
+}
+
+function generateRingSector(startPct, sizePct, color, label, percent) {
+    const startAngle = (startPct / 100) * 360 - 90;
+    const arcAngle = (sizePct / 100) * 360;
+    const radius = 35;
+    const circumference = 2 * Math.PI * radius;
+    const offset = (100 - startPct) / 100 * circumference;
+    const dasharray = (sizePct / 100) * circumference;
+    
+    const cx = 50, cy = 50;
+    const angle = (startAngle + arcAngle / 2) * Math.PI / 180;
+    const labelX = cx + Math.cos(angle) * 50;
+    const labelY = cy + Math.sin(angle) * 50;
+    
+    return `
+        <circle class="stat-ring-sector" cx="${cx}" cy="${cy}" r="${radius}" 
+                fill="none" stroke="${color}" stroke-width="14"
+                stroke-dasharray="${dasharray} ${circumference - dasharray}"
+                stroke-dashoffset="${-offset}"
+                data-label="${label}: ${percent}%">
+        </circle>
+    `;
+}
+
+function generateBehavioralRing(positive, negative, note) {
+    const total = positive + negative + note;
+    if (total === 0) return '<div style="text-align:center;padding:20px;color:#999;">No data</div>';
+    
+    const positivePct = Math.round((positive / total) * 100);
+    const negativePct = Math.round((negative / total) * 100);
+    const notePct = Math.round((note / total) * 100);
+    
+    return `
+        <svg class="stat-ring" viewBox="0 0 100 100" width="120" height="120">
+            ${generateRingSector(0, positivePct, '#10b981', 'Positive', positivePct)}
+            ${generateRingSector(positivePct, negativePct, '#f87171', 'Negative', negativePct)}
+            ${generateRingSector(positivePct + negativePct, notePct, '#fbbf24', 'Note', notePct)}
+        </svg>
+    `;
+}
+
 function renderClassStats(stats) {
     const container = document.getElementById("classStatsList");
     if (stats.length === 0) {
@@ -392,21 +451,17 @@ function renderClassStats(stats) {
         <div class="stat-card" data-class-id="${classId}">
             <div class="stat-card-header">
                 <div style="display:flex;align-items:center;gap:8px;flex:1;">
-                    <button class="stat-collapse-btn" title="Hide/Show statistics" data-class-id="${classId}">−</button>
                     <span class="stat-card-title">${escHtml(s.subject)} – ${escHtml(s.class_name)}</span>
                     <span class="stat-card-students">${s.student_count} student${s.student_count !== 1 ? 's' : ''}</span>
                 </div>
+                <button class="stat-collapse-btn" title="Hide/Show statistics" data-class-id="${classId}">−</button>
             </div>
             <div class="stat-card-content">
                 <div class="stat-grid">
                     <div class="stat-block">
                         <div class="stat-block-title">📅 Attendance</div>
-                        <div class="stat-bar-row">
-                            <div class="stat-bar" style="flex:1;">
-                                <div class="stat-bar-fill stat-bar-present" style="width:${attRate}%" title="Present ${attRate}%"></div>
-                                <div class="stat-bar-fill stat-bar-late" style="width:${lateRate}%" title="Late ${lateRate}%"></div>
-                                <div class="stat-bar-fill stat-bar-absent" style="width:${absentRate}%" title="Absent ${absentRate}%"></div>
-                            </div>
+                        <div class="stat-ring-container">
+                            ${generateAttendanceRing(s.attendance.present, s.attendance.late, s.attendance.absent, s.attendance.excused, attTotal)}
                         </div>
                         <div class="stat-legend">
                             <span class="stat-dot stat-dot-present"></span> ${s.attendance.present}
@@ -414,7 +469,7 @@ function renderClassStats(stats) {
                             <span class="stat-dot stat-dot-absent"></span> ${s.attendance.absent}
                             <span class="stat-dot stat-dot-excused"></span> ${s.attendance.excused}
                         </div>
-                </div>
+                    </div>
                 <div class="stat-block">
                     <div class="stat-block-title">📊 Grades</div>
                     <div class="stat-big">${gradeAvg}</div>
@@ -432,10 +487,13 @@ function renderClassStats(stats) {
                 </div>
                 <div class="stat-block">
                     <div class="stat-block-title">📋 Behavioral</div>
-                    <div class="stat-hw-row">
-                        <span class="stat-hw-chip stat-hw-done">👍 ${s.behavioral.positive}</span>
-                        <span class="stat-hw-chip stat-hw-not">👎 ${s.behavioral.negative}</span>
-                        <span class="stat-hw-chip stat-hw-partial">📝 ${s.behavioral.note}</span>
+                    <div class="stat-ring-container">
+                        ${generateBehavioralRing(s.behavioral.positive, s.behavioral.negative, s.behavioral.note)}
+                    </div>
+                    <div style="display:flex;gap:12px;justify-content:center;margin-top:8px;flex-wrap:wrap;font-size:0.85rem;">
+                        <span><span style="display:inline-block;width:12px;height:12px;background:#10b981;border-radius:2px;margin-right:4px;"></span>👍 ${s.behavioral.positive}</span>
+                        <span><span style="display:inline-block;width:12px;height:12px;background:#f87171;border-radius:2px;margin-right:4px;"></span>👎 ${s.behavioral.negative}</span>
+                        <span><span style="display:inline-block;width:12px;height:12px;background:#fbbf24;border-radius:2px;margin-right:4px;"></span>📝 ${s.behavioral.note}</span>
                     </div>
                 </div>
                 </div>
@@ -474,6 +532,14 @@ function renderClassStats(stats) {
         if (card) {
             card.classList.add("stat-collapsed");
         }
+    });
+    
+    // Add hover tooltips to ring sectors
+    container.querySelectorAll(".stat-ring-sector").forEach(sector => {
+        sector.addEventListener("mouseenter", (e) => {
+            const label = sector.getAttribute("data-label");
+            e.target.setAttribute("title", label);
+        });
     });
 }
 
