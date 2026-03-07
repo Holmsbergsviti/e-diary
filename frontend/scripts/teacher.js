@@ -370,6 +370,18 @@ async function loadClassStats() {
     }
 }
 
+// Auto-refresh class stats every 10 seconds
+setInterval(async () => {
+    try {
+        const res = await apiFetch("/teacher/class-stats/");
+        const data = await res.json();
+        const stats = data.stats || [];
+        updateClassStats(stats);
+    } catch (err) {
+        console.error("Failed to refresh class stats:", err);
+    }
+}, 10000);
+
 /* ---- Ring diagram generators ---- */
 function generateAttendanceRing(present, late, absent, excused, total) {
     // If no attendance data, show 100% absent
@@ -492,7 +504,7 @@ function renderClassStats(stats) {
         const classId = `stat-${s.subject.replace(/\s+/g, '-')}-${s.class_name.replace(/\s+/g, '-')}`;
 
         return `
-        <div class="stat-card" data-class-id="${classId}">
+        <div class="stat-card" data-class-id="${classId}" data-subject="${escHtml(s.subject)}" data-class-name="${escHtml(s.class_name)}">
             <div class="stat-card-header">
                 <div style="display:flex;align-items:center;gap:8px;flex:1;">
                     <span class="stat-card-title">${escHtml(s.subject)} – ${escHtml(s.class_name)}</span>
@@ -504,42 +516,46 @@ function renderClassStats(stats) {
                 <div class="stat-grid">
                     <div class="stat-block">
                         <div class="stat-block-title">📅 Attendance</div>
-                        <div class="stat-ring-container">
+                        <div class="stat-ring-container" id="att-ring-${classId}">
                             ${generateAttendanceRing(s.attendance.present, s.attendance.late, s.attendance.absent, s.attendance.excused, attTotal)}
                         </div>
                         <div class="stat-legend">
-                            <span class="stat-dot stat-dot-present"></span> ${s.attendance.present}
-                            <span class="stat-dot stat-dot-late"></span> ${s.attendance.late}
-                            <span class="stat-dot stat-dot-absent"></span> ${s.attendance.absent}
-                            <span class="stat-dot stat-dot-excused"></span> ${s.attendance.excused}
+                            <span class="stat-dot stat-dot-present"></span> <span class="att-present-${classId}">${s.attendance.present}</span>
+                            <span class="stat-dot stat-dot-late"></span> <span class="att-late-${classId}">${s.attendance.late}</span>
+                            <span class="stat-dot stat-dot-absent"></span> <span class="att-absent-${classId}">${s.attendance.absent}</span>
+                            <span class="stat-dot stat-dot-excused"></span> <span class="att-excused-${classId}">${s.attendance.excused}</span>
                         </div>
                     </div>
                 <div class="stat-block">
                     <div class="stat-block-title">📊 Grades</div>
-                    <div class="stat-big">${gradeAvg}</div>
-                    <div class="stat-sub">${s.grades.count} grade${s.grades.count !== 1 ? 's' : ''} recorded</div>
+                    <div class="stat-big grade-avg-${classId}">${gradeAvg}</div>
+                    <div class="stat-sub grade-count-${classId}">${s.grades.count} grade${s.grades.count !== 1 ? 's' : ''} recorded</div>
                 </div>
                 <div class="stat-block">
                     <div class="stat-block-title">📝 Homework</div>
-                    <div class="stat-sub">${s.homework.assigned} assigned</div>
-                    ${hwTotal > 0 ? `
-                    <div class="stat-hw-row">
-                        <span class="stat-hw-chip stat-hw-done">✅ ${s.homework.completed}</span>
-                        <span class="stat-hw-chip stat-hw-partial">⚠️ ${s.homework.partial}</span>
-                        <span class="stat-hw-chip stat-hw-not">❌ ${s.homework.not_done}</span>
-                    </div>` : '<div class="stat-sub">No completions yet</div>'}
+                    <div class="stat-sub hw-assigned-${classId}">${s.homework.assigned} assigned</div>
+                    <div class="hw-content-${classId}">
+                        ${hwTotal > 0 ? `
+                        <div class="stat-hw-row">
+                            <span class="stat-hw-chip stat-hw-done">✅ <span class="hw-completed-${classId}">${s.homework.completed}</span></span>
+                            <span class="stat-hw-chip stat-hw-partial">⚠️ <span class="hw-partial-${classId}">${s.homework.partial}</span></span>
+                            <span class="stat-hw-chip stat-hw-not">❌ <span class="hw-not-${classId}">${s.homework.not_done}</span></span>
+                        </div>` : '<div class="stat-sub">No completions yet</div>'}
+                    </div>
                 </div>
                 <div class="stat-block">
                     <div class="stat-block-title">📋 Behavioral</div>
-                    <div class="stat-ring-container">
+                    <div class="stat-ring-container" id="behav-ring-${classId}">
                         ${generateBehavioralRing(s.behavioral.positive, s.behavioral.negative, s.behavioral.note)}
                     </div>
-                    ${(s.behavioral.positive + s.behavioral.negative + s.behavioral.note) > 0 ? `
-                    <div style="display:flex;gap:12px;justify-content:center;margin-top:8px;flex-wrap:wrap;font-size:0.85rem;">
-                        <span><span style="display:inline-block;width:12px;height:12px;background:#10b981;border-radius:2px;margin-right:4px;"></span>👍 ${s.behavioral.positive}</span>
-                        <span><span style="display:inline-block;width:12px;height:12px;background:#f87171;border-radius:2px;margin-right:4px;"></span>👎 ${s.behavioral.negative}</span>
-                        <span><span style="display:inline-block;width:12px;height:12px;background:#fbbf24;border-radius:2px;margin-right:4px;"></span>📝 ${s.behavioral.note}</span>
-                    </div>` : '<div class="stat-sub">No behavioral data</div>'}
+                    <div class="behav-legend-${classId}">
+                        ${(s.behavioral.positive + s.behavioral.negative + s.behavioral.note) > 0 ? `
+                        <div style="display:flex;gap:12px;justify-content:center;margin-top:8px;flex-wrap:wrap;font-size:0.85rem;">
+                            <span><span style="display:inline-block;width:12px;height:12px;background:#10b981;border-radius:2px;margin-right:4px;"></span>👍 <span class="behav-positive-${classId}">${s.behavioral.positive}</span></span>
+                            <span><span style="display:inline-block;width:12px;height:12px;background:#f87171;border-radius:2px;margin-right:4px;"></span>👎 <span class="behav-negative-${classId}">${s.behavioral.negative}</span></span>
+                            <span><span style="display:inline-block;width:12px;height:12px;background:#fbbf24;border-radius:2px;margin-right:4px;"></span>📝 <span class="behav-note-${classId}">${s.behavioral.note}</span></span>
+                        </div>` : '<div class="stat-sub">No behavioral data</div>'}
+                    </div>
                 </div>
                 </div>
             </div>
@@ -580,8 +596,76 @@ function renderClassStats(stats) {
     });
 }
 
+/* ---- Update class stats in real-time ---- */
+function updateClassStats(stats) {
+    const container = document.getElementById("classStatsList");
+    if (!container) return;
+    
+    stats.forEach(s => {
+        console.log(`Updating ${s.subject} ${s.class_name}:`, {
+            attendance: s.attendance,
+            behavioral: s.behavioral,
+            grades: s.grades,
+            homework: s.homework
+        });
+        
+        const classId = `stat-${s.subject.replace(/\s+/g, '-')}-${s.class_name.replace(/\s+/g, '-')}`;
+        const card = container.querySelector(`.stat-card[data-class-id="${classId}"]`);
+        
+        if (!card) return; // Card doesn't exist, wasn't rendered
+        
+        const attTotal = s.attendance.total;
+        const hwTotal = s.homework.completed + s.homework.partial + s.homework.not_done;
+        const gradeAvg = s.grades.average !== null ? s.grades.average.toFixed(1) : "–";
+        
+        // Update attendance ring
+        const attRingContainer = card.querySelector(`#att-ring-${classId}`);
+        if (attRingContainer) {
+            attRingContainer.innerHTML = generateAttendanceRing(s.attendance.present, s.attendance.late, s.attendance.absent, s.attendance.excused, attTotal);
+        }
+        
+        // Update attendance numbers
+        card.querySelector(`.att-present-${classId}`).textContent = s.attendance.present;
+        card.querySelector(`.att-late-${classId}`).textContent = s.attendance.late;
+        card.querySelector(`.att-absent-${classId}`).textContent = s.attendance.absent;
+        card.querySelector(`.att-excused-${classId}`).textContent = s.attendance.excused;
+        
+        // Update grades
+        card.querySelector(`.grade-avg-${classId}`).textContent = gradeAvg;
+        card.querySelector(`.grade-count-${classId}`).textContent = `${s.grades.count} grade${s.grades.count !== 1 ? 's' : ''} recorded`;
+        
+        // Update homework numbers
+        card.querySelector(`.hw-assigned-${classId}`).textContent = `${s.homework.assigned} assigned`;
+        card.querySelector(`.hw-completed-${classId}`).textContent = s.homework.completed;
+        card.querySelector(`.hw-partial-${classId}`).textContent = s.homework.partial;
+        card.querySelector(`.hw-not-${classId}`).textContent = s.homework.not_done;
+        
+        // Update behavioral ring
+        const behavRingContainer = card.querySelector(`#behav-ring-${classId}`);
+        if (behavRingContainer) {
+            const behavTotal = s.behavioral.positive + s.behavioral.negative + s.behavioral.note;
+            behavRingContainer.innerHTML = generateBehavioralRing(s.behavioral.positive, s.behavioral.negative, s.behavioral.note);
+        }
+        
+        // Update behavioral numbers and visibility
+        const behavLegend = card.querySelector(`.behav-legend-${classId}`);
+        if (behavLegend) {
+            const behavTotal = s.behavioral.positive + s.behavioral.negative + s.behavioral.note;
+            if (behavTotal > 0) {
+                behavLegend.innerHTML = `
+                    <div style="display:flex;gap:12px;justify-content:center;margin-top:8px;flex-wrap:wrap;font-size:0.85rem;">
+                        <span><span style="display:inline-block;width:12px;height:12px;background:#10b981;border-radius:2px;margin-right:4px;"></span>👍 <span class="behav-positive-${classId}">${s.behavioral.positive}</span></span>
+                        <span><span style="display:inline-block;width:12px;height:12px;background:#f87171;border-radius:2px;margin-right:4px;"></span>👎 <span class="behav-negative-${classId}">${s.behavioral.negative}</span></span>
+                        <span><span style="display:inline-block;width:12px;height:12px;background:#fbbf24;border-radius:2px;margin-right:4px;"></span>📝 <span class="behav-note-${classId}">${s.behavioral.note}</span></span>
+                    </div>`;
+            } else {
+                behavLegend.innerHTML = '<div class="stat-sub">No behavioral data</div>';
+            }
+        }
+    });
+}
 
-/* ================================================================
+
    HOMEWORK SECTION
    ================================================================ */
 
