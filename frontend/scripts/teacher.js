@@ -371,7 +371,14 @@ async function loadClassStats() {
 
 /* ---- Ring diagram generators ---- */
 function generateAttendanceRing(present, late, absent, excused, total) {
-    if (total === 0) return '<div style="text-align:center;padding:20px;color:#999;">No data</div>';
+    // If no attendance data, show 100% absent
+    if (total === 0) {
+        present = 0;
+        late = 0;
+        absent = 1;
+        excused = 0;
+        total = 1;
+    }
     
     const presentPct = (present / total) * 100;
     const latePct = (late / total) * 100;
@@ -418,7 +425,7 @@ function generateRingSector(startPct, sizePct, color, label, percent) {
     const offset = (startPct / 100) * circumference;
     
     return `
-        <g class="stat-ring-sector-group">
+        <g class="stat-ring-sector-group" data-color="${color}">
             <circle class="stat-ring-sector" cx="50" cy="50" r="${radius}" 
                     fill="none" stroke="${color}" stroke-width="14"
                     stroke-dasharray="${dasharray} ${circumference}"
@@ -432,7 +439,7 @@ function generateRingSector(startPct, sizePct, color, label, percent) {
 
 function generateBehavioralRing(positive, negative, note) {
     const total = positive + negative + note;
-    if (total === 0) return '<div style="text-align:center;padding:20px;color:#999;">No data</div>';
+    if (total === 0) return ''; // Don't draw chart if no behavioral data
     
     const positivePct = (positive / total) * 100;
     const negativePct = (negative / total) * 100;
@@ -526,11 +533,12 @@ function renderClassStats(stats) {
                     <div class="stat-ring-container">
                         ${generateBehavioralRing(s.behavioral.positive, s.behavioral.negative, s.behavioral.note)}
                     </div>
+                    ${(s.behavioral.positive + s.behavioral.negative + s.behavioral.note) > 0 ? `
                     <div style="display:flex;gap:12px;justify-content:center;margin-top:8px;flex-wrap:wrap;font-size:0.85rem;">
                         <span><span style="display:inline-block;width:12px;height:12px;background:#10b981;border-radius:2px;margin-right:4px;"></span>👍 ${s.behavioral.positive}</span>
                         <span><span style="display:inline-block;width:12px;height:12px;background:#f87171;border-radius:2px;margin-right:4px;"></span>👎 ${s.behavioral.negative}</span>
                         <span><span style="display:inline-block;width:12px;height:12px;background:#fbbf24;border-radius:2px;margin-right:4px;"></span>📝 ${s.behavioral.note}</span>
-                    </div>
+                    </div>` : '<div class="stat-sub">No behavioral data</div>'}
                 </div>
                 </div>
             </div>

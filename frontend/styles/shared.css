@@ -1269,8 +1269,29 @@ tr:hover td {
     position: relative;
 }
 
-.stat-ring-sector-group:hover .stat-ring-sector {
-    filter: brightness(1.15) drop-shadow(0 0 4px rgba(var(--primary-blue-rgb), 0.5));
+/* Sector-specific glow colors based on data-color */
+.stat-ring-sector-group[data-color="#10b981"]:hover .stat-ring-sector {
+    filter: brightness(1.15) drop-shadow(0 0 6px rgba(16, 185, 129, 0.7));
+    stroke-width: 16;
+}
+
+.stat-ring-sector-group[data-color="#fcd34d"]:hover .stat-ring-sector {
+    filter: brightness(1.15) drop-shadow(0 0 6px rgba(252, 211, 77, 0.7));
+    stroke-width: 16;
+}
+
+.stat-ring-sector-group[data-color="#f87171"]:hover .stat-ring-sector {
+    filter: brightness(1.15) drop-shadow(0 0 6px rgba(248, 113, 113, 0.7));
+    stroke-width: 16;
+}
+
+.stat-ring-sector-group[data-color="#60a5fa"]:hover .stat-ring-sector {
+    filter: brightness(1.15) drop-shadow(0 0 6px rgba(96, 165, 250, 0.7));
+    stroke-width: 16;
+}
+
+.stat-ring-sector-group[data-color="#fbbf24"]:hover .stat-ring-sector {
+    filter: brightness(1.15) drop-shadow(0 0 6px rgba(251, 191, 36, 0.7));
     stroke-width: 16;
 }
 
