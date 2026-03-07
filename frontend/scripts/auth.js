@@ -129,6 +129,10 @@ function initNav() {
 
     // Update sidebar links based on role
     const sidebarEl = document.querySelector(".sidebar");
+    console.log("[initNav] Looking for sidebar and profile link...");
+    console.log("[initNav] Sidebar found:", !!sidebarEl);
+    console.log("[initNav] User role:", user?.role);
+    
     if (sidebarEl && user) {
         // Rewrite dashboard link for the correct role
         sidebarEl.querySelectorAll("a").forEach(a => {
@@ -141,23 +145,33 @@ function initNav() {
 
         // Remove any existing grades/marks links first (clean slate)
         const existingLinks = sidebarEl.querySelectorAll('a[href="grades.html"], a[href="marks.html"]');
+        console.log("[initNav] Removing existing links:", existingLinks.length);
         existingLinks.forEach(a => a.remove());
 
         // Inject the correct role-specific link before Profile
         const pLink = sidebarEl.querySelector('a[href="profile.html"]');
+        console.log("[initNav] Profile link found:", !!pLink);
+        console.log("[initNav] All sidebar links:", Array.from(sidebarEl.querySelectorAll("a")).map(a => a.getAttribute("href")));
+        
         if (pLink) {
             const newLink = document.createElement("a");
             if (user.role === "teacher") {
                 newLink.href = "marks.html";
                 if (window.location.pathname.endsWith("marks.html")) newLink.classList.add("active");
                 newLink.innerHTML = '<span class="icon">📝</span> Marks';
+                console.log("[initNav] ✅ Injected Marks tab");
             } else {
                 newLink.href = "grades.html";
                 if (window.location.pathname.endsWith("grades.html")) newLink.classList.add("active");
                 newLink.innerHTML = '<span class="icon">📊</span> Grades';
+                console.log("[initNav] ✅ Injected Grades tab");
             }
             sidebarEl.insertBefore(newLink, pLink);
+        } else {
+            console.error("[initNav] ❌ Profile link not found! Sidebar HTML:", sidebarEl.innerHTML);
         }
+    } else {
+        console.error("[initNav] ❌ Sidebar or user not found");
     }
 
     // Initialize sidebar collapse toggle
