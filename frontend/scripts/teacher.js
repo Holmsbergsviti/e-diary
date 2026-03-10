@@ -792,12 +792,12 @@ async function loadStudentsForBehavioral() {
     if (!opt) return;
 
     const subject_id = opt.dataset.subject;
-    const group_class_id = opt.dataset.class;
+    const class_id = opt.dataset.class;
 
     stuSelect.innerHTML = '<option value="">Loading…</option>';
 
     try {
-        const res = await apiFetch(`/teacher/class-students/?subject_id=${subject_id}&group_class_id=${group_class_id}`);
+        const res = await apiFetch(`/teacher/class-students/?subject_id=${subject_id}&class_id=${class_id}`);
         const data = await res.json();
         console.log("Students for behavioral:", data);
         const students = data.students || [];
@@ -818,7 +818,7 @@ async function saveBehavioral() {
     const classSelect = document.getElementById("behClassSelect");
     const classOpt = classSelect.options[classSelect.selectedIndex];
     const subject_id = classOpt.dataset.subject;
-    const group_class_id = classOpt.dataset.class;
+    const class_id = classOpt.dataset.class;
     const student_id = document.getElementById("behStudentSelect").value;
     const entry_type = document.getElementById("behType").value;
     const severity = document.getElementById("behSeverity").value;
@@ -835,7 +835,7 @@ async function saveBehavioral() {
         await apiFetch("/teacher/behavioral/add/", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ student_id, subject_id, group_class_id, entry_type, severity, content }),
+            body: JSON.stringify({ student_id, subject_id, class_id, entry_type, severity, content }),
         });
         document.getElementById("behavioralModal").style.display = "none";
         await loadBehavioral();

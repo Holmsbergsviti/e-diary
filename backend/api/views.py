@@ -496,37 +496,25 @@ def teacher_class_students(request):
     if not class_id or not subject_id:
         return JsonResponse({"message": "class_id and subject_id required"}, status=400)
 
-    # Look up the grade level of the given class
+    # Only get students from the specific class_id
     db = ediary()
-    cls = db.table("classes").select("grade_level").eq("id", class_id).limit(1).execute()
-    if not cls.data:
-        return JsonResponse({"students": []})
-    grade_level = cls.data[0]["grade_level"]
-
-    # Get ALL classes in this year group
-    db2 = ediary()
-    all_classes = db2.table("classes").select("id").eq("grade_level", grade_level).execute()
-    class_ids = [c["id"] for c in (all_classes.data or [])]
-
-    # Get ALL students in these classes
-    db3 = ediary()
-    students_in_year = (
-        db3.table("students")
+    students_in_class = (
+        db.table("students")
         .select("id, name, surname, class_id")
-        .in_("class_id", class_ids)
+        .eq("class_id", class_id)
         .order("surname")
         .execute()
     )
 
-    if not students_in_year.data:
+    if not students_in_class.data:
         return JsonResponse({"students": []})
 
-    student_ids = [s["id"] for s in students_in_year.data]
+    student_ids = [s["id"] for s in students_in_class.data]
 
     # Filter to those enrolled in this subject
-    db4 = ediary()
+    db2 = ediary()
     enrolments = (
-        db4.table("student_subjects")
+        db2.table("student_subjects")
         .select("student_id")
         .eq("subject_id", subject_id)
         .in_("student_id", student_ids)
@@ -534,9 +522,9 @@ def teacher_class_students(request):
     )
     enrolled_ids = {e["student_id"] for e in (enrolments.data or [])}
 
-    # Build class_id → class_name lookup
-    db5 = ediary()
-    cls_result = db5.table("classes").select("id, class_name").in_("id", class_ids).execute()
+    # Get class name
+    db3 = ediary()
+    cls_result = db3.table("classes").select("id, class_name").eq("id", class_id).execute()
     cls_map = {c["id"]: c["class_name"] for c in (cls_result.data or [])}
 
     students = [
@@ -546,7 +534,7 @@ def teacher_class_students(request):
             "surname": s["surname"],
             "class_name": cls_map.get(s["class_id"], ""),
         }
-        for s in students_in_year.data
+        for s in students_in_class.data
         if s["id"] in enrolled_ids
     ]
 
@@ -1496,19 +1484,12 @@ def teacher_class_stats(request):
     for c in (cls_result.data or []):
         gl_class_map.setdefault(c["grade_level"], []).append(c["id"])
 
-    # For each pair, get all class_ids in that year level
-    pair_class_ids = set()
-    for sid, cid in pairs:
-        cl = cls_map.get(cid)
-        if cl:
-            for related_cid in gl_class_map.get(cl["grade_level"], []):
-                pair_class_ids.add(related_cid)
-
-    all_cids = list(pair_class_ids)
+    # For each pair, only use the specific class_id
+    all_cids = [cid for _, cid in pairs]
     if not all_cids:
         return JsonResponse({"stats": []})
 
-    # Get all students in relevant classes
+    # Get all students in the specific classes
     stu_result = (
         ediary().table("students")
         .select("id, class_id")
@@ -1528,7 +1509,7 @@ def teacher_class_stats(request):
         .in_("student_id", all_student_ids)
         .execute()
     ) if all_student_ids else type('', (), {'data': []})()
-    # (student_id, subject_id) -> group_class_id
+    # (subject_id) -> set(student_ids)
     ss_map = {}
     for ss in (ss_result.data or []):
         ss_map.setdefault(ss["subject_id"], set()).add(ss["student_id"])
@@ -1583,27 +1564,23 @@ def teacher_class_stats(request):
         cl = cls_map.get(class_id)
         if not cl:
             continue
-        grade_level = cl["grade_level"]
 
-        # All students in this year enrolled in this subject
+        # Only students in this class enrolled in this subject
         enrolled = ss_map.get(subject_id, set())
-        year_class_ids = set(gl_class_map.get(grade_level, []))
-        year_students = set()
-        for cid in year_class_ids:
-            year_students |= class_students.get(cid, set())
-        class_enrolled = enrolled & year_students
+        class_students_set = class_students.get(class_id, set())
+        class_enrolled = enrolled & class_students_set
         student_count = len(class_enrolled)
 
-        # Attendance stats: filter by class_ids in year + subject
+        # Attendance stats: filter by this class_id + subject
         att_counts = {"Present": 0, "Late": 0, "Absent": 0, "Excused": 0}
         for a in (att_result.data or []):
-            if a["subject_id"] == subject_id and a.get("class_id") in year_class_ids:
+            if a["subject_id"] == subject_id and a.get("class_id") == class_id:
                 s = a.get("status", "Present")
                 if s in att_counts:
                     att_counts[s] += 1
         att_total = sum(att_counts.values())
 
-        # Grade stats: filter by subject + students in this year group
+        # Grade stats: filter by subject + students in this class
         grade_values = []
         for g in (grades_result.data or []):
             if g["subject_id"] == subject_id and g.get("student_id") in class_enrolled:
