@@ -799,6 +799,7 @@ async function loadStudentsForBehavioral() {
     try {
         const res = await apiFetch(`/teacher/class-students/?subject_id=${subject_id}&class_id=${class_id}`);
         const data = await res.json();
+        console.log("Students for behavioral:", data);
         const students = data.students || [];
         if (students.length === 0) {
             stuSelect.innerHTML = '<option value="">No students</option>';
