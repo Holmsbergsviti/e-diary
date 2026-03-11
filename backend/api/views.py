@@ -1571,6 +1571,10 @@ def teacher_class_stats(request):
         class_enrolled = enrolled & class_students_set
         student_count = len(class_enrolled)
 
+        # Only include stats if there is at least one enrolled student
+        if student_count == 0:
+            continue
+
         # Attendance stats: filter by this class_id + subject
         att_counts = {"Present": 0, "Late": 0, "Absent": 0, "Excused": 0}
         for a in (att_result.data or []):
