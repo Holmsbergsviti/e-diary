@@ -26,7 +26,7 @@ function catLabel(cat) {
 let allGrades = [];
 let activeTerm = null;
 
-document.addEventListener("DOMContentLoaded", async () => {
+async function initGrades() {
     if (!requireAuth()) return;
     initNav();
 
@@ -43,7 +43,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     await loadGrades();
-});
+}
+
+// Initialize immediately with slight delay to ensure sidebar is rendered
+setTimeout(() => {
+    initGrades().catch(err => console.error("Grades init error:", err));
+}, 100);
 
 async function loadGrades() {
     const container = document.getElementById("gradesContainer");

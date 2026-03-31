@@ -1,5 +1,24 @@
 // Shared authentication utilities
-const API_BASE = "https://e-diary-backend-qsly.onrender.com/api";
+const API_BASE = "https://e-diary-1.onrender.com/api";
+
+// Load saved color theme on every page
+(function loadTheme() {
+    const savedTheme = localStorage.getItem("selectedTheme") || "bright-blue";
+    const themeMap = {
+        "bright-blue": "",
+        "ocean": "ocean",
+        "purple": "purple",
+        "emerald": "emerald",
+        "rose": "rose",
+        "amber": "amber",
+        "indigo": "indigo"
+    };
+    
+    const themeAttr = themeMap[savedTheme] || "";
+    if (themeAttr) {
+        document.documentElement.setAttribute("data-theme", themeAttr);
+    }
+})();
 
 function getToken() {
     return localStorage.getItem("token");
@@ -76,14 +95,16 @@ function initNav() {
 
     // ---------- Mobile hamburger menu ----------
     const topnav = document.querySelector(".topnav");
+    const topnavLeft = document.querySelector(".topnav-left");
     const sidebar = document.querySelector(".sidebar");
-    if (topnav && sidebar && !document.querySelector(".hamburger-btn")) {
+    if (topnav && topnavLeft && sidebar && !document.querySelector(".hamburger-btn")) {
         // Create hamburger button
         const hamBtn = document.createElement("button");
         hamBtn.className = "hamburger-btn";
         hamBtn.setAttribute("aria-label", "Menu");
+        hamBtn.setAttribute("aria-expanded", "false");
         hamBtn.innerHTML = "&#9776;";
-        topnav.insertBefore(hamBtn, topnav.firstChild);
+        topnavLeft.insertBefore(hamBtn, topnavLeft.firstChild);
 
         // Create overlay
         const overlay = document.createElement("div");
@@ -91,12 +112,15 @@ function initNav() {
         document.body.appendChild(overlay);
 
         function toggleSidebar() {
+            const isOpen = sidebar.classList.contains("open");
             sidebar.classList.toggle("open");
             overlay.classList.toggle("open");
+            hamBtn.setAttribute("aria-expanded", !isOpen);
         }
         function closeSidebar() {
             sidebar.classList.remove("open");
             overlay.classList.remove("open");
+            hamBtn.setAttribute("aria-expanded", "false");
         }
 
         hamBtn.addEventListener("click", toggleSidebar);
@@ -106,39 +130,79 @@ function initNav() {
         sidebar.querySelectorAll("a").forEach(a => {
             a.addEventListener("click", closeSidebar);
         });
+
+        // Close sidebar when Escape key is pressed
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && sidebar.classList.contains("open")) {
+                closeSidebar();
+                hamBtn.focus();
+            }
+        });
     }
 
     // Update sidebar links based on role
     const sidebarEl = document.querySelector(".sidebar");
-    if (sidebarEl && user && !sidebarEl.dataset.navDone) {
-        sidebarEl.dataset.navDone = "1";
-
+    console.log("[initNav] Looking for sidebar and profile link...");
+    console.log("[initNav] Sidebar found:", !!sidebarEl);
+    console.log("[initNav] User role:", user?.role);
+    
+    if (sidebarEl && user) {
         // Rewrite dashboard link for the correct role
         sidebarEl.querySelectorAll("a").forEach(a => {
-            if (a.getAttribute("href") === "dashboard.html" && user.role === "teacher") {
-                a.setAttribute("href", "teacher.html");
-            } else if (a.getAttribute("href") === "teacher.html" && user.role !== "teacher") {
-                a.setAttribute("href", "dashboard.html");
+            const href = a.getAttribute("href");
+            if ((href === "dashboard.html" || href === "/dashboard" || href === "/teacher") && user.role === "teacher") {
+                a.setAttribute("href", "/teacher");
+            } else if ((href === "teacher.html" || href === "/teacher") && user.role !== "teacher") {
+                a.setAttribute("href", "/dashboard");
             }
         });
 
         // Remove any existing grades/marks links first (clean slate)
-        sidebarEl.querySelectorAll('a[href="grades.html"], a[href="marks.html"]').forEach(a => a.remove());
+        const existingLinks = sidebarEl.querySelectorAll('a[href="/grades"], a[href="/marks"], a[href="grades.html"], a[href="marks.html"]');
+        console.log("[initNav] Removing existing links:", existingLinks.length);
+        existingLinks.forEach(a => a.remove());
 
-        // Inject exactly one role-specific link before Profile
-        const pLink = sidebarEl.querySelector('a[href="profile.html"]');
-        const a = document.createElement("a");
-        if (user.role === "teacher") {
-            a.href = "marks.html";
-            if (window.location.pathname.endsWith("marks.html")) a.classList.add("active");
-            a.innerHTML = '<span class="icon">📝</span> Marks';
+        // Inject the correct role-specific link before Profile
+        const pLink = sidebarEl.querySelector('a[href="/profile"], a[href="profile.html"]');
+        console.log("[initNav] Profile link found:", !!pLink);
+        console.log("[initNav] All sidebar links:", Array.from(sidebarEl.querySelectorAll("a")).map(a => a.getAttribute("href")));
+        
+        if (pLink) {
+            const newLink = document.createElement("a");
+            if (user.role === "teacher") {
+                newLink.href = "/marks";
+                if (window.location.pathname.endsWith("marks") || window.location.pathname.endsWith("marks.html")) newLink.classList.add("active");
+                newLink.innerHTML = '<span class="icon">📝</span> Marks';
+                console.log("[initNav] ✅ Injected Marks tab");
+            } else {
+                newLink.href = "/grades";
+                if (window.location.pathname.endsWith("grades") || window.location.pathname.endsWith("grades.html")) newLink.classList.add("active");
+                newLink.innerHTML = '<span class="icon">📊</span> Grades';
+                console.log("[initNav] ✅ Injected Grades tab");
+            }
+            sidebarEl.insertBefore(newLink, pLink);
         } else {
-            a.href = "grades.html";
-            if (window.location.pathname.endsWith("grades.html")) a.classList.add("active");
-            a.innerHTML = '<span class="icon">📊</span> Grades';
+            console.error("[initNav] ❌ Profile link not found! Sidebar HTML:", sidebarEl.innerHTML);
         }
-        if (pLink) sidebarEl.insertBefore(a, pLink);
-        else sidebarEl.appendChild(a);
+    } else {
+        console.error("[initNav] ❌ Sidebar or user not found");
+    }
+
+    // Initialize sidebar collapse toggle
+    const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
+    const pageLayout = document.querySelector(".page-layout");
+    if (sidebarToggleBtn && pageLayout) {
+        // Load saved state
+        const isCollapsed = localStorage.getItem("sidebarCollapsed") === "true";
+        if (isCollapsed) {
+            pageLayout.classList.add("sidebar-collapsed");
+        }
+
+        sidebarToggleBtn.addEventListener("click", () => {
+            pageLayout.classList.toggle("sidebar-collapsed");
+            const collapsed = pageLayout.classList.contains("sidebar-collapsed");
+            localStorage.setItem("sidebarCollapsed", collapsed);
+        });
     }
 }
 
@@ -156,3 +220,28 @@ function formatDate(dateStr) {
     const d = new Date(dateStr);
     return isNaN(d) ? dateStr : d.toLocaleDateString("en-GB");
 }
+
+// Global modal escape key handler for better mobile UX
+function initGlobalModalEscapeSupport() {
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+            // Find any visible modal and close it
+            const visibleModals = document.querySelectorAll(".modal-overlay");
+            for (const modal of visibleModals) {
+                // Check if modal is visible (not display: none)
+                if (modal.style.display !== "none" && modal.offsetParent !== null) {
+                    // Try common close button selectors
+                    const closeBtn = modal.querySelector(".modal-close-btn, [data-dismiss='modal']");
+                    if (closeBtn) {
+                        closeBtn.click();
+                        e.preventDefault();
+                        return;
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Initialize on page load
+document.addEventListener("DOMContentLoaded", initGlobalModalEscapeSupport);

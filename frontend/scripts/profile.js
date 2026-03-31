@@ -1,9 +1,14 @@
-document.addEventListener("DOMContentLoaded", async () => {
+async function initProfile() {
     if (!requireAuth()) return;
     initNav();
     await loadProfile();
     initAccountForm();
-});
+}
+
+// Initialize immediately with slight delay to ensure sidebar is rendered
+setTimeout(() => {
+    initProfile().catch(err => console.error("Profile init error:", err));
+}, 100);
 
 async function loadProfile() {
     const container = document.getElementById("profileContainer");
@@ -118,4 +123,81 @@ function initAccountForm() {
 
 function capitalize(s) {
     return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// ════════════════════════════════════════════════════════════
+// COLOR PALETTE SELECTOR
+// ════════════════════════════════════════════════════════════
+
+document.addEventListener("DOMContentLoaded", () => {
+    initPaletteSelector();
+    loadSavedTheme();
+});
+
+function initPaletteSelector() {
+    const paletteButtons = document.querySelectorAll(".palette-btn");
+    
+    paletteButtons.forEach(btn => {
+        btn.addEventListener("click", () => {
+            const theme = btn.dataset.theme;
+            setTheme(theme);
+            
+            // Update active state
+            paletteButtons.forEach(b => b.classList.remove("palette-active"));
+            btn.classList.add("palette-active");
+            
+            // Show confirmation message
+            const msg = document.getElementById("paletteMsg");
+            if (msg) {
+                msg.textContent = "🎨 Theme updated!";
+                msg.classList.remove("form-msg-error");
+                msg.classList.add("form-msg-success");
+                setTimeout(() => {
+                    msg.textContent = "";
+                    msg.classList.remove("form-msg-success");
+                }, 2000);
+            }
+        });
+    });
+}
+
+function setTheme(themeName) {
+    const themeMap = {
+        "bright-blue": "",
+        "ocean": "ocean",
+        "purple": "purple",
+        "emerald": "emerald",
+        "rose": "rose",
+        "amber": "amber",
+        "indigo": "indigo",
+        "teal": "teal",
+        "mint": "mint",
+        "coral": "coral"
+    };
+    
+    const themeAttribute = themeMap[themeName] || "";
+    
+    if (themeAttribute) {
+        document.documentElement.setAttribute("data-theme", themeAttribute);
+    } else {
+        document.documentElement.removeAttribute("data-theme");
+    }
+    
+    // Save to localStorage
+    localStorage.setItem("selectedTheme", themeName);
+}
+
+function loadSavedTheme() {
+    const savedTheme = localStorage.getItem("selectedTheme") || "bright-blue";
+    setTheme(savedTheme);
+    
+    // Highlight the saved theme button
+    const paletteButtons = document.querySelectorAll(".palette-btn");
+    paletteButtons.forEach(btn => {
+        if (btn.dataset.theme === savedTheme) {
+            btn.classList.add("palette-active");
+        } else {
+            btn.classList.remove("palette-active");
+        }
+    });
 }

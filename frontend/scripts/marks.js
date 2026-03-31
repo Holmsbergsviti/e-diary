@@ -61,7 +61,7 @@ function currentTerm() {
     return (m >= 9 && m <= 12) ? 1 : 2;
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
+async function initMarks() {
     if (!requireAuth()) return;
     const user = getUser();
     if (user && user.role !== "teacher") {
@@ -85,7 +85,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("gradeModal").addEventListener("click", (e) => {
         if (e.target === document.getElementById("gradeModal")) closeGradeModal();
     });
-});
+}
+
+// Initialize immediately with slight delay to ensure sidebar is rendered
+setTimeout(() => {
+    initMarks().catch(err => console.error("Marks init error:", err));
+}, 100);
 
 async function loadMarks() {
     const container = document.getElementById("marksContainer");

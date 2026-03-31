@@ -1,4 +1,5 @@
-document.addEventListener("DOMContentLoaded", async () => {
+// Ensure initialization happens when DOM is ready
+async function initDashboard() {
     if (!requireAuth()) return;
 
     // Teachers have their own dashboard
@@ -8,9 +9,29 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
     }
 
+    // Call initNav FIRST to set up navigation, logout, and inject grades/marks tab
     initNav();
-    await Promise.all([loadAnnouncements(), loadRecentGrades(), loadAttendance(), loadBehavioral()]);
-});
+    
+    // Initialize card collapse functionality
+    initCardCollapse();
+    
+    // Load all data - use Promise.all to load in parallel
+    try {
+        await Promise.all([
+            loadAnnouncements(),
+            loadRecentGrades(),
+            loadAttendance(),
+            loadBehavioral()
+        ]);
+    } catch (err) {
+        console.error("Error loading dashboard data:", err);
+    }
+}
+
+// Initialize immediately with slight delay to ensure sidebar is rendered
+setTimeout(() => {
+    initDashboard().catch(err => console.error("Dashboard init error:", err));
+}, 100);
 
 // ---------- helper: grade code -> CSS class ----------
 function gradeClass(code) {
@@ -177,4 +198,42 @@ async function loadBehavioral() {
     } catch (err) {
         container.innerHTML = '<p class="empty-state">Failed to load behavioral notes.</p>';
     }
+}
+
+// ---------- Card collapse functionality ----------
+function initCardCollapse() {
+    // Initialize card collapse buttons
+    document.querySelectorAll(".card-collapse-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            e.preventDefault();
+            const card = btn.closest(".card");
+            const cardId = card.getAttribute("data-card-id");
+            
+            card.classList.toggle("card-collapsed");
+            
+            // Save state to localStorage
+            if (card.classList.contains("card-collapsed")) {
+                // Add to collapsed list
+                let collapsed = JSON.parse(localStorage.getItem("collapsedCards") || "[]");
+                if (!collapsed.includes(cardId)) {
+                    collapsed.push(cardId);
+                }
+                localStorage.setItem("collapsedCards", JSON.stringify(collapsed));
+            } else {
+                // Remove from collapsed list
+                let collapsed = JSON.parse(localStorage.getItem("collapsedCards") || "[]");
+                collapsed = collapsed.filter(id => id !== cardId);
+                localStorage.setItem("collapsedCards", JSON.stringify(collapsed));
+            }
+        });
+    });
+    
+    // Restore collapsed state from localStorage
+    const collapsedCards = JSON.parse(localStorage.getItem("collapsedCards") || "[]");
+    collapsedCards.forEach(cardId => {
+        const card = document.querySelector(`.card[data-card-id="${cardId}"]`);
+        if (card) {
+            card.classList.add("card-collapsed");
+        }
+    });
 }

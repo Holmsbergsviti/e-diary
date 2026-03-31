@@ -1,6 +1,11 @@
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from corsheaders.defaults import default_headers
+
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "content-type",
+]
 
 # --------------------------------------------------
 # BASE
@@ -63,6 +68,12 @@ MIDDLEWARE = [
 # CORS (Netlify → Render)
 # --------------------------------------------------
 CORS_ALLOWED_ORIGINS = [
+    "https://chartwell-e-diary.netlify.app",
+    "https://stepan-e-diary.netlify.app"
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://bill-e-diary.netlify.app",
     "https://chartwell-e-diary.netlify.app",
 ]
 
