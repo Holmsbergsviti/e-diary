@@ -69,11 +69,9 @@ MIDDLEWARE = [
 # --------------------------------------------------
 CORS_ALLOWED_ORIGINS = [
     "https://chartwell-e-diary.netlify.app",
-    "https://stepan-e-diary.netlify.app"
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://bill-e-diary.netlify.app",
     "https://chartwell-e-diary.netlify.app",
 ]
 

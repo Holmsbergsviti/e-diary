@@ -1,5 +1,5 @@
 // Shared authentication utilities
-const API_BASE = "https://e-diary-1.onrender.com/api";
+const API_BASE = "https://e-diary-backend-qsly.onrender.com/api";
 
 // Load saved color theme on every page
 (function loadTheme() {
