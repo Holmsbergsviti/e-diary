@@ -127,7 +127,7 @@ function renderTabs(tabsEl, container) {
                 : `Year ${g.year_group} – ${escHtml(g.subject)}`;
         }
         const badge = g.type === "class_overview" ? ' <small style="color:#16a34a;">👥</small>' : '';
-        return `<button class="tab-btn${i === activeGroupIdx ? ' active' : ''}" data-idx="${i}" data-tab-type="group" data-group-idx="${tab.idx}">${label}${badge}</button>`;
+        return `<button class="tab-btn${i === activeGroupIdx ? ' active' : ''}" data-idx="${i}" data-tab-type="group">${label}${badge}</button>`;
     }).join("");
 
     tabsEl.querySelectorAll(".tab-btn").forEach(btn => {

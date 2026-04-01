@@ -1905,23 +1905,25 @@ def teacher_reports(request):
         if not pairs:
             return JsonResponse({"reports": []})
 
-        class_ids = [c for _, c in pairs]
+        subjects_in_pairs = sorted(list({sid for sid, _ in pairs}))
+
         students = (
             db.table("students")
             .select("id, name, surname, class_id")
-            .in_("class_id", class_ids)
             .order("surname")
             .order("name")
             .execute()
         )
-        student_ids = [s["id"] for s in (students.data or [])]
+        student_rows = students.data or []
+        student_ids = [s["id"] for s in student_rows]
+        student_map = {s["id"]: s for s in student_rows}
 
         ss = (
             db.table("student_subjects")
             .select("student_id, subject_id, group_class_id")
-            .in_("student_id", student_ids)
+            .in_("subject_id", subjects_in_pairs)
             .execute()
-        ) if student_ids else type('', (), {'data': []})()
+        ) if subjects_in_pairs else type('', (), {'data': []})()
 
         subjects = db.table("subjects").select("id, name").execute()
         subj_map = {s["id"]: s["name"] for s in (subjects.data or [])}
@@ -1950,27 +1952,38 @@ def teacher_reports(request):
 
         reports = []
         ss_rows = ss.data or []
-        for s in (students.data or []):
-            for subj_id, class_id in pairs:
-                group_class_id = None
-                for row in ss_rows:
-                    if row.get("student_id") == s["id"] and row.get("subject_id") == subj_id:
-                        group_class_id = row.get("group_class_id")
-                        break
-                in_group = group_class_id == class_id or (not group_class_id and s.get("class_id") == class_id)
+        seen_keys = set()
+        for row in ss_rows:
+            sid = row.get("student_id")
+            subj_id = row.get("subject_id")
+            gc = row.get("group_class_id")
+            s = student_map.get(sid)
+            if not s or not subj_id:
+                continue
+
+            for pair_subj_id, pair_class_id in pairs:
+                if pair_subj_id != subj_id:
+                    continue
+
+                in_group = (gc == pair_class_id) or (not gc and s.get("class_id") == pair_class_id)
                 if not in_group:
                     continue
 
-                key = (s["id"], subj_id, class_id, int(term))
+                dedupe = (sid, pair_subj_id, pair_class_id)
+                if dedupe in seen_keys:
+                    continue
+                seen_keys.add(dedupe)
+
+                key = (sid, pair_subj_id, pair_class_id, int(term))
                 existing_row = existing_map.get(key, {})
                 reports.append({
                     "id": existing_row.get("id"),
-                    "student_id": s["id"],
+                    "student_id": sid,
                     "student": f"{s.get('surname', '')} {s.get('name', '')}".strip(),
-                    "subject_id": subj_id,
-                    "subject": subj_map.get(subj_id, ""),
-                    "class_id": class_id,
-                    "class_name": cls_map.get(class_id, ""),
+                    "subject_id": pair_subj_id,
+                    "subject": subj_map.get(pair_subj_id, ""),
+                    "class_id": pair_class_id,
+                    "class_name": cls_map.get(pair_class_id, ""),
                     "term": int(term),
                     "report_grade": existing_row.get("report_grade", ""),
                     "effort": existing_row.get("effort", ""),
