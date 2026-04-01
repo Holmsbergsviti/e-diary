@@ -1032,6 +1032,14 @@ tr:hover td {
 .grade-cell {
     position: relative;
     padding-right: 8px !important;
+    text-align: center;
+    vertical-align: middle;
+    min-width: 84px;
+}
+.marks-page .grade-cell .grade-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 .grade-clickable {
     cursor: pointer;
@@ -1583,11 +1591,14 @@ tr:hover td {
 /* ── Per-Student Stats Grid ── */
 .student-stats-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 10px;
     margin-bottom: 14px;
     padding-bottom: 12px;
     border-bottom: 1px solid #e2e8f0;
+}
+@media (max-width: 900px) {
+    .student-stats-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 600px) {
     .student-stats-grid { grid-template-columns: 1fr; }
