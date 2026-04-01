@@ -482,7 +482,7 @@ function renderGroup(container, group) {
                         const pct = g.percentage != null ? `<br><small class="grade-pct">${g.percentage}%</small>` : "";
                         const commentIcon = g.comment ? ' <span class="grade-comment-icon" title="' + escHtml(g.comment) + '">💬</span>' : "";
                         html += `<td class="grade-cell grade-clickable" data-grade='${JSON.stringify(g).replace(/'/g, "&#39;")}' data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">
-                            <span class="grade-badge ${gradeClass(g.grade_code)}">${escHtml(g.grade_code)}</span>${pct}${commentIcon}
+                            <span class="grade-badge grade-badge-wide ${gradeClass(g.grade_code)}">${escHtml(g.grade_code)}</span>${pct}${commentIcon}
                         </td>`;
                     } else {
                         html += `<td>–</td>`;
