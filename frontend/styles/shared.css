@@ -577,20 +577,6 @@ tr:hover td {
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2), inset 0 1px 2px rgba(255, 255, 255, 0.3);
 }
 
-/* Marks table: make assessment grade badges fill the cell width */
-.marks-page .grade-cell .grade-badge-wide {
-    display: block;
-    width: 100%;
-    height: auto;
-    line-height: 1;
-    border-radius: 10px;
-    padding: 10px 0;
-    box-sizing: border-box;
-}
-.marks-page .grade-cell .grade-badge-wide:hover {
-    transform: none;
-}
-
 /* Grade badge colours – Cambridge letter grades (neomorphism style) */
 .grade-a  { background: linear-gradient(145deg, #7db8a8, #6ba892); } /* A* / A – excellent */
 .grade-b  { background: linear-gradient(145deg, #6b9ec9, #5a8fb5); } /* B  – very good */

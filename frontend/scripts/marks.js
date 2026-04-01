@@ -418,7 +418,7 @@ function renderGroup(container, group) {
     }
     const assessments = Array.from(assessmentSet).sort();
 
-    const colCount = 5 + (assessments.length > 0 ? assessments.length : 1) + 1; // #, Student, Class, Attendance, Comments, assessments, Predicted
+    const colCount = 4 + (assessments.length > 0 ? assessments.length : 1) + 1; // #, Student, Class, Comments, assessments, Predicted
 
     html += `<table>
         <thead>
@@ -426,7 +426,6 @@ function renderGroup(container, group) {
                 <th>#</th>
                 <th>Student</th>
                 <th>Class</th>
-                <th>Attendance</th>
                 <th>Comments</th>
                 ${assessments.length > 0
                     ? assessments.map(a => {
@@ -455,13 +454,6 @@ function renderGroup(container, group) {
             // Predicted grade for current term filter
             const pred = predictGrade(s.grades);
 
-            const termKey = activeTerm === 2 ? "term_2" : "term_1";
-            const attByTerm = s.stats?.attendance_by_term || {};
-            const termAtt = attByTerm[termKey] || {};
-            const attPct = termAtt.attendance_pct;
-            const absentCount = termAtt.absent || 0;
-            const trendToday = s.stats?.attendance_trends?.today?.attendance_pct;
-            const trendWeek = s.stats?.attendance_trends?.week?.attendance_pct;
             const commentCount = s.stats?.comments?.count || 0;
             const hasNew = hasNewCommentForStudent(s.student_id, commentCount);
 
@@ -472,7 +464,6 @@ function renderGroup(container, group) {
                     <button class="add-grade-inline-btn" data-student-id="${s.student_id}" title="Add grade">＋</button>
                 </td>
                 <td><span class="class-tag">${escHtml(s.class_name)}</span></td>
-                <td>${attPct != null ? `${attPct}%` : '–'}${absentCount > 0 ? ' <span title="Absent">*</span>' : ''}<br><small style="color:#64748b;">D:${trendToday ?? '–'}% · W:${trendWeek ?? '–'}%</small></td>
                 <td><button class="btn btn-secondary btn-sm view-comments-btn" data-student-id="${s.student_id}" data-subject-id="${group.subject_id}" data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">View (${commentCount})</button></td>`;
 
             if (assessments.length > 0) {
@@ -482,7 +473,7 @@ function renderGroup(container, group) {
                         const pct = g.percentage != null ? `<br><small class="grade-pct">${g.percentage}%</small>` : "";
                         const commentIcon = g.comment ? ' <span class="grade-comment-icon" title="' + escHtml(g.comment) + '">💬</span>' : "";
                         html += `<td class="grade-cell grade-clickable" data-grade='${JSON.stringify(g).replace(/'/g, "&#39;")}' data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">
-                            <span class="grade-badge grade-badge-wide ${gradeClass(g.grade_code)}">${escHtml(g.grade_code)}</span>${pct}${commentIcon}
+                            <span class="grade-badge ${gradeClass(g.grade_code)}">${escHtml(g.grade_code)}</span>${pct}${commentIcon}
                         </td>`;
                     } else {
                         html += `<td>–</td>`;
