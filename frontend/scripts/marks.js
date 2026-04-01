@@ -7,6 +7,8 @@ let allGroups = [];
 let activeGroupIdx = 0;
 let editingGradeId = null;
 let activeTerm = null; // null = both, 1 or 2
+const REPORT_TAB_WINTER = "report_winter";
+const REPORT_TAB_END = "report_end";
 
 // Category weights (must sum to 1.0)
 const CATEGORY_WEIGHTS = {
@@ -116,7 +118,17 @@ async function loadMarks() {
 }
 
 function renderTabs(tabsEl, container) {
-    tabsEl.innerHTML = allGroups.map((g, i) => {
+    const uiTabs = [
+        ...allGroups.map((g, i) => ({ type: "group", idx: i, group: g })),
+        { type: "report", reportType: REPORT_TAB_WINTER, label: "Winter Report" },
+        { type: "report", reportType: REPORT_TAB_END, label: "End of Year Report" },
+    ];
+
+    tabsEl.innerHTML = uiTabs.map((tab, i) => {
+        if (tab.type === "report") {
+            return `<button class="tab-btn${i === activeGroupIdx ? ' active' : ''}" data-idx="${i}" data-tab-type="report" data-report-type="${tab.reportType}">🧾 ${tab.label}</button>`;
+        }
+        const g = tab.group;
         let label;
         if (g.type === "class_overview") {
             label = `My Class (${escHtml(g.class_name)})`;
@@ -126,7 +138,7 @@ function renderTabs(tabsEl, container) {
                 : `Year ${g.year_group} – ${escHtml(g.subject)}`;
         }
         const badge = g.type === "class_overview" ? ' <small style="color:#16a34a;">👥</small>' : '';
-        return `<button class="tab-btn${i === activeGroupIdx ? ' active' : ''}" data-idx="${i}">${label}${badge}</button>`;
+        return `<button class="tab-btn${i === activeGroupIdx ? ' active' : ''}" data-idx="${i}" data-tab-type="group" data-group-idx="${tab.idx}">${label}${badge}</button>`;
     }).join("");
 
     tabsEl.querySelectorAll(".tab-btn").forEach(btn => {
@@ -134,16 +146,29 @@ function renderTabs(tabsEl, container) {
             tabsEl.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
             btn.classList.add("active");
             activeGroupIdx = parseInt(btn.dataset.idx);
-            renderActiveGroup(container);
+            renderActiveGroup(container, uiTabs);
         });
     });
 
-    renderActiveGroup(container);
+    renderActiveGroup(container, uiTabs);
 }
 
-function renderActiveGroup(container) {
-    const group = allGroups[activeGroupIdx];
-    if (!group) return;
+function renderActiveGroup(container, uiTabs) {
+    const tabs = uiTabs || [
+        ...allGroups.map((g, i) => ({ type: "group", idx: i, group: g })),
+        { type: "report", reportType: REPORT_TAB_WINTER },
+        { type: "report", reportType: REPORT_TAB_END },
+    ];
+    const tab = tabs[activeGroupIdx];
+    if (!tab) return;
+
+    if (tab.type === "report") {
+        document.getElementById("addGradeBtn").style.display = "none";
+        renderReportTab(container, tab.reportType === REPORT_TAB_WINTER ? 1 : 2);
+        return;
+    }
+
+    const group = tab.group;
     if (group.type === "class_overview") {
         renderClassOverview(container, group);
         document.getElementById("addGradeBtn").style.display = "none";
@@ -231,7 +256,13 @@ function renderClassOverview(container, group) {
 
     html += `<div class="class-overview-list">`;
 
-    group.students.forEach((student, idx) => {
+    const sortedStudents = [...group.students].sort((a, b) => {
+        const s1 = `${a.surname || ''} ${a.name || ''}`.toLowerCase();
+        const s2 = `${b.surname || ''} ${b.name || ''}`.toLowerCase();
+        return s1.localeCompare(s2);
+    });
+
+    sortedStudents.forEach((student, idx) => {
         let totalGrades = 0;
         let subjectCount = student.subjects ? student.subjects.length : 0;
         if (student.subjects) {
@@ -245,11 +276,15 @@ function renderClassOverview(container, group) {
         const att = st.attendance || {};
         const attRate = att.total > 0 ? Math.round(((att.Present || 0) + (att.Late || 0)) / att.total * 100) : null;
 
+        const commentCount = student.stats?.comments?.count || 0;
+        const hasNew = hasNewCommentForStudent(student.student_id, commentCount);
+
         html += `<div class="overview-student" data-idx="${idx}">
             <div class="overview-student-header">
                 <span class="overview-num">${idx + 1}</span>
-                <span class="overview-name">${escHtml(student.surname)} ${escHtml(student.name)}</span>
+                <span class="overview-name">${escHtml(student.surname)} ${escHtml(student.name)}${commentCount > 0 ? ` <span title="${commentCount} comments">💬</span>` : ''}${hasNew ? ' <span title="New comments" style="color:#f97316;">●</span>' : ''}</span>
                 <span class="overview-meta">${subjectCount} subj · ${totalGrades} grades${attRate !== null ? ` · ${attRate}% att.` : ''}</span>
+                <button class="btn btn-secondary btn-sm view-comments-btn" data-student-id="${student.student_id}" data-student-name="${escHtml(student.surname)} ${escHtml(student.name)}" style="margin-left:8px;">View Comments</button>
                 <span class="overview-expand">▸</span>
             </div>
             <div class="overview-student-detail" style="display:none;">`;
@@ -271,6 +306,8 @@ function renderClassOverview(container, group) {
                     <div class="overview-subject-header">
                         <span class="subject-color-dot" style="background:${subj.subject_color}"></span>
                         <strong>${escHtml(subj.subject)}</strong>
+                        <small style="margin-left:8px;color:#64748b;">T1: ${subj.stats?.attendance_by_term?.term_1?.attendance_pct ?? '–'}% · T2: ${subj.stats?.attendance_by_term?.term_2?.attendance_pct ?? '–'}%</small>
+                        ${(subj.stats?.attendance_by_term?.term_1?.absent || 0) > 0 || (subj.stats?.attendance_by_term?.term_2?.absent || 0) > 0 ? '<small title="Has absences" style="margin-left:6px;color:#dc2626;">*</small>' : ''}
                         ${pred ? `<span class="grade-badge ${gradeClass(pred.grade)}" style="margin-left:auto;">${pred.grade} <small>(${pred.value})</small></span>` : '<span style="margin-left:auto;color:#94a3b8;font-size:0.85rem;">No grades</span>'}
                     </div>`;
 
@@ -324,6 +361,13 @@ function renderClassOverview(container, group) {
                 expand.textContent = "▸";
                 parent.classList.remove("expanded");
             }
+        });
+    });
+
+    container.querySelectorAll(".view-comments-btn").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            await openCommentsModal(btn.dataset.studentId, btn.dataset.studentName);
         });
     });
 }
@@ -398,7 +442,7 @@ function renderGroup(container, group) {
     }
     const assessments = Array.from(assessmentSet).sort();
 
-    const colCount = 3 + (assessments.length > 0 ? assessments.length : 1) + 1; // #, Student, Class, assessments, Predicted
+    const colCount = 5 + (assessments.length > 0 ? assessments.length : 1) + 1; // #, Student, Class, Attendance, Comments, assessments, Predicted
 
     html += `<table>
         <thead>
@@ -406,6 +450,8 @@ function renderGroup(container, group) {
                 <th>#</th>
                 <th>Student</th>
                 <th>Class</th>
+                <th>Attendance</th>
+                <th>Comments</th>
                 ${assessments.length > 0
                     ? assessments.map(a => {
                         // Find category of first grade with this assessment
@@ -424,7 +470,7 @@ function renderGroup(container, group) {
         <tbody>`;
 
     filteredStudents
-        .sort((a, b) => a.surname.localeCompare(b.surname))
+        .sort((a, b) => `${a.surname || ''} ${a.name || ''}`.localeCompare(`${b.surname || ''} ${b.name || ''}`))
         .forEach((s, i) => {
             const gradeMap = {};
             for (const g of s.grades) {
@@ -434,13 +480,25 @@ function renderGroup(container, group) {
             // Predicted grade for current term filter
             const pred = predictGrade(s.grades);
 
+            const termKey = activeTerm === 2 ? "term_2" : "term_1";
+            const attByTerm = s.stats?.attendance_by_term || {};
+            const termAtt = attByTerm[termKey] || {};
+            const attPct = termAtt.attendance_pct;
+            const absentCount = termAtt.absent || 0;
+            const trendToday = s.stats?.attendance_trends?.today?.attendance_pct;
+            const trendWeek = s.stats?.attendance_trends?.week?.attendance_pct;
+            const commentCount = s.stats?.comments?.count || 0;
+            const hasNew = hasNewCommentForStudent(s.student_id, commentCount);
+
             html += `<tr class="student-main-row" data-stats-target="stats-row-${i}">
                 <td>${i + 1}</td>
                 <td>
-                    <span class="student-name-toggle" data-student-id="${s.student_id}" data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">${escHtml(s.surname)} ${escHtml(s.name)}</span>
+                    <span class="student-name-toggle" data-student-id="${s.student_id}" data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">${escHtml(s.surname)} ${escHtml(s.name)}${commentCount > 0 ? ' 💬' : ''}${hasNew ? ' <span style="color:#f97316;">●</span>' : ''}</span>
                     <button class="add-grade-inline-btn" data-student-id="${s.student_id}" title="Add grade">＋</button>
                 </td>
-                <td><span class="class-tag">${escHtml(s.class_name)}</span></td>`;
+                <td><span class="class-tag">${escHtml(s.class_name)}</span></td>
+                <td>${attPct != null ? `${attPct}%` : '–'}${absentCount > 0 ? ' <span title="Absent">*</span>' : ''}<br><small style="color:#64748b;">D:${trendToday ?? '–'}% · W:${trendWeek ?? '–'}%</small></td>
+                <td><button class="btn btn-secondary btn-sm view-comments-btn" data-student-id="${s.student_id}" data-subject-id="${group.subject_id}" data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">View (${commentCount})</button></td>`;
 
             if (assessments.length > 0) {
                 for (const a of assessments) {
@@ -516,6 +574,13 @@ function renderGroup(container, group) {
         btn.addEventListener("click", (e) => {
             e.stopPropagation();
             openGradeModal(null, null, btn.dataset.studentId);
+        });
+    });
+
+    container.querySelectorAll(".view-comments-btn").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            await openCommentsModal(btn.dataset.studentId, btn.dataset.studentName, btn.dataset.subjectId);
         });
     });
 }
@@ -697,5 +762,153 @@ async function deleteGradeFromModal() {
     } finally {
         btn.disabled = false;
         btn.textContent = "Delete";
+    }
+}
+
+function hasNewCommentForStudent(studentId, currentCount) {
+    const seen = JSON.parse(localStorage.getItem("seenCommentCounts") || "{}");
+    const prev = seen[studentId] || 0;
+    return currentCount > prev;
+}
+
+function markCommentsSeen(studentId, currentCount) {
+    const seen = JSON.parse(localStorage.getItem("seenCommentCounts") || "{}");
+    seen[studentId] = Math.max(seen[studentId] || 0, currentCount || 0);
+    localStorage.setItem("seenCommentCounts", JSON.stringify(seen));
+}
+
+function ensureCommentsModal() {
+    if (document.getElementById("commentsModal")) return;
+    const wrap = document.createElement("div");
+    wrap.innerHTML = `
+        <div id="commentsModal" class="modal-overlay" style="display:none;">
+            <div class="modal" style="max-width:760px;">
+                <div class="modal-header">
+                    <h2 id="commentsModalTitle">Student Comments</h2>
+                    <button id="commentsModalClose" class="modal-close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="commentsModalBody"><p class="loading">Loading comments…</p></div>
+                </div>
+            </div>
+        </div>`;
+    document.body.appendChild(wrap.firstElementChild);
+    document.getElementById("commentsModalClose").addEventListener("click", () => {
+        document.getElementById("commentsModal").style.display = "none";
+    });
+    document.getElementById("commentsModal").addEventListener("click", (e) => {
+        if (e.target.id === "commentsModal") document.getElementById("commentsModal").style.display = "none";
+    });
+}
+
+async function openCommentsModal(studentId, studentName, subjectId) {
+    ensureCommentsModal();
+    const modal = document.getElementById("commentsModal");
+    const body = document.getElementById("commentsModalBody");
+    document.getElementById("commentsModalTitle").textContent = `Comments – ${studentName || "Student"}`;
+    modal.style.display = "flex";
+    body.innerHTML = '<p class="loading">Loading comments…</p>';
+
+    try {
+        const res = await apiFetch(`/teacher/student-comments/?student_id=${encodeURIComponent(studentId)}${subjectId ? `&subject_id=${encodeURIComponent(subjectId)}` : ''}`);
+        const data = await res.json();
+        const comments = data.comments || [];
+        if (comments.length === 0) {
+            body.innerHTML = '<p class="empty-state">No comments found.</p>';
+            markCommentsSeen(studentId, 0);
+            return;
+        }
+
+        body.innerHTML = `<table>
+            <thead><tr><th>Date</th><th>Period</th><th>Group</th><th>Subject</th><th>Teacher</th><th>Comment</th></tr></thead>
+            <tbody>
+                ${comments.map(c => `<tr>
+                    <td>${escHtml(c.date || '')}</td>
+                    <td>${c.period != null ? escHtml(String(c.period)) : '–'}</td>
+                    <td>${escHtml(c.group || '')}</td>
+                    <td>${escHtml(c.subject || '')}</td>
+                    <td>${escHtml(c.teacher || '')}</td>
+                    <td>${escHtml(c.comment || '')}</td>
+                </tr>`).join('')}
+            </tbody>
+        </table>`;
+        markCommentsSeen(studentId, comments.length);
+    } catch (err) {
+        body.innerHTML = '<p class="empty-state">Failed to load comments.</p>';
+    }
+}
+
+async function renderReportTab(container, term) {
+    const title = term === 1 ? "Winter Report" : "End of Year Report";
+    container.innerHTML = `<div class="term-filter"><strong>${title}</strong></div><p class="loading">Loading reports…</p>`;
+
+    try {
+        const res = await apiFetch(`/teacher/reports/?term=${term}`);
+        const data = await res.json();
+        const rows = data.reports || [];
+        if (rows.length === 0) {
+            container.innerHTML = `<p class="empty-state">No students available for ${title.toLowerCase()}.</p>`;
+            return;
+        }
+
+        container.innerHTML = `<div class="term-filter"><strong>${title}</strong></div>
+            <table>
+                <thead><tr><th>#</th><th>Student</th><th>Class</th><th>Subject</th><th>Grade</th><th>Effort</th><th>Comment</th><th>Save</th></tr></thead>
+                <tbody>
+                    ${rows.map((r, i) => `<tr data-report-row="${i}">
+                        <td>${i + 1}</td>
+                        <td>${escHtml(r.student || '')}</td>
+                        <td><span class="class-tag">${escHtml(r.class_name || '')}</span></td>
+                        <td>${escHtml(r.subject || '')}</td>
+                        <td><input class="form-input report-grade" value="${escHtml(r.report_grade || '')}" placeholder="e.g. B+"></td>
+                        <td><input class="form-input report-effort" value="${escHtml(r.effort || '')}" placeholder="e.g. Good"></td>
+                        <td><input class="form-input report-comment" value="${escHtml(r.comment || '')}" placeholder="Comment"></td>
+                        <td><button class="btn btn-primary btn-sm report-save-btn" data-term="${term}" data-student-id="${r.student_id}" data-subject-id="${r.subject_id}" data-class-id="${r.class_id}">Save</button></td>
+                    </tr>`).join('')}
+                </tbody>
+            </table>`;
+
+        container.querySelectorAll(".report-save-btn").forEach(btn => {
+            btn.addEventListener("click", async () => {
+                const row = btn.closest("tr");
+                const report_grade = row.querySelector(".report-grade").value.trim();
+                const effort = row.querySelector(".report-effort").value.trim();
+                const comment = row.querySelector(".report-comment").value.trim();
+                btn.disabled = true;
+                btn.textContent = "Saving…";
+                try {
+                    const resp = await apiFetch("/teacher/reports/", {
+                        method: "POST",
+                        body: JSON.stringify({
+                            student_id: btn.dataset.studentId,
+                            subject_id: btn.dataset.subjectId,
+                            class_id: btn.dataset.classId,
+                            term: parseInt(btn.dataset.term),
+                            report_grade,
+                            effort,
+                            comment,
+                        }),
+                    });
+                    if (!resp.ok) {
+                        const d = await resp.json();
+                        alert(d.message || "Failed to save report");
+                        btn.textContent = "Save";
+                        btn.disabled = false;
+                        return;
+                    }
+                    btn.textContent = "✓";
+                    setTimeout(() => {
+                        btn.textContent = "Save";
+                        btn.disabled = false;
+                    }, 1000);
+                } catch (err) {
+                    alert("Failed to save report");
+                    btn.textContent = "Save";
+                    btn.disabled = false;
+                }
+            });
+        });
+    } catch (err) {
+        container.innerHTML = `<p class="empty-state">Failed to load ${title.toLowerCase()}.</p>`;
     }
 }

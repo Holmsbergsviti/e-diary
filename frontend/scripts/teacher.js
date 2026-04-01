@@ -334,6 +334,10 @@ async function saveAttendance() {
         });
         const data = await res.json();
         if (res.ok) {
+            const conflicts = data.alerts?.absent_present_conflicts || [];
+            if (conflicts.length > 0) {
+                alert(`Attendance alert: ${conflicts.length} student(s) were marked absent here but present in another class on the same day.`);
+            }
             btn.textContent = "✓ Saved!";
             btn.classList.add("btn-success");
             setTimeout(() => {
@@ -489,6 +493,10 @@ function generateBehavioralRing(positive, negative, note) {
     `;
 }
 
+function statCardKey(stat) {
+    return `stat-${String(stat.subject_id || '').replace(/[^a-zA-Z0-9_-]/g, '')}-${String(stat.class_id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
+}
+
 function renderClassStats(stats) {
     const container = document.getElementById("classStatsList");
     if (stats.length === 0) {
@@ -506,7 +514,7 @@ function renderClassStats(stats) {
 
         const gradeAvg = s.grades.average !== null ? s.grades.average.toFixed(1) : "–";
         
-        const classId = `stat-${s.subject.replace(/\s+/g, '-')}-${s.class_name.replace(/\s+/g, '-')}`;
+        const classId = statCardKey(s);
 
         return `
         <div class="stat-card" data-class-id="${classId}" data-subject="${escHtml(s.subject)}" data-class-name="${escHtml(s.class_name)}">
@@ -614,7 +622,7 @@ function updateClassStats(stats) {
             homework: s.homework
         });
         
-        const classId = `stat-${s.subject.replace(/\s+/g, '-')}-${s.class_name.replace(/\s+/g, '-')}`;
+        const classId = statCardKey(s);
         const card = container.querySelector(`.stat-card[data-class-id="${classId}"]`);
         
         if (!card) return; // Card doesn't exist, wasn't rendered

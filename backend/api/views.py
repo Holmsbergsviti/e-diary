@@ -37,6 +37,14 @@ def _verify_token(request) -> dict | None:
         return None
 
 
+def _term_from_iso_date(date_str: str) -> int:
+    try:
+        dt = datetime.fromisoformat(str(date_str))
+        return 1 if 9 <= dt.month <= 12 else 2
+    except Exception:
+        return 1
+
+
 # ------------------------------------------------------------------
 # Profile helper – figure out role from ediary_schema tables
 # ------------------------------------------------------------------
@@ -611,7 +619,29 @@ def teacher_attendance(request):
 
         db2 = ediary()
         result = db2.table("attendance").insert(rows).execute()
-        return JsonResponse({"saved": len(result.data or [])}, status=201)
+
+        # Alert: student marked absent here but present/late/excused in another class/subject same day
+        conflicting_students = []
+        absent_ids = [r.get("student_id") for r in rows if r.get("status") == "Absent"]
+        if absent_ids:
+            same_day = (
+                ediary().table("attendance")
+                .select("student_id, class_id, subject_id, status")
+                .eq("date_recorded", date)
+                .in_("student_id", absent_ids)
+                .execute()
+            )
+            for rec in (same_day.data or []):
+                if rec.get("status") in ("Present", "Late", "Excused"):
+                    if rec.get("class_id") != class_id or rec.get("subject_id") != subject_id:
+                        conflicting_students.append(rec.get("student_id"))
+
+        return JsonResponse({
+            "saved": len(result.data or []),
+            "alerts": {
+                "absent_present_conflicts": sorted(list(set(conflicting_students))),
+            },
+        }, status=201)
 
     return JsonResponse({"message": "Method not allowed"}, status=405)
 
@@ -932,6 +962,7 @@ def teacher_marks(request):
         .select("id, name, surname, class_id")
         .in_("class_id", relevant_class_ids)
         .order("surname")
+        .order("name")
         .execute()
     )
     student_map = {s["id"]: s for s in (students.data or [])}
@@ -970,7 +1001,7 @@ def teacher_marks(request):
     if student_ids:
         att_data = (
             ediary().table("attendance")
-            .select("student_id, status")
+            .select("student_id, subject_id, class_id, date_recorded, status, comment")
             .in_("student_id", student_ids)
             .execute()
         ).data or []
@@ -999,13 +1030,54 @@ def teacher_marks(request):
             .execute()
         ).data or []
 
-    def build_student_stats(sid):
+    def build_student_stats(sid, subject_id=None, class_id=None):
         att_c = {"Present": 0, "Late": 0, "Absent": 0, "Excused": 0}
+        att_term = {
+            1: {"total": 0, "present_or_late": 0, "absent": 0},
+            2: {"total": 0, "present_or_late": 0, "absent": 0},
+        }
+        comment_count = 0
+        today = datetime.now().date()
+        week_start = today - timedelta(days=today.weekday())
+        trend = {
+            "today": {"total": 0, "present_or_late": 0, "absent": 0},
+            "week": {"total": 0, "present_or_late": 0, "absent": 0},
+        }
         for a in att_data:
             if a["student_id"] == sid:
+                if subject_id and a.get("subject_id") != subject_id:
+                    continue
+                if class_id and a.get("class_id") != class_id:
+                    continue
                 st = a.get("status", "Present")
                 if st in att_c:
                     att_c[st] += 1
+                term_no = _term_from_iso_date(a.get("date_recorded"))
+                att_term[term_no]["total"] += 1
+                if st in ("Present", "Late"):
+                    att_term[term_no]["present_or_late"] += 1
+                if st == "Absent":
+                    att_term[term_no]["absent"] += 1
+                if (a.get("comment") or "").strip():
+                    comment_count += 1
+
+                try:
+                    d = datetime.fromisoformat(str(a.get("date_recorded"))).date()
+                except Exception:
+                    d = None
+                if d:
+                    if d == today:
+                        trend["today"]["total"] += 1
+                        if st in ("Present", "Late"):
+                            trend["today"]["present_or_late"] += 1
+                        if st == "Absent":
+                            trend["today"]["absent"] += 1
+                    if week_start <= d <= today:
+                        trend["week"]["total"] += 1
+                        if st in ("Present", "Late"):
+                            trend["week"]["present_or_late"] += 1
+                        if st == "Absent":
+                            trend["week"]["absent"] += 1
         att_total = sum(att_c.values())
 
         pcts = [
@@ -1030,6 +1102,31 @@ def teacher_marks(request):
 
         return {
             "attendance": {"total": att_total, **att_c},
+            "attendance_by_term": {
+                "term_1": {
+                    "total": att_term[1]["total"],
+                    "attendance_pct": round((att_term[1]["present_or_late"] / att_term[1]["total"]) * 100, 1) if att_term[1]["total"] else None,
+                    "absent": att_term[1]["absent"],
+                },
+                "term_2": {
+                    "total": att_term[2]["total"],
+                    "attendance_pct": round((att_term[2]["present_or_late"] / att_term[2]["total"]) * 100, 1) if att_term[2]["total"] else None,
+                    "absent": att_term[2]["absent"],
+                },
+            },
+            "comments": {
+                "count": comment_count,
+            },
+            "attendance_trends": {
+                "today": {
+                    "attendance_pct": round((trend["today"]["present_or_late"] / trend["today"]["total"]) * 100, 1) if trend["today"]["total"] else None,
+                    "absent": trend["today"]["absent"],
+                },
+                "week": {
+                    "attendance_pct": round((trend["week"]["present_or_late"] / trend["week"]["total"]) * 100, 1) if trend["week"]["total"] else None,
+                    "absent": trend["week"]["absent"],
+                },
+            },
             "grades": {"count": len(pcts), "average": grade_avg},
             "homework": hwc_c,
             "behavioral": beh_c,
@@ -1049,7 +1146,7 @@ def teacher_marks(request):
                 enrollment_map.setdefault(ss["student_id"], set()).add(ss["subject_id"])
 
             overview_students = []
-            for s in sorted(homeroom_students, key=lambda x: x.get("surname", "")):
+            for s in sorted(homeroom_students, key=lambda x: (x.get("surname", ""), x.get("name", ""))):
                 enrolled_subjects = enrollment_map.get(s["id"], set())
                 subjects_data = []
                 for subj_id in sorted(enrolled_subjects, key=lambda x: subj_map.get(x, {}).get("name", "")):
@@ -1062,6 +1159,7 @@ def teacher_marks(request):
                         "subject_id": subj_id,
                         "subject": subj.get("name", "Unknown"),
                         "subject_color": subj.get("color_code", "#607D8B"),
+                        "stats": build_student_stats(s["id"], subj_id, class_teacher_class_id),
                         "grades": [
                             {
                                 "id": g["id"],
@@ -1117,7 +1215,7 @@ def teacher_marks(request):
                 group_students.append(s)
 
         student_grades = []
-        for s in group_students:
+        for s in sorted(group_students, key=lambda x: (x.get("surname", ""), x.get("name", ""))):
             s_grades = [
                 g for g in (grades_result.data or [])
                 if g["student_id"] == s["id"] and g["subject_id"] == subj_id
@@ -1140,7 +1238,7 @@ def teacher_marks(request):
                     }
                     for g in s_grades
                 ],
-                "stats": build_student_stats(s["id"]),
+                "stats": build_student_stats(s["id"], subj_id, class_id),
             })
 
         groups.append({
@@ -1603,12 +1701,14 @@ def teacher_class_stats(request):
         # Behavioral stats
         beh_counts = {"positive": 0, "negative": 0, "note": 0}
         for b in (beh_result.data or []):
-            if b.get("subject_id") == subject_id:
+            if b.get("subject_id") == subject_id and b.get("class_id") == class_id:
                 bt = b.get("entry_type", "note")
                 if bt in beh_counts:
                     beh_counts[bt] += 1
 
         stats.append({
+            "subject_id": subject_id,
+            "class_id": class_id,
             "subject": subj_map.get(subject_id, ""),
             "class_name": cl.get("class_name", ""),
             "student_count": student_count,
@@ -1639,3 +1739,294 @@ def teacher_class_stats(request):
     # Sort by subject then class
     stats.sort(key=lambda s: (s["subject"], s["class_name"]))
     return JsonResponse({"stats": stats})
+
+
+# ------------------------------------------------------------------
+# Teacher: per-student comments timeline for class teachers/subject teachers
+# ------------------------------------------------------------------
+
+@csrf_exempt
+def teacher_student_comments(request):
+    payload = _verify_token(request)
+    if not payload or payload.get("role") != "teacher":
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    if request.method != "GET":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+
+    student_id = request.GET.get("student_id", "").strip()
+    subject_id = request.GET.get("subject_id", "").strip()
+
+    if not student_id:
+        return JsonResponse({"message": "student_id required"}, status=400)
+
+    db = ediary()
+
+    subjects = db.table("subjects").select("id, name").execute()
+    subj_map = {s["id"]: s["name"] for s in (subjects.data or [])}
+
+    classes = db.table("classes").select("id, class_name").execute()
+    cls_map = {c["id"]: c["class_name"] for c in (classes.data or [])}
+
+    teachers = db.table("teachers").select("id, name, surname").execute()
+    teacher_map = {t["id"]: f"{t['name']} {t['surname']}" for t in (teachers.data or [])}
+
+    # Build schedule lookup for period from weekday+subject+class
+    sched = db.table("schedule").select("subject_id, class_id, day_of_week, period").execute()
+    sched_map = {}
+    for r in (sched.data or []):
+        key = (r.get("subject_id"), r.get("class_id"), r.get("day_of_week"))
+        cur = sched_map.get(key)
+        p = r.get("period")
+        if cur is None or (p is not None and p < cur):
+            sched_map[key] = p
+
+    comments = []
+
+    # Attendance comments
+    att = (
+        db.table("attendance")
+        .select("date_recorded, class_id, subject_id, comment, recorded_by_teacher_id")
+        .eq("student_id", student_id)
+        .execute()
+    )
+    for a in (att.data or []):
+        text = (a.get("comment") or "").strip()
+        if not text:
+            continue
+        if subject_id and a.get("subject_id") != subject_id:
+            continue
+        day_of_week = None
+        try:
+            day_of_week = datetime.fromisoformat(str(a.get("date_recorded"))).isoweekday()
+        except Exception:
+            day_of_week = None
+        comments.append({
+            "source": "attendance",
+            "date": a.get("date_recorded", ""),
+            "subject": subj_map.get(a.get("subject_id"), ""),
+            "group": cls_map.get(a.get("class_id"), ""),
+            "period": sched_map.get((a.get("subject_id"), a.get("class_id"), day_of_week)),
+            "teacher": teacher_map.get(a.get("recorded_by_teacher_id"), ""),
+            "comment": text,
+        })
+
+    # Grade comments
+    stu_row = db.table("students").select("class_id").eq("id", student_id).limit(1).execute()
+    student_class_id = stu_row.data[0]["class_id"] if stu_row.data else None
+
+    grades = (
+        db.table("grades")
+        .select("date_taken, subject_id, comment, created_by_teacher_id")
+        .eq("student_id", student_id)
+        .execute()
+    )
+    for g in (grades.data or []):
+        text = (g.get("comment") or "").strip()
+        if not text:
+            continue
+        if subject_id and g.get("subject_id") != subject_id:
+            continue
+        comments.append({
+            "source": "grade",
+            "date": g.get("date_taken", ""),
+            "subject": subj_map.get(g.get("subject_id"), ""),
+            "group": cls_map.get(student_class_id, ""),
+            "period": None,
+            "teacher": teacher_map.get(g.get("created_by_teacher_id"), ""),
+            "comment": text,
+        })
+
+    # Behavioral notes (as comments)
+    beh = (
+        db.table("behavioral_entries")
+        .select("created_at, class_id, subject_id, content, teacher_id")
+        .eq("student_id", student_id)
+        .execute()
+    )
+    for b in (beh.data or []):
+        text = (b.get("content") or "").strip()
+        if not text:
+            continue
+        if subject_id and b.get("subject_id") != subject_id:
+            continue
+        created_at = str(b.get("created_at") or "")
+        comments.append({
+            "source": "behavioral",
+            "date": created_at[:10] if len(created_at) >= 10 else created_at,
+            "subject": subj_map.get(b.get("subject_id"), ""),
+            "group": cls_map.get(b.get("class_id"), ""),
+            "period": None,
+            "teacher": teacher_map.get(b.get("teacher_id"), ""),
+            "comment": text,
+        })
+
+    comments.sort(key=lambda c: c.get("date", ""), reverse=True)
+    return JsonResponse({"comments": comments})
+
+
+# ------------------------------------------------------------------
+# Teacher: winter / end-of-year reports
+# ------------------------------------------------------------------
+
+@csrf_exempt
+def teacher_reports(request):
+    payload = _verify_token(request)
+    if not payload or payload.get("role") != "teacher":
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    teacher_id = payload["sub"]
+
+    if request.method == "GET":
+        term = request.GET.get("term", "1").strip()
+        if term not in ("1", "2"):
+            return JsonResponse({"message": "term must be 1 or 2"}, status=400)
+
+        db = ediary()
+        assignments = (
+            db.table("teacher_assignments")
+            .select("subject_id, class_id")
+            .eq("teacher_id", teacher_id)
+            .execute()
+        )
+        pairs = {(a["subject_id"], a["class_id"]) for a in (assignments.data or [])}
+        if not pairs:
+            return JsonResponse({"reports": []})
+
+        class_ids = [c for _, c in pairs]
+        students = (
+            db.table("students")
+            .select("id, name, surname, class_id")
+            .in_("class_id", class_ids)
+            .order("surname")
+            .order("name")
+            .execute()
+        )
+        student_ids = [s["id"] for s in (students.data or [])]
+
+        ss = (
+            db.table("student_subjects")
+            .select("student_id, subject_id, group_class_id")
+            .in_("student_id", student_ids)
+            .execute()
+        ) if student_ids else type('', (), {'data': []})()
+
+        subjects = db.table("subjects").select("id, name").execute()
+        subj_map = {s["id"]: s["name"] for s in (subjects.data or [])}
+        classes = db.table("classes").select("id, class_name").execute()
+        cls_map = {c["id"]: c["class_name"] for c in (classes.data or [])}
+
+        try:
+            existing = (
+                db.table("teacher_reports")
+                .select("id, student_id, subject_id, class_id, term, report_grade, effort, comment")
+                .eq("teacher_id", teacher_id)
+                .eq("term", int(term))
+                .execute()
+            )
+            existing_rows = existing.data or []
+        except Exception as exc:
+            return JsonResponse({
+                "message": "teacher_reports table not available",
+                "details": str(exc),
+            }, status=500)
+
+        existing_map = {
+            (r.get("student_id"), r.get("subject_id"), r.get("class_id"), r.get("term")): r
+            for r in existing_rows
+        }
+
+        reports = []
+        ss_rows = ss.data or []
+        for s in (students.data or []):
+            for subj_id, class_id in pairs:
+                group_class_id = None
+                for row in ss_rows:
+                    if row.get("student_id") == s["id"] and row.get("subject_id") == subj_id:
+                        group_class_id = row.get("group_class_id")
+                        break
+                in_group = group_class_id == class_id or (not group_class_id and s.get("class_id") == class_id)
+                if not in_group:
+                    continue
+
+                key = (s["id"], subj_id, class_id, int(term))
+                existing_row = existing_map.get(key, {})
+                reports.append({
+                    "id": existing_row.get("id"),
+                    "student_id": s["id"],
+                    "student": f"{s.get('surname', '')} {s.get('name', '')}".strip(),
+                    "subject_id": subj_id,
+                    "subject": subj_map.get(subj_id, ""),
+                    "class_id": class_id,
+                    "class_name": cls_map.get(class_id, ""),
+                    "term": int(term),
+                    "report_grade": existing_row.get("report_grade", ""),
+                    "effort": existing_row.get("effort", ""),
+                    "comment": existing_row.get("comment", ""),
+                })
+
+        reports.sort(key=lambda r: (r.get("class_name", ""), r.get("subject", ""), r.get("student", "")))
+        return JsonResponse({"reports": reports})
+
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"message": "Invalid JSON"}, status=400)
+
+        student_id = data.get("student_id", "").strip()
+        subject_id = data.get("subject_id", "").strip()
+        class_id = data.get("class_id", "").strip()
+        term = int(data.get("term", 1))
+        report_grade = data.get("report_grade", "").strip()
+        effort = data.get("effort", "").strip()
+        comment = data.get("comment", "").strip()
+
+        if not student_id or not subject_id or not class_id or term not in (1, 2):
+            return JsonResponse({"message": "student_id, subject_id, class_id and valid term are required"}, status=400)
+
+        row = {
+            "teacher_id": teacher_id,
+            "student_id": student_id,
+            "subject_id": subject_id,
+            "class_id": class_id,
+            "term": term,
+            "report_grade": report_grade,
+            "effort": effort,
+            "comment": comment,
+        }
+
+        try:
+            existing = (
+                ediary().table("teacher_reports")
+                .select("id")
+                .eq("teacher_id", teacher_id)
+                .eq("student_id", student_id)
+                .eq("subject_id", subject_id)
+                .eq("class_id", class_id)
+                .eq("term", term)
+                .limit(1)
+                .execute()
+            )
+            if existing.data:
+                result = (
+                    ediary().table("teacher_reports")
+                    .update({
+                        "report_grade": report_grade,
+                        "effort": effort,
+                        "comment": comment,
+                    })
+                    .eq("id", existing.data[0]["id"])
+                    .execute()
+                )
+            else:
+                result = ediary().table("teacher_reports").insert(row).execute()
+        except Exception as exc:
+            return JsonResponse({
+                "message": "Failed to save report",
+                "details": str(exc),
+            }, status=500)
+
+        return JsonResponse({"report": result.data[0] if result.data else {}})
+
+    return JsonResponse({"message": "Method not allowed"}, status=405)

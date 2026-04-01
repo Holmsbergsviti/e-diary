@@ -40,6 +40,7 @@ CS students replicating and improving [online.chartwell.edu.rs](https://www.onli
 
 1. Create a new project at [supabase.com](https://supabase.com).
 2. In the **SQL Editor**, run the contents of `backend/supabase_schema.sql` to set up tables.
+3. For the teacher report feature (Winter/End-of-Year), run `backend/supabase_migration_20260401_teacher_reports.sql`.
 3. Use `backend/create_user.py` to add your first user (see script for usage).
 
 ### 2 – Backend (Django on Render)

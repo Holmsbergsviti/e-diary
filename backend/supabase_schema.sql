@@ -214,3 +214,24 @@ CREATE TABLE ediary_schema.homework (
   CONSTRAINT homework_class_id_fkey
     FOREIGN KEY (class_id) REFERENCES ediary_schema.classes(id)
 );
+
+-- Semester reports by teacher (Winter / End of Year)
+CREATE TABLE ediary_schema.teacher_reports (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  teacher_id uuid NOT NULL,
+  student_id uuid NOT NULL,
+  subject_id uuid NOT NULL,
+  class_id uuid NOT NULL,
+  term smallint NOT NULL CHECK (term IN (1, 2)),
+  report_grade text,
+  effort text,
+  comment text,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  CONSTRAINT teacher_reports_pkey PRIMARY KEY (id),
+  CONSTRAINT teacher_reports_unique UNIQUE (teacher_id, student_id, subject_id, class_id, term),
+  CONSTRAINT teacher_reports_teacher_id_fkey FOREIGN KEY (teacher_id) REFERENCES ediary_schema.teachers(id),
+  CONSTRAINT teacher_reports_student_id_fkey FOREIGN KEY (student_id) REFERENCES ediary_schema.students(id),
+  CONSTRAINT teacher_reports_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES ediary_schema.subjects(id),
+  CONSTRAINT teacher_reports_class_id_fkey FOREIGN KEY (class_id) REFERENCES ediary_schema.classes(id)
+);
