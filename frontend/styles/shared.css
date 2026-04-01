@@ -488,13 +488,17 @@ tr:hover td {
 }
 
 /* ---- Marks page: teacher marks table (horizontal scroll) ---- */
-.marks-page table {
-    width: 100%;
-    table-layout: auto;
-    border-collapse: collapse;
-    display: block;
+.marks-page #marksContainer {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+}
+
+.marks-page table {
+    width: max-content;
+    min-width: 100%;
+    table-layout: auto;
+    border-collapse: collapse;
+    display: table;
     background: linear-gradient(to right, var(--bg-card) 0%, transparent 100%), 
                 linear-gradient(to right, transparent 0%, var(--bg-card) 100%);
     background-attachment: local, local;
@@ -505,21 +509,25 @@ tr:hover td {
 
 .marks-page thead,
 .marks-page tbody {
-    display: block;
+    display: table-header-group;
+}
+
+.marks-page tbody {
+    display: table-row-group;
 }
 
 .marks-page tr {
-    display: flex;
-    width: 100%;
+    display: table-row;
     border-bottom: 1px solid rgba(var(--primary-blue-rgb), 0.08);
 }
 
 .marks-page th,
 .marks-page td {
+    display: table-cell;
     padding: 12px 14px;
     text-align: left;
     min-width: 80px;
-    flex: 0 0 auto;
+    vertical-align: middle;
 }
 
 .marks-page th {
@@ -548,7 +556,23 @@ tr:hover td {
 .marks-page th:nth-child(3),
 .marks-page td:nth-child(3) {
     min-width: 100px;
-    flex: 0 0 100px;
+}
+
+/* Assessment columns */
+.marks-page th:nth-child(n+5):not(:last-child),
+.marks-page td:nth-child(n+5):not(:last-child) {
+    min-width: 150px;
+    text-align: center;
+}
+
+.marks-page th:nth-child(n+5):not(:last-child) {
+    line-height: 1.25;
+}
+
+.marks-page td:last-child,
+.marks-page th:last-child {
+    min-width: 92px;
+    text-align: center;
 }
 
 .marks-page td:last-child,
