@@ -393,42 +393,35 @@ setInterval(async () => {
 
 /* ---- Ring diagram generators ---- */
 function generateAttendanceRing(present, late, absent, excused, total) {
-    // If no attendance data, show 100% absent
-    if (total === 0) {
-        present = 0;
-        late = 0;
-        absent = 1;
-        excused = 0;
-        total = 1;
-    }
+    if (total === 0) return '';
     
     const presentPct = (present / total) * 100;
     const latePct = (late / total) * 100;
     const absentPct = (absent / total) * 100;
     const excusedPct = (excused / total) * 100;
     
-    const presentRnd = Math.max(Math.round(presentPct), present > 0 ? 1 : 0);
-    const lateRnd = Math.max(Math.round(latePct), late > 0 ? 1 : 0);
-    const absentRnd = Math.max(Math.round(absentPct), absent > 0 ? 1 : 0);
-    const excusedRnd = Math.max(Math.round(excusedPct), excused > 0 ? 1 : 0);
+    const presentExact = Number(presentPct.toFixed(2));
+    const lateExact = Number(latePct.toFixed(2));
+    const absentExact = Number(absentPct.toFixed(2));
+    const excusedExact = Number(excusedPct.toFixed(2));
     
     let offset = 0;
     const sectors = [];
     if (present > 0) {
-        sectors.push(generateRingSector(offset, presentRnd, '#10b981', 'Present', presentRnd));
-        offset += presentRnd;
+        sectors.push(generateRingSector(offset, presentExact, '#10b981', 'Present', presentExact));
+        offset += presentExact;
     }
     if (late > 0) {
-        sectors.push(generateRingSector(offset, lateRnd, '#fcd34d', 'Late', lateRnd));
-        offset += lateRnd;
+        sectors.push(generateRingSector(offset, lateExact, '#fcd34d', 'Late', lateExact));
+        offset += lateExact;
     }
     if (absent > 0) {
-        sectors.push(generateRingSector(offset, absentRnd, '#f87171', 'Absent', absentRnd));
-        offset += absentRnd;
+        sectors.push(generateRingSector(offset, absentExact, '#f87171', 'Absent', absentExact));
+        offset += absentExact;
     }
     if (excused > 0) {
-        sectors.push(generateRingSector(offset, excusedRnd, '#60a5fa', 'Excused', excusedRnd));
-        offset += excusedRnd;
+        sectors.push(generateRingSector(offset, excusedExact, '#60a5fa', 'Excused', excusedExact));
+        offset += excusedExact;
     }
     
     return `
@@ -439,7 +432,7 @@ function generateAttendanceRing(present, late, absent, excused, total) {
 }
 
 function generateRingSector(startPct, sizePct, color, label, percent) {
-    if (sizePct < 1) return ''; // Skip sectors smaller than 1%
+    if (sizePct <= 0) return '';
     
     const radius = 35;
     const circumference = 2 * Math.PI * radius;
@@ -467,23 +460,23 @@ function generateBehavioralRing(positive, negative, note) {
     const negativePct = (negative / total) * 100;
     const notePct = (note / total) * 100;
     
-    const positiveRnd = Math.max(Math.round(positivePct), positive > 0 ? 1 : 0);
-    const negativeRnd = Math.max(Math.round(negativePct), negative > 0 ? 1 : 0);
-    const noteRnd = Math.max(Math.round(notePct), note > 0 ? 1 : 0);
+    const positiveExact = Number(positivePct.toFixed(2));
+    const negativeExact = Number(negativePct.toFixed(2));
+    const noteExact = Number(notePct.toFixed(2));
     
     let offset = 0;
     const sectors = [];
     if (positive > 0) {
-        sectors.push(generateRingSector(offset, positiveRnd, '#10b981', 'Positive', positiveRnd));
-        offset += positiveRnd;
+        sectors.push(generateRingSector(offset, positiveExact, '#10b981', 'Positive', positiveExact));
+        offset += positiveExact;
     }
     if (negative > 0) {
-        sectors.push(generateRingSector(offset, negativeRnd, '#f87171', 'Negative', negativeRnd));
-        offset += negativeRnd;
+        sectors.push(generateRingSector(offset, negativeExact, '#f87171', 'Negative', negativeExact));
+        offset += negativeExact;
     }
     if (note > 0) {
-        sectors.push(generateRingSector(offset, noteRnd, '#fbbf24', 'Note', noteRnd));
-        offset += noteRnd;
+        sectors.push(generateRingSector(offset, noteExact, '#fbbf24', 'Note', noteExact));
+        offset += noteExact;
     }
     
     return `

@@ -1577,40 +1577,38 @@ def teacher_class_stats(request):
     cls_result = ediary().table("classes").select("id, class_name, grade_level").execute()
     cls_map = {c["id"]: c for c in (cls_result.data or [])}
 
-    # Build grade_level -> [class_ids] map
-    gl_class_map = {}
-    for c in (cls_result.data or []):
-        gl_class_map.setdefault(c["grade_level"], []).append(c["id"])
+    subjects_in_pairs = sorted(list({sid for sid, _ in pairs}))
+    classes_in_pairs = sorted(list({cid for _, cid in pairs}))
 
-    # For each pair, only use the specific class_id
-    all_cids = [cid for _, cid in pairs]
-    if not all_cids:
-        return JsonResponse({"stats": []})
-
-    # Get all students in the specific classes
-    stu_result = (
+    students_all = (
         ediary().table("students")
         .select("id, class_id")
-        .in_("class_id", all_cids)
         .execute()
     )
-    # Build class_id->set(student_ids)
-    class_students = {}
-    for s in (stu_result.data or []):
-        class_students.setdefault(s["class_id"], set()).add(s["id"])
+    student_class_map = {s["id"]: s.get("class_id") for s in (students_all.data or [])}
+    all_student_ids = list(student_class_map.keys())
 
-    # Get student_subjects for filtering
-    all_student_ids = [s["id"] for s in (stu_result.data or [])]
     ss_result = (
         ediary().table("student_subjects")
         .select("student_id, subject_id, group_class_id")
-        .in_("student_id", all_student_ids)
+        .in_("subject_id", subjects_in_pairs)
         .execute()
-    ) if all_student_ids else type('', (), {'data': []})()
-    # (subject_id) -> set(student_ids)
-    ss_map = {}
-    for ss in (ss_result.data or []):
-        ss_map.setdefault(ss["subject_id"], set()).add(ss["student_id"])
+    ) if subjects_in_pairs else type('', (), {'data': []})()
+
+    pair_enrolled_map = {}
+    for subject_id, class_id in pairs:
+        enrolled = set()
+        for ss in (ss_result.data or []):
+            if ss.get("subject_id") != subject_id:
+                continue
+            sid = ss.get("student_id")
+            gc = ss.get("group_class_id")
+            if gc:
+                if gc == class_id:
+                    enrolled.add(sid)
+            elif student_class_map.get(sid) == class_id:
+                enrolled.add(sid)
+        pair_enrolled_map[(subject_id, class_id)] = enrolled
 
     # Fetch all attendance for this teacher
     att_result = (
@@ -1651,7 +1649,7 @@ def teacher_class_stats(request):
     # Fetch behavioral entries for this teacher
     beh_result = (
         ediary().table("behavioral_entries")
-        .select("subject_id, class_id, entry_type")
+        .select("subject_id, class_id, student_id, entry_type")
         .eq("teacher_id", teacher_id)
         .execute()
     )
@@ -1663,16 +1661,13 @@ def teacher_class_stats(request):
         if not cl:
             continue
 
-        # Only students in this class enrolled in this subject
-        enrolled = ss_map.get(subject_id, set())
-        class_students_set = class_students.get(class_id, set())
-        class_enrolled = enrolled & class_students_set
+        class_enrolled = pair_enrolled_map.get((subject_id, class_id), set())
         student_count = len(class_enrolled)
 
         # Attendance stats: filter by this class_id + subject
         att_counts = {"Present": 0, "Late": 0, "Absent": 0, "Excused": 0}
         for a in (att_result.data or []):
-            if a["subject_id"] == subject_id and a.get("class_id") == class_id:
+            if a["subject_id"] == subject_id and a.get("class_id") == class_id and a.get("student_id") in class_enrolled:
                 s = a.get("status", "Present")
                 if s in att_counts:
                     att_counts[s] += 1
@@ -1693,7 +1688,7 @@ def teacher_class_stats(request):
         hw_count = len(hw_for_pair)
         hwc_counts = {"completed": 0, "partial": 0, "not_done": 0}
         for c in (hwc_result.data or []):
-            if c["homework_id"] in hw_for_pair:
+            if c["homework_id"] in hw_for_pair and c.get("student_id") in class_enrolled:
                 st = c.get("status", "")
                 if st in hwc_counts:
                     hwc_counts[st] += 1
@@ -1701,7 +1696,7 @@ def teacher_class_stats(request):
         # Behavioral stats
         beh_counts = {"positive": 0, "negative": 0, "note": 0}
         for b in (beh_result.data or []):
-            if b.get("subject_id") == subject_id and b.get("class_id") == class_id:
+            if b.get("subject_id") == subject_id and b.get("class_id") == class_id and b.get("student_id") in class_enrolled:
                 bt = b.get("entry_type", "note")
                 if bt in beh_counts:
                     beh_counts[bt] += 1

@@ -102,16 +102,10 @@ async function loadMarks() {
         const data = await res.json();
         allGroups = data.groups || [];
 
-        if (allGroups.length === 0) {
-            container.innerHTML = '<p class="empty-state">No marks to display.</p>';
-            document.getElementById("addGradeBtn").style.display = "none";
-            return;
-        }
-
-        if (activeGroupIdx >= allGroups.length) activeGroupIdx = 0;
+        const totalTabs = allGroups.length + 2; // + Winter + End of Year
+        if (activeGroupIdx >= totalTabs) activeGroupIdx = 0;
 
         renderTabs(tabsEl, container);
-        document.getElementById("addGradeBtn").style.display = "inline-block";
     } catch (err) {
         container.innerHTML = '<p class="empty-state">Failed to load marks.</p>';
     }
