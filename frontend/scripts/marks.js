@@ -7,8 +7,6 @@ let allGroups = [];
 let activeGroupIdx = 0;
 let editingGradeId = null;
 let activeTerm = null; // null = both, 1 or 2
-const REPORT_TAB_WINTER = "report_winter";
-const REPORT_TAB_END = "report_end";
 
 // Category weights (must sum to 1.0)
 const CATEGORY_WEIGHTS = {
@@ -75,13 +73,6 @@ async function initMarks() {
     // Default to current term
     activeTerm = currentTerm();
 
-    const hash = (window.location.hash || "").toLowerCase();
-    if (hash === "#reports" || hash === "#report" || hash === "#winter-report") {
-        activeGroupIdx = allGroups.length;
-    } else if (hash === "#reports-end" || hash === "#end-report") {
-        activeGroupIdx = allGroups.length + 1;
-    }
-
     await loadMarks();
 
     document.getElementById("addGradeBtn").addEventListener("click", () => openGradeModal());
@@ -109,34 +100,24 @@ async function loadMarks() {
         const data = await res.json();
         allGroups = data.groups || [];
 
-        const hash = (window.location.hash || "").toLowerCase();
-        if (hash === "#reports" || hash === "#report" || hash === "#winter-report") {
-            activeGroupIdx = allGroups.length;
-        } else if (hash === "#reports-end" || hash === "#end-report") {
-            activeGroupIdx = allGroups.length + 1;
+        if (allGroups.length === 0) {
+            container.innerHTML = '<p class="empty-state">No marks to display.</p>';
+            document.getElementById("addGradeBtn").style.display = "none";
+            tabsEl.innerHTML = "";
+            return;
         }
 
-        const totalTabs = allGroups.length + 2; // + Winter + End of Year
-        if (activeGroupIdx >= totalTabs) activeGroupIdx = 0;
+        if (activeGroupIdx >= allGroups.length) activeGroupIdx = 0;
 
         renderTabs(tabsEl, container);
+        document.getElementById("addGradeBtn").style.display = "inline-block";
     } catch (err) {
         container.innerHTML = '<p class="empty-state">Failed to load marks.</p>';
     }
 }
 
 function renderTabs(tabsEl, container) {
-    const uiTabs = [
-        ...allGroups.map((g, i) => ({ type: "group", idx: i, group: g })),
-        { type: "report", reportType: REPORT_TAB_WINTER, label: "Winter Report" },
-        { type: "report", reportType: REPORT_TAB_END, label: "End of Year Report" },
-    ];
-
-    tabsEl.innerHTML = uiTabs.map((tab, i) => {
-        if (tab.type === "report") {
-            return `<button class="tab-btn${i === activeGroupIdx ? ' active' : ''}" data-idx="${i}" data-tab-type="report" data-report-type="${tab.reportType}">🧾 ${tab.label}</button>`;
-        }
-        const g = tab.group;
+    tabsEl.innerHTML = allGroups.map((g, i) => {
         let label;
         if (g.type === "class_overview") {
             label = `My Class (${escHtml(g.class_name)})`;
@@ -154,35 +135,16 @@ function renderTabs(tabsEl, container) {
             tabsEl.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
             btn.classList.add("active");
             activeGroupIdx = parseInt(btn.dataset.idx);
-            const selected = uiTabs[activeGroupIdx];
-            if (selected?.type === "report") {
-                window.location.hash = selected.reportType === REPORT_TAB_END ? "reports-end" : "reports";
-            } else {
-                history.replaceState(null, "", window.location.pathname + window.location.search);
-            }
-            renderActiveGroup(container, uiTabs);
+            renderActiveGroup(container);
         });
     });
 
-    renderActiveGroup(container, uiTabs);
+    renderActiveGroup(container);
 }
 
-function renderActiveGroup(container, uiTabs) {
-    const tabs = uiTabs || [
-        ...allGroups.map((g, i) => ({ type: "group", idx: i, group: g })),
-        { type: "report", reportType: REPORT_TAB_WINTER },
-        { type: "report", reportType: REPORT_TAB_END },
-    ];
-    const tab = tabs[activeGroupIdx];
-    if (!tab) return;
-
-    if (tab.type === "report") {
-        document.getElementById("addGradeBtn").style.display = "none";
-        renderReportTab(container, tab.reportType === REPORT_TAB_WINTER ? 1 : 2);
-        return;
-    }
-
-    const group = tab.group;
+function renderActiveGroup(container) {
+    const group = allGroups[activeGroupIdx];
+    if (!group) return;
     if (group.type === "class_overview") {
         renderClassOverview(container, group);
         document.getElementById("addGradeBtn").style.display = "none";
@@ -479,15 +441,15 @@ function renderGroup(container, group) {
 
             const sortedGrades = [...(s.grades || [])].sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
             const gradesHtml = sortedGrades.length
-                ? `<div style="display:flex;flex-direction:column;gap:6px;min-width:260px;">
+                ? `<div style="display:flex;flex-direction:column;gap:6px;min-width:280px;">
                     ${sortedGrades.map(g => {
                         const pct = g.percentage != null ? ` <small class="grade-pct">${g.percentage}%</small>` : "";
                         const catLabel = CATEGORY_LABELS[g.category] || (g.category || "");
                         const commentIcon = g.comment ? ' <span class="grade-comment-icon" title="' + escHtml(g.comment) + '">💬</span>' : '';
-                        return `<div class="grade-clickable" data-grade='${JSON.stringify(g).replace(/'/g, "&#39;")}' data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                        return `<div class="grade-clickable" data-grade='${JSON.stringify(g).replace(/'/g, "&#39;")}' data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 6px;border:1px solid rgba(148,163,184,0.25);border-radius:8px;">
                             <span class="grade-badge ${gradeClass(g.grade_code)}">${escHtml(g.grade_code)}</span>
-                            <span style="display:inline-flex;flex-direction:column;line-height:1.2;">
-                                <span>${escHtml(g.assessment || 'Unnamed')}</span>
+                            <span style="display:inline-flex;flex-direction:column;line-height:1.2;min-width:0;">
+                                <span style="font-weight:600;">${escHtml(g.assessment || 'Unnamed')}</span>
                                 <small class="cat-label cat-${g.category}" style="width:fit-content;">${escHtml(catLabel)}</small>
                             </span>
                             ${pct}${commentIcon}
@@ -804,80 +766,5 @@ async function openCommentsModal(studentId, studentName, subjectId) {
         markCommentsSeen(studentId, comments.length);
     } catch (err) {
         body.innerHTML = '<p class="empty-state">Failed to load comments.</p>';
-    }
-}
-
-async function renderReportTab(container, term) {
-    const title = term === 1 ? "Winter Report" : "End of Year Report";
-    container.innerHTML = `<div class="term-filter"><strong>${title}</strong></div><p class="loading">Loading reports…</p>`;
-
-    try {
-        const res = await apiFetch(`/teacher/reports/?term=${term}`);
-        const data = await res.json();
-        const rows = data.reports || [];
-        if (rows.length === 0) {
-            container.innerHTML = `<p class="empty-state">No students available for ${title.toLowerCase()}.</p>`;
-            return;
-        }
-
-        container.innerHTML = `<div class="term-filter"><strong>${title}</strong></div>
-            <table>
-                <thead><tr><th>#</th><th>Student</th><th>Class</th><th>Subject</th><th>Grade</th><th>Effort</th><th>Comment</th><th>Save</th></tr></thead>
-                <tbody>
-                    ${rows.map((r, i) => `<tr data-report-row="${i}">
-                        <td>${i + 1}</td>
-                        <td>${escHtml(r.student || '')}</td>
-                        <td><span class="class-tag">${escHtml(r.class_name || '')}</span></td>
-                        <td>${escHtml(r.subject || '')}</td>
-                        <td><input class="form-input report-grade" value="${escHtml(r.report_grade || '')}" placeholder="e.g. B+"></td>
-                        <td><input class="form-input report-effort" value="${escHtml(r.effort || '')}" placeholder="e.g. Good"></td>
-                        <td><input class="form-input report-comment" value="${escHtml(r.comment || '')}" placeholder="Comment"></td>
-                        <td><button class="btn btn-primary btn-sm report-save-btn" data-term="${term}" data-student-id="${r.student_id}" data-subject-id="${r.subject_id}" data-class-id="${r.class_id}">Save</button></td>
-                    </tr>`).join('')}
-                </tbody>
-            </table>`;
-
-        container.querySelectorAll(".report-save-btn").forEach(btn => {
-            btn.addEventListener("click", async () => {
-                const row = btn.closest("tr");
-                const report_grade = row.querySelector(".report-grade").value.trim();
-                const effort = row.querySelector(".report-effort").value.trim();
-                const comment = row.querySelector(".report-comment").value.trim();
-                btn.disabled = true;
-                btn.textContent = "Saving…";
-                try {
-                    const resp = await apiFetch("/teacher/reports/", {
-                        method: "POST",
-                        body: JSON.stringify({
-                            student_id: btn.dataset.studentId,
-                            subject_id: btn.dataset.subjectId,
-                            class_id: btn.dataset.classId,
-                            term: parseInt(btn.dataset.term),
-                            report_grade,
-                            effort,
-                            comment,
-                        }),
-                    });
-                    if (!resp.ok) {
-                        const d = await resp.json();
-                        alert(d.message || "Failed to save report");
-                        btn.textContent = "Save";
-                        btn.disabled = false;
-                        return;
-                    }
-                    btn.textContent = "✓";
-                    setTimeout(() => {
-                        btn.textContent = "Save";
-                        btn.disabled = false;
-                    }, 1000);
-                } catch (err) {
-                    alert("Failed to save report");
-                    btn.textContent = "Save";
-                    btn.disabled = false;
-                }
-            });
-        });
-    } catch (err) {
-        container.innerHTML = `<p class="empty-state">Failed to load ${title.toLowerCase()}.</p>`;
     }
 }

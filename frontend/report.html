@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="images/icon.png">
     <link rel="stylesheet" href="styles/themes.css"><link rel="stylesheet" href="styles/shared.css">
-    <title>Schedule – Chartwell E-Diary</title>
+    <title>Reports – Chartwell E-Diary</title>
 <script src="scripts/theme-loader.js"></script></head>
 <body>
 
@@ -22,26 +22,26 @@
 
 <div class="page-layout">
     <aside class="sidebar">
-        <a href="dashboard.html"><span class="icon">🏠</span> Dashboard</a>
+        <a href="teacher.html"><span class="icon">🏠</span> Dashboard</a>
         <a href="marks.html"><span class="icon">📝</span> Marks</a>
-        <a href="report.html"><span class="icon">🧾</span> Reports</a>
-        <a href="schedule.html" class="active"><span class="icon">📅</span> Schedule</a>
+        <a href="report.html" class="active"><span class="icon">🧾</span> Reports</a>
+        <a href="schedule.html"><span class="icon">📅</span> Schedule</a>
         <a href="profile.html"><span class="icon">👤</span> Profile</a>
     </aside>
 
-    <main class="content schedule-page">
+    <main class="content marks-page">
         <div class="card">
-            <div class="card-title week-nav-header">
-                <button id="weekPrev" class="week-arrow" title="Previous week">&#8249;</button>
-                <span>📅 <span id="weekLabel">This Week</span></span>
-                <button id="weekNext" class="week-arrow" title="Next week">&#8250;</button>
+            <div class="card-title">🧾 Teacher Reports</div>
+            <div class="term-filter" id="reportTermTabs">
+                <button class="term-btn active" data-term="1">Winter Report</button>
+                <button class="term-btn" data-term="2">End of Year Report</button>
             </div>
-            <div id="scheduleContainer"><p class="loading">Loading schedule…</p></div>
+            <div id="reportContainer"><p class="loading">Loading reports…</p></div>
         </div>
     </main>
 </div>
 
 <script src="scripts/auth.js"></script>
-<script src="scripts/schedule.js"></script>
+<script src="scripts/report.js"></script>
 </body>
 </html>
