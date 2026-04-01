@@ -504,47 +504,64 @@ def teacher_class_students(request):
     if not class_id or not subject_id:
         return JsonResponse({"message": "class_id and subject_id required"}, status=400)
 
-    # Only get students from the specific class_id
+    # Load all students once; selection logic below mirrors teacher_marks group behavior
     db = ediary()
-    students_in_class = (
+    all_students = (
         db.table("students")
         .select("id, name, surname, class_id")
-        .eq("class_id", class_id)
         .order("surname")
+        .order("name")
         .execute()
     )
-
-    if not students_in_class.data:
+    student_rows = all_students.data or []
+    if not student_rows:
         return JsonResponse({"students": []})
 
-    student_ids = [s["id"] for s in students_in_class.data]
+    stu_map = {s["id"]: s for s in student_rows}
 
-    # Filter to those enrolled in this subject
+    # Subject enrolments with optional group_class mapping
     db2 = ediary()
     enrolments = (
         db2.table("student_subjects")
-        .select("student_id")
+        .select("student_id, group_class_id")
         .eq("subject_id", subject_id)
-        .in_("student_id", student_ids)
         .execute()
     )
-    enrolled_ids = {e["student_id"] for e in (enrolments.data or [])}
 
-    # Get class name
-    db3 = ediary()
-    cls_result = db3.table("classes").select("id, class_name").eq("id", class_id).execute()
+    enrolled_ids = set()
+    for ss in (enrolments.data or []):
+        sid = ss.get("student_id")
+        if sid not in stu_map:
+            continue
+        group_class_id = ss.get("group_class_id")
+        if group_class_id:
+            if group_class_id == class_id:
+                enrolled_ids.add(sid)
+        elif stu_map[sid].get("class_id") == class_id:
+            enrolled_ids.add(sid)
+
+    if not enrolled_ids:
+        return JsonResponse({"students": []})
+
+    # Class names for home classes of selected students
+    selected_class_ids = sorted(list({stu_map[sid].get("class_id") for sid in enrolled_ids if stu_map[sid].get("class_id")}))
+    cls_result = (
+        ediary().table("classes")
+        .select("id, class_name")
+        .in_("id", selected_class_ids)
+        .execute()
+    ) if selected_class_ids else type('', (), {'data': []})()
     cls_map = {c["id"]: c["class_name"] for c in (cls_result.data or [])}
 
-    students = [
-        {
-            "id": s["id"],
-            "name": s["name"],
-            "surname": s["surname"],
-            "class_name": cls_map.get(s["class_id"], ""),
-        }
-        for s in students_in_class.data
-        if s["id"] in enrolled_ids
-    ]
+    students = []
+    for s in student_rows:
+        if s["id"] in enrolled_ids:
+            students.append({
+                "id": s["id"],
+                "name": s["name"],
+                "surname": s["surname"],
+                "class_name": cls_map.get(s.get("class_id"), ""),
+            })
 
     return JsonResponse({"students": students})
 
