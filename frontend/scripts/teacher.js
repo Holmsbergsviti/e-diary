@@ -372,7 +372,6 @@ async function loadClassStats() {
         const res = await apiFetch("/teacher/class-stats/");
         const data = await res.json();
         const stats = data.stats || [];
-        console.log("Class stats loaded:", stats);
         renderClassStats(stats);
     } catch (err) {
         container.innerHTML = '<p class="empty-state">Failed to load statistics.</p>';
@@ -385,7 +384,7 @@ setInterval(async () => {
         const res = await apiFetch("/teacher/class-stats/");
         const data = await res.json();
         const stats = data.stats || [];
-        updateClassStats(stats);
+        renderClassStats(stats);
     } catch (err) {
         console.error("Failed to refresh class stats:", err);
     }
@@ -393,7 +392,9 @@ setInterval(async () => {
 
 /* ---- Ring diagram generators ---- */
 function generateAttendanceRing(present, late, absent, excused, total) {
-    if (total === 0) return '';
+    if (total === 0) {
+        return '<div class="stat-sub">No attendance data</div>';
+    }
     
     const presentPct = (present / total) * 100;
     const latePct = (late / total) * 100;
@@ -454,7 +455,7 @@ function generateRingSector(startPct, sizePct, color, label, percent) {
 
 function generateBehavioralRing(positive, negative, note) {
     const total = positive + negative + note;
-    if (total === 0) return ''; // Don't draw chart if no behavioral data
+    if (total === 0) return '<div class="stat-sub">No behavioral data</div>';
     
     const positivePct = (positive / total) * 100;
     const negativePct = (negative / total) * 100;
@@ -608,13 +609,6 @@ function updateClassStats(stats) {
     if (!container) return;
     
     stats.forEach(s => {
-        console.log(`Updating ${s.subject} ${s.class_name}:`, {
-            attendance: s.attendance,
-            behavioral: s.behavioral,
-            grades: s.grades,
-            homework: s.homework
-        });
-        
         const classId = statCardKey(s);
         const card = container.querySelector(`.stat-card[data-class-id="${classId}"]`);
         
