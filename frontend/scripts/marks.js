@@ -75,6 +75,13 @@ async function initMarks() {
     // Default to current term
     activeTerm = currentTerm();
 
+    const hash = (window.location.hash || "").toLowerCase();
+    if (hash === "#reports" || hash === "#report" || hash === "#winter-report") {
+        activeGroupIdx = allGroups.length;
+    } else if (hash === "#reports-end" || hash === "#end-report") {
+        activeGroupIdx = allGroups.length + 1;
+    }
+
     await loadMarks();
 
     document.getElementById("addGradeBtn").addEventListener("click", () => openGradeModal());
@@ -101,6 +108,13 @@ async function loadMarks() {
         const res = await apiFetch("/teacher/marks/");
         const data = await res.json();
         allGroups = data.groups || [];
+
+        const hash = (window.location.hash || "").toLowerCase();
+        if (hash === "#reports" || hash === "#report" || hash === "#winter-report") {
+            activeGroupIdx = allGroups.length;
+        } else if (hash === "#reports-end" || hash === "#end-report") {
+            activeGroupIdx = allGroups.length + 1;
+        }
 
         const totalTabs = allGroups.length + 2; // + Winter + End of Year
         if (activeGroupIdx >= totalTabs) activeGroupIdx = 0;
@@ -140,6 +154,12 @@ function renderTabs(tabsEl, container) {
             tabsEl.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
             btn.classList.add("active");
             activeGroupIdx = parseInt(btn.dataset.idx);
+            const selected = uiTabs[activeGroupIdx];
+            if (selected?.type === "report") {
+                window.location.hash = selected.reportType === REPORT_TAB_END ? "reports-end" : "reports";
+            } else {
+                history.replaceState(null, "", window.location.pathname + window.location.search);
+            }
             renderActiveGroup(container, uiTabs);
         });
     });
@@ -427,17 +447,6 @@ function renderGroup(container, group) {
         allGrades: s.grades,
     }));
 
-    // Find unique assessments from filtered grades
-    const assessmentSet = new Set();
-    for (const s of filteredStudents) {
-        for (const g of s.grades) {
-            assessmentSet.add(g.assessment);
-        }
-    }
-    const assessments = Array.from(assessmentSet).sort();
-
-    const colCount = 5 + (assessments.length > 0 ? assessments.length : 1) + 1; // #, Student, Class, Attendance, Comments, assessments, Predicted
-
     html += `<table>
         <thead>
             <tr>
@@ -446,18 +455,7 @@ function renderGroup(container, group) {
                 <th>Class</th>
                 <th>Attendance</th>
                 <th>Comments</th>
-                ${assessments.length > 0
-                    ? assessments.map(a => {
-                        // Find category of first grade with this assessment
-                        let cat = "";
-                        for (const s of filteredStudents) {
-                            const g = s.grades.find(g => g.assessment === a);
-                            if (g) { cat = g.category || ""; break; }
-                        }
-                        const catLabel = cat ? `<br><small class="cat-label cat-${cat}">${CATEGORY_LABELS[cat] || cat}</small>` : "";
-                        return `<th>${escHtml(a || 'Unnamed')}${catLabel}</th>`;
-                    }).join("")
-                    : '<th>No grades yet</th>'}
+                <th>Grades</th>
                 <th>Predicted</th>
             </tr>
         </thead>
@@ -466,11 +464,6 @@ function renderGroup(container, group) {
     filteredStudents
         .sort((a, b) => `${a.surname || ''} ${a.name || ''}`.localeCompare(`${b.surname || ''} ${b.name || ''}`))
         .forEach((s, i) => {
-            const gradeMap = {};
-            for (const g of s.grades) {
-                gradeMap[g.assessment] = g;
-            }
-
             // Predicted grade for current term filter
             const pred = predictGrade(s.grades);
 
@@ -484,32 +477,35 @@ function renderGroup(container, group) {
             const commentCount = s.stats?.comments?.count || 0;
             const hasNew = hasNewCommentForStudent(s.student_id, commentCount);
 
-            html += `<tr class="student-main-row" data-stats-target="stats-row-${i}">
+            const sortedGrades = [...(s.grades || [])].sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+            const gradesHtml = sortedGrades.length
+                ? `<div style="display:flex;flex-direction:column;gap:6px;min-width:260px;">
+                    ${sortedGrades.map(g => {
+                        const pct = g.percentage != null ? ` <small class="grade-pct">${g.percentage}%</small>` : "";
+                        const catLabel = CATEGORY_LABELS[g.category] || (g.category || "");
+                        const commentIcon = g.comment ? ' <span class="grade-comment-icon" title="' + escHtml(g.comment) + '">💬</span>' : '';
+                        return `<div class="grade-clickable" data-grade='${JSON.stringify(g).replace(/'/g, "&#39;")}' data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <span class="grade-badge ${gradeClass(g.grade_code)}">${escHtml(g.grade_code)}</span>
+                            <span style="display:inline-flex;flex-direction:column;line-height:1.2;">
+                                <span>${escHtml(g.assessment || 'Unnamed')}</span>
+                                <small class="cat-label cat-${g.category}" style="width:fit-content;">${escHtml(catLabel)}</small>
+                            </span>
+                            ${pct}${commentIcon}
+                        </div>`;
+                    }).join("")}
+                </div>`
+                : '<span style="color:#94a3b8;">No grades</span>';
+
+            html += `<tr class="student-main-row">
                 <td>${i + 1}</td>
                 <td>
-                    <span class="student-name-toggle" data-student-id="${s.student_id}" data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">${escHtml(s.surname)} ${escHtml(s.name)}${commentCount > 0 ? ' 💬' : ''}${hasNew ? ' <span style="color:#f97316;">●</span>' : ''}</span>
+                    <span>${escHtml(s.surname)} ${escHtml(s.name)}${commentCount > 0 ? ' 💬' : ''}${hasNew ? ' <span style="color:#f97316;">●</span>' : ''}</span>
                     <button class="add-grade-inline-btn" data-student-id="${s.student_id}" title="Add grade">＋</button>
                 </td>
                 <td><span class="class-tag">${escHtml(s.class_name)}</span></td>
                 <td>${attPct != null ? `${attPct}%` : '–'}${absentCount > 0 ? ' <span title="Absent">*</span>' : ''}<br><small style="color:#64748b;">D:${trendToday ?? '–'}% · W:${trendWeek ?? '–'}%</small></td>
-                <td><button class="btn btn-secondary btn-sm view-comments-btn" data-student-id="${s.student_id}" data-subject-id="${group.subject_id}" data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">View (${commentCount})</button></td>`;
-
-            if (assessments.length > 0) {
-                for (const a of assessments) {
-                    const g = gradeMap[a];
-                    if (g) {
-                        const pct = g.percentage != null ? `<br><small class="grade-pct">${g.percentage}%</small>` : "";
-                        const commentIcon = g.comment ? ' <span class="grade-comment-icon" title="' + escHtml(g.comment) + '">💬</span>' : "";
-                        html += `<td class="grade-cell grade-clickable" data-grade='${JSON.stringify(g).replace(/'/g, "&#39;")}' data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">
-                            <span class="grade-badge ${gradeClass(g.grade_code)}">${escHtml(g.grade_code)}</span>${pct}${commentIcon}
-                        </td>`;
-                    } else {
-                        html += `<td>–</td>`;
-                    }
-                }
-            } else {
-                html += `<td>–</td>`;
-            }
+                <td><button class="btn btn-secondary btn-sm view-comments-btn" data-student-id="${s.student_id}" data-subject-id="${group.subject_id}" data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">View (${commentCount})</button></td>
+                <td>${gradesHtml}</td>`;
 
             // Predicted grade column
             if (pred) {
@@ -519,14 +515,6 @@ function renderGroup(container, group) {
             }
 
             html += `</tr>`;
-
-            // Hidden stats expansion row
-            const statsHtml = buildStatsHtml(s.stats);
-            if (statsHtml) {
-                html += `<tr class="student-stats-row" id="stats-row-${i}" style="display:none;">
-                    <td colspan="${colCount}" class="stats-expansion-cell">${statsHtml}</td>
-                </tr>`;
-            }
         });
 
     html += `</tbody></table>`;
@@ -547,19 +535,6 @@ function renderGroup(container, group) {
             const gradeData = JSON.parse(cell.dataset.grade);
             const studentName = cell.dataset.studentName;
             openGradeModal(gradeData, studentName);
-        });
-    });
-
-    // Wire student name toggles to expand/collapse stats row
-    container.querySelectorAll(".student-name-toggle").forEach(el => {
-        el.addEventListener("click", () => {
-            const mainRow = el.closest(".student-main-row");
-            const targetId = mainRow.dataset.statsTarget;
-            const statsRow = document.getElementById(targetId);
-            if (!statsRow) return;
-            const isVisible = statsRow.style.display !== "none";
-            statsRow.style.display = isVisible ? "none" : "table-row";
-            mainRow.classList.toggle("stats-expanded", !isVisible);
         });
     });
 
