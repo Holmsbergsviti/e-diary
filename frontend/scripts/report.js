@@ -24,6 +24,26 @@ function bindReportTabs() {
     });
 }
 
+function groupReportsByClassAndSubject(reports) {
+    const grouped = {};
+    
+    reports.forEach(r => {
+        const className = r.class_name || "Unknown";
+        if (!grouped[className]) {
+            grouped[className] = {};
+        }
+        
+        const subject = r.subject || "Unknown";
+        if (!grouped[className][subject]) {
+            grouped[className][subject] = [];
+        }
+        
+        grouped[className][subject].push(r);
+    });
+    
+    return grouped;
+}
+
 async function loadReports(term) {
     const container = document.getElementById("reportContainer");
     container.innerHTML = '<p class="loading">Loading reports…</p>';
@@ -43,43 +63,65 @@ async function loadReports(term) {
             return;
         }
 
-        container.innerHTML = `
-            <table>
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Student</th>
-                        <th>Class</th>
-                        <th>Subject</th>
-                        <th>Grade</th>
-                        <th>Effort</th>
-                        <th>Comment</th>
-                        <th>Save</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${rows.map((r, i) => `
-                    <tr>
-                        <td>${i + 1}</td>
-                        <td>${escHtml(r.student || "")}</td>
-                        <td><span class="class-tag">${escHtml(r.class_name || "")}</span></td>
-                        <td>${escHtml(r.subject || "")}</td>
-                        <td><input class="form-input report-grade" value="${escHtml(r.report_grade || "")}" placeholder="e.g. B+"></td>
-                        <td><input class="form-input report-effort" value="${escHtml(r.effort || "")}" placeholder="e.g. Strong"></td>
-                        <td><input class="form-input report-comment" value="${escHtml(r.comment || "")}" placeholder="Comment"></td>
-                        <td>
-                            <button class="btn btn-primary btn-sm report-save-btn"
-                                data-term="${term}"
-                                data-student-id="${r.student_id}"
-                                data-subject-id="${r.subject_id}"
-                                data-class-id="${r.class_id}">Save</button>
-                        </td>
-                    </tr>
-                    `).join("")}
-                </tbody>
-            </table>
-        `;
+        const grouped = groupReportsByClassAndSubject(rows);
+        const classNames = Object.keys(grouped).sort();
+        
+        const sectionsHtml = classNames.map(className => {
+            const classSubjects = grouped[className];
+            const subjectNames = Object.keys(classSubjects).sort();
+            const classId = `class-section-${className.replace(/\s+/g, "-")}`;
+            
+            return `
+            <div class="report-class-section">
+                <div class="report-class-header" onclick="toggleClassSection('${classId}')">
+                    <span class="expand-icon">▶</span>
+                    <span class="class-name">${escHtml(className)}</span>
+                </div>
+                <div class="report-class-content" id="${classId}">
+                    ${subjectNames.map(subject => {
+                        const students = classSubjects[subject];
+                        return `
+                        <div class="report-subject-group">
+                            <div class="report-subject-title">${escHtml(subject)}</div>
+                            <table class="report-table">
+                                <thead>
+                                    <tr>
+                                        <th>Student</th>
+                                        <th>Grade</th>
+                                        <th>Effort</th>
+                                        <th>Comment</th>
+                                        <th>Save</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${students.map(r => `
+                                    <tr>
+                                        <td>${escHtml(r.student || "")}</td>
+                                        <td><input class="form-input report-grade" value="${escHtml(r.report_grade || "")}" placeholder="e.g. B+"></td>
+                                        <td><input class="form-input report-effort" value="${escHtml(r.effort || "")}" placeholder="e.g. Strong"></td>
+                                        <td><input class="form-input report-comment" value="${escHtml(r.comment || "")}" placeholder="Comment"></td>
+                                        <td>
+                                            <button class="btn btn-primary btn-sm report-save-btn"
+                                                data-term="${term}"
+                                                data-student-id="${r.student_id}"
+                                                data-subject-id="${r.subject_id}"
+                                                data-class-id="${r.class_id}">Save</button>
+                                        </td>
+                                    </tr>
+                                    `).join("")}
+                                </tbody>
+                            </table>
+                        </div>
+                        `;
+                    }).join("")}
+                </div>
+            </div>
+            `;
+        }).join("");
 
+        container.innerHTML = sectionsHtml;
+
+        // Bind save buttons
         container.querySelectorAll(".report-save-btn").forEach(btn => {
             btn.addEventListener("click", async () => {
                 const row = btn.closest("tr");
@@ -127,6 +169,15 @@ async function loadReports(term) {
     } catch (err) {
         container.innerHTML = '<p class="empty-state">Failed to load reports.</p>';
     }
+}
+
+function toggleClassSection(classId) {
+    const section = document.getElementById(classId);
+    const header = section.previousElementSibling;
+    const icon = header.querySelector(".expand-icon");
+    
+    section.classList.toggle("collapsed");
+    icon.classList.toggle("expanded");
 }
 
 setTimeout(() => {

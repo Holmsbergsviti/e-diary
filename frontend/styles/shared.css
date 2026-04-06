@@ -624,6 +624,110 @@ tr:hover td {
     font-weight: 500;
 }
 
+/* ---- Report sections (collapsible by class) ---- */
+.report-class-section {
+    margin-bottom: 16px;
+    border: 1px solid rgba(var(--primary-blue-rgb), 0.15);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.report-class-header {
+    background: linear-gradient(to right, rgba(var(--primary-blue-rgb), 0.08), rgba(var(--primary-blue-rgb), 0.04));
+    padding: 14px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    color: var(--primary-blue);
+    border-bottom: 1px solid rgba(var(--primary-blue-rgb), 0.1);
+    user-select: none;
+    transition: background 0.2s ease;
+}
+
+.report-class-header:hover {
+    background: linear-gradient(to right, rgba(var(--primary-blue-rgb), 0.12), rgba(var(--primary-blue-rgb), 0.08));
+}
+
+.report-class-header .expand-icon {
+    display: inline-block;
+    font-size: 0.85rem;
+    transition: transform 0.3s ease;
+    width: 12px;
+}
+
+.report-class-header .expand-icon.expanded {
+    transform: rotate(90deg);
+}
+
+.report-class-name {
+    flex: 1;
+}
+
+.report-class-content {
+    padding: 16px;
+    max-height: 10000px;
+    overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+}
+
+.report-class-content.collapsed {
+    max-height: 0;
+    padding: 0 16px;
+}
+
+.report-subject-group {
+    margin-bottom: 20px;
+}
+
+.report-subject-group:last-child {
+    margin-bottom: 0;
+}
+
+.report-subject-title {
+    font-weight: 600;
+    color: var(--text-label);
+    padding: 10px 0 10px 0;
+    font-size: 0.95rem;
+    border-bottom: 2px solid rgba(var(--primary-blue-rgb), 0.12);
+    margin-bottom: 12px;
+}
+
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+}
+
+.report-table thead {
+    background: rgba(var(--primary-blue-rgb), 0.06);
+}
+
+.report-table th {
+    padding: 10px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-label);
+    border-bottom: 1px solid rgba(var(--primary-blue-rgb), 0.12);
+}
+
+.report-table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid rgba(var(--primary-blue-rgb), 0.08);
+    color: var(--text-label);
+}
+
+.report-table tr:hover {
+    background: rgba(var(--primary-blue-rgb), 0.04);
+}
+
+.report-table input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
 /* ---- Announcement item ---- */
 .announcement {
     padding: 14px 0;
