@@ -2073,3 +2073,620 @@ def teacher_reports(request):
         return JsonResponse({"report": result.data[0] if result.data else {}})
 
     return JsonResponse({"message": "Method not allowed"}, status=405)
+
+
+# ==================================================================
+#  Admin endpoints
+# ==================================================================
+
+def _require_admin(request):
+    payload = _verify_token(request)
+    if not payload or payload.get("role") != "admin":
+        return None
+    return payload
+
+
+# ---------- Classes ----------
+
+@csrf_exempt
+def admin_classes(request):
+    if not _require_admin(request):
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+    db = ediary()
+    if request.method == "GET":
+        rows = db.table("classes").select("*").order("grade_level").order("class_name").execute()
+        return JsonResponse({"classes": rows.data or []})
+    if request.method == "POST":
+        data = json.loads(request.body)
+        class_name = data.get("class_name", "").strip()
+        grade_level = int(data.get("grade_level", 0))
+        if not class_name or not grade_level:
+            return JsonResponse({"message": "class_name and grade_level required"}, status=400)
+        result = db.table("classes").insert({"class_name": class_name, "grade_level": grade_level}).execute()
+        return JsonResponse({"class": result.data[0] if result.data else {}})
+    return JsonResponse({"message": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def admin_class_detail(request):
+    if not _require_admin(request):
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+    db = ediary()
+    if request.method == "PATCH":
+        data = json.loads(request.body)
+        cid = data.get("id", "").strip()
+        updates = {}
+        if "class_name" in data: updates["class_name"] = data["class_name"].strip()
+        if "grade_level" in data: updates["grade_level"] = int(data["grade_level"])
+        if not cid or not updates:
+            return JsonResponse({"message": "id and fields required"}, status=400)
+        result = db.table("classes").update(updates).eq("id", cid).execute()
+        return JsonResponse({"class": result.data[0] if result.data else {}})
+    if request.method == "DELETE":
+        cid = request.GET.get("id", "").strip()
+        if not cid:
+            return JsonResponse({"message": "id required"}, status=400)
+        db.table("classes").delete().eq("id", cid).execute()
+        return JsonResponse({"deleted": True})
+    return JsonResponse({"message": "Method not allowed"}, status=405)
+
+
+# ---------- Subjects ----------
+
+@csrf_exempt
+def admin_subjects(request):
+    if not _require_admin(request):
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+    db = ediary()
+    if request.method == "GET":
+        rows = db.table("subjects").select("*").order("name").execute()
+        return JsonResponse({"subjects": rows.data or []})
+    if request.method == "POST":
+        data = json.loads(request.body)
+        name = data.get("name", "").strip()
+        color_code = data.get("color_code", "").strip() or None
+        if not name:
+            return JsonResponse({"message": "name required"}, status=400)
+        result = db.table("subjects").insert({"name": name, "color_code": color_code}).execute()
+        return JsonResponse({"subject": result.data[0] if result.data else {}})
+    return JsonResponse({"message": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def admin_subject_detail(request):
+    if not _require_admin(request):
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+    db = ediary()
+    if request.method == "PATCH":
+        data = json.loads(request.body)
+        sid = data.get("id", "").strip()
+        updates = {}
+        if "name" in data: updates["name"] = data["name"].strip()
+        if "color_code" in data: updates["color_code"] = data["color_code"].strip() or None
+        if not sid or not updates:
+            return JsonResponse({"message": "id and fields required"}, status=400)
+        result = db.table("subjects").update(updates).eq("id", sid).execute()
+        return JsonResponse({"subject": result.data[0] if result.data else {}})
+    if request.method == "DELETE":
+        sid = request.GET.get("id", "").strip()
+        if not sid:
+            return JsonResponse({"message": "id required"}, status=400)
+        db.table("subjects").delete().eq("id", sid).execute()
+        return JsonResponse({"deleted": True})
+    return JsonResponse({"message": "Method not allowed"}, status=405)
+
+
+# ---------- Users (teachers, students, admins) ----------
+
+@csrf_exempt
+def admin_users(request):
+    """GET: list users by role; POST: create a user (auth + profile)."""
+    if not _require_admin(request):
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+    db = ediary()
+    if request.method == "GET":
+        role = request.GET.get("role", "student")
+        if role == "teacher":
+            rows = db.table("teachers").select("*").order("surname").order("name").execute()
+            teachers = rows.data or []
+            # Attach class name for class teachers
+            classes = db.table("classes").select("id, class_name").execute()
+            cls_map = {c["id"]: c["class_name"] for c in (classes.data or [])}
+            for t in teachers:
+                t["class_teacher_class_name"] = cls_map.get(t.get("class_teacher_of_class_id"), "")
+            return JsonResponse({"users": teachers})
+        elif role == "admin":
+            rows = db.table("admins").select("*").order("surname").order("name").execute()
+            return JsonResponse({"users": rows.data or []})
+        else:
+            rows = db.table("students").select("*").order("surname").order("name").execute()
+            students = rows.data or []
+            classes = db.table("classes").select("id, class_name").execute()
+            cls_map = {c["id"]: c["class_name"] for c in (classes.data or [])}
+            for s in students:
+                s["class_name"] = cls_map.get(s.get("class_id"), "")
+            return JsonResponse({"users": students})
+
+    if request.method == "POST":
+        data = json.loads(request.body)
+        email = data.get("email", "").strip()
+        password = data.get("password", "").strip()
+        name = data.get("name", "").strip()
+        surname = data.get("surname", "").strip()
+        role = data.get("role", "student").strip()
+
+        if not email or not password or not name or not surname:
+            return JsonResponse({"message": "email, password, name, surname required"}, status=400)
+
+        # Create Supabase Auth user
+        try:
+            auth_response = supabase_auth.auth.admin.create_user({
+                "email": email,
+                "password": password,
+                "email_confirm": True,
+            })
+            user_id = str(auth_response.user.id)
+        except Exception as exc:
+            return JsonResponse({"message": f"Auth creation failed: {exc}"}, status=400)
+
+        # Insert profile row
+        try:
+            if role == "teacher":
+                is_class_teacher = data.get("is_class_teacher", False)
+                class_teacher_of = data.get("class_teacher_of_class_id", "").strip() or None
+                db.table("teachers").insert({
+                    "id": user_id, "name": name, "surname": surname,
+                    "is_class_teacher": bool(is_class_teacher),
+                    "class_teacher_of_class_id": class_teacher_of,
+                }).execute()
+            elif role == "admin":
+                db.table("admins").insert({
+                    "id": user_id, "name": name, "surname": surname,
+                }).execute()
+            else:
+                class_id = data.get("class_id", "").strip() or None
+                db.table("students").insert({
+                    "id": user_id, "name": name, "surname": surname,
+                    "class_id": class_id,
+                }).execute()
+        except Exception as exc:
+            # Try to clean up auth user on profile insert failure
+            try:
+                supabase_auth.auth.admin.delete_user(user_id)
+            except Exception:
+                pass
+            return JsonResponse({"message": f"Profile creation failed: {exc}"}, status=500)
+
+        return JsonResponse({"user_id": user_id, "email": email, "role": role})
+
+    return JsonResponse({"message": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def admin_user_detail(request):
+    """PATCH: update profile; DELETE: remove user (auth + profile)."""
+    if not _require_admin(request):
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+    db = ediary()
+
+    if request.method == "PATCH":
+        data = json.loads(request.body)
+        uid = data.get("id", "").strip()
+        role = data.get("role", "student").strip()
+        if not uid:
+            return JsonResponse({"message": "id required"}, status=400)
+
+        table = {"teacher": "teachers", "admin": "admins"}.get(role, "students")
+        updates = {}
+        for key in ("name", "surname"):
+            if key in data and data[key]:
+                updates[key] = data[key].strip()
+
+        if role == "teacher":
+            if "is_class_teacher" in data:
+                updates["is_class_teacher"] = bool(data["is_class_teacher"])
+            if "class_teacher_of_class_id" in data:
+                updates["class_teacher_of_class_id"] = data["class_teacher_of_class_id"].strip() or None
+        elif role == "student":
+            if "class_id" in data:
+                updates["class_id"] = data["class_id"].strip() or None
+
+        # Update email/password in Supabase Auth if provided
+        if data.get("email") or data.get("password"):
+            try:
+                auth_updates = {}
+                if data.get("email"): auth_updates["email"] = data["email"].strip()
+                if data.get("password"): auth_updates["password"] = data["password"].strip()
+                supabase_auth.auth.admin.update_user_by_id(uid, auth_updates)
+            except Exception as exc:
+                return JsonResponse({"message": f"Auth update failed: {exc}"}, status=400)
+
+        if updates:
+            db.table(table).update(updates).eq("id", uid).execute()
+        return JsonResponse({"updated": True})
+
+    if request.method == "DELETE":
+        uid = request.GET.get("id", "").strip()
+        role = request.GET.get("role", "student").strip()
+        if not uid:
+            return JsonResponse({"message": "id required"}, status=400)
+
+        table = {"teacher": "teachers", "admin": "admins"}.get(role, "students")
+        try:
+            db.table(table).delete().eq("id", uid).execute()
+        except Exception:
+            pass
+        try:
+            supabase_auth.auth.admin.delete_user(uid)
+        except Exception:
+            pass
+        return JsonResponse({"deleted": True})
+
+    return JsonResponse({"message": "Method not allowed"}, status=405)
+
+
+# ---------- Teacher Assignments ----------
+
+@csrf_exempt
+def admin_teacher_assignments(request):
+    if not _require_admin(request):
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+    db = ediary()
+    if request.method == "GET":
+        rows = db.table("teacher_assignments").select("*").execute()
+        # Enrich with names
+        teachers = db.table("teachers").select("id, name, surname").execute()
+        t_map = {t["id"]: f"{t['surname']} {t['name']}" for t in (teachers.data or [])}
+        subjects = db.table("subjects").select("id, name").execute()
+        s_map = {s["id"]: s["name"] for s in (subjects.data or [])}
+        classes = db.table("classes").select("id, class_name").execute()
+        c_map = {c["id"]: c["class_name"] for c in (classes.data or [])}
+        enriched = []
+        for r in (rows.data or []):
+            enriched.append({
+                **r,
+                "teacher_name": t_map.get(r.get("teacher_id"), ""),
+                "subject_name": s_map.get(r.get("subject_id"), ""),
+                "class_name": c_map.get(r.get("class_id"), ""),
+            })
+        return JsonResponse({"assignments": enriched})
+    if request.method == "POST":
+        data = json.loads(request.body)
+        teacher_id = data.get("teacher_id", "").strip()
+        subject_id = data.get("subject_id", "").strip()
+        class_id = data.get("class_id", "").strip()
+        if not teacher_id or not subject_id or not class_id:
+            return JsonResponse({"message": "teacher_id, subject_id, class_id required"}, status=400)
+        try:
+            result = db.table("teacher_assignments").insert({
+                "teacher_id": teacher_id, "subject_id": subject_id, "class_id": class_id,
+            }).execute()
+            return JsonResponse({"assignment": result.data[0] if result.data else {}})
+        except Exception as exc:
+            return JsonResponse({"message": f"Failed: {exc}"}, status=400)
+    return JsonResponse({"message": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def admin_teacher_assignment_delete(request):
+    if not _require_admin(request):
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+    if request.method != "DELETE":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+    db = ediary()
+    tid = request.GET.get("teacher_id", "").strip()
+    sid = request.GET.get("subject_id", "").strip()
+    cid = request.GET.get("class_id", "").strip()
+    if not tid or not sid or not cid:
+        return JsonResponse({"message": "teacher_id, subject_id, class_id required"}, status=400)
+    db.table("teacher_assignments").delete().eq("teacher_id", tid).eq("subject_id", sid).eq("class_id", cid).execute()
+    return JsonResponse({"deleted": True})
+
+
+# ---------- Student Subjects (enrolments) ----------
+
+@csrf_exempt
+def admin_student_subjects(request):
+    if not _require_admin(request):
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+    db = ediary()
+    if request.method == "GET":
+        rows = db.table("student_subjects").select("*").execute()
+        students = db.table("students").select("id, name, surname").execute()
+        st_map = {s["id"]: f"{s['surname']} {s['name']}" for s in (students.data or [])}
+        subjects = db.table("subjects").select("id, name").execute()
+        s_map = {s["id"]: s["name"] for s in (subjects.data or [])}
+        classes = db.table("classes").select("id, class_name").execute()
+        c_map = {c["id"]: c["class_name"] for c in (classes.data or [])}
+        enriched = []
+        for r in (rows.data or []):
+            enriched.append({
+                **r,
+                "student_name": st_map.get(r.get("student_id"), ""),
+                "subject_name": s_map.get(r.get("subject_id"), ""),
+                "group_class_name": c_map.get(r.get("group_class_id"), ""),
+            })
+        return JsonResponse({"enrollments": enriched})
+    if request.method == "POST":
+        data = json.loads(request.body)
+        student_id = data.get("student_id", "").strip()
+        subject_id = data.get("subject_id", "").strip()
+        group_class_id = data.get("group_class_id", "").strip() or None
+        if not student_id or not subject_id:
+            return JsonResponse({"message": "student_id, subject_id required"}, status=400)
+        row = {"student_id": student_id, "subject_id": subject_id}
+        if group_class_id:
+            row["group_class_id"] = group_class_id
+        try:
+            result = db.table("student_subjects").insert(row).execute()
+            return JsonResponse({"enrollment": result.data[0] if result.data else {}})
+        except Exception as exc:
+            return JsonResponse({"message": f"Failed: {exc}"}, status=400)
+    return JsonResponse({"message": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def admin_student_subject_delete(request):
+    if not _require_admin(request):
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+    if request.method != "DELETE":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+    db = ediary()
+    student_id = request.GET.get("student_id", "").strip()
+    subject_id = request.GET.get("subject_id", "").strip()
+    if not student_id or not subject_id:
+        return JsonResponse({"message": "student_id, subject_id required"}, status=400)
+    db.table("student_subjects").delete().eq("student_id", student_id).eq("subject_id", subject_id).execute()
+    return JsonResponse({"deleted": True})
+
+
+# ---------- Schedule ----------
+
+@csrf_exempt
+def admin_schedule(request):
+    if not _require_admin(request):
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+    db = ediary()
+    if request.method == "GET":
+        rows = db.table("schedule").select("*").order("day_of_week").order("period").execute()
+        teachers = db.table("teachers").select("id, name, surname").execute()
+        t_map = {t["id"]: f"{t['surname']} {t['name']}" for t in (teachers.data or [])}
+        subjects = db.table("subjects").select("id, name").execute()
+        s_map = {s["id"]: s["name"] for s in (subjects.data or [])}
+        classes = db.table("classes").select("id, class_name").execute()
+        c_map = {c["id"]: c["class_name"] for c in (classes.data or [])}
+        enriched = []
+        for r in (rows.data or []):
+            enriched.append({
+                **r,
+                "teacher_name": t_map.get(r.get("teacher_id"), ""),
+                "subject_name": s_map.get(r.get("subject_id"), ""),
+                "class_name": c_map.get(r.get("class_id"), ""),
+            })
+        return JsonResponse({"schedule": enriched})
+    if request.method == "POST":
+        data = json.loads(request.body)
+        row = {
+            "teacher_id": data.get("teacher_id", "").strip(),
+            "subject_id": data.get("subject_id", "").strip(),
+            "class_id": data.get("class_id", "").strip(),
+            "day_of_week": int(data.get("day_of_week", 0)),
+            "period": int(data.get("period", 0)),
+            "room": data.get("room", "").strip() or None,
+        }
+        if not row["teacher_id"] or not row["subject_id"] or not row["class_id"]:
+            return JsonResponse({"message": "teacher_id, subject_id, class_id required"}, status=400)
+        if not (1 <= row["day_of_week"] <= 5) or not (1 <= row["period"] <= 8):
+            return JsonResponse({"message": "day_of_week (1-5) and period (1-8) required"}, status=400)
+        try:
+            result = db.table("schedule").insert(row).execute()
+            return JsonResponse({"slot": result.data[0] if result.data else {}})
+        except Exception as exc:
+            return JsonResponse({"message": f"Failed: {exc}"}, status=400)
+    return JsonResponse({"message": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def admin_schedule_detail(request):
+    if not _require_admin(request):
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+    db = ediary()
+    if request.method == "PATCH":
+        data = json.loads(request.body)
+        sid = data.get("id", "").strip()
+        if not sid:
+            return JsonResponse({"message": "id required"}, status=400)
+        updates = {}
+        for k in ("teacher_id", "subject_id", "class_id", "room"):
+            if k in data:
+                updates[k] = data[k].strip() if isinstance(data[k], str) else data[k]
+        for k in ("day_of_week", "period"):
+            if k in data:
+                updates[k] = int(data[k])
+        if updates:
+            db.table("schedule").update(updates).eq("id", sid).execute()
+        return JsonResponse({"updated": True})
+    if request.method == "DELETE":
+        sid = request.GET.get("id", "").strip()
+        if not sid:
+            return JsonResponse({"message": "id required"}, status=400)
+        db.table("schedule").delete().eq("id", sid).execute()
+        return JsonResponse({"deleted": True})
+    return JsonResponse({"message": "Method not allowed"}, status=405)
+
+
+# ---------- CSV Bulk Import ----------
+
+import csv
+import io
+
+@csrf_exempt
+def admin_csv_import(request):
+    """
+    POST with JSON: { "type": "classes|subjects|students|teachers|admins|teacher_assignments|student_subjects|schedule", "rows": [...] }
+    Each row is a dict matching the required fields.
+    """
+    if not _require_admin(request):
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+    if request.method != "POST":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+
+    data = json.loads(request.body)
+    import_type = data.get("type", "").strip()
+    rows = data.get("rows", [])
+
+    if not import_type or not rows:
+        return JsonResponse({"message": "type and rows required"}, status=400)
+
+    db = ediary()
+    created = 0
+    errors = []
+
+    if import_type == "classes":
+        for i, r in enumerate(rows):
+            try:
+                db.table("classes").insert({
+                    "class_name": r.get("class_name", "").strip(),
+                    "grade_level": int(r.get("grade_level", 0)),
+                }).execute()
+                created += 1
+            except Exception as exc:
+                errors.append({"row": i + 1, "error": str(exc)})
+
+    elif import_type == "subjects":
+        for i, r in enumerate(rows):
+            try:
+                db.table("subjects").insert({
+                    "name": r.get("name", "").strip(),
+                    "color_code": r.get("color_code", "").strip() or None,
+                }).execute()
+                created += 1
+            except Exception as exc:
+                errors.append({"row": i + 1, "error": str(exc)})
+
+    elif import_type in ("students", "teachers", "admins"):
+        # Need to resolve class names to IDs for students
+        cls_map = {}
+        if import_type == "students":
+            classes = db.table("classes").select("id, class_name").execute()
+            cls_map = {c["class_name"]: c["id"] for c in (classes.data or [])}
+
+        for i, r in enumerate(rows):
+            email = r.get("email", "").strip()
+            password = r.get("password", "").strip() or "changeme"
+            name = r.get("name", "").strip()
+            surname = r.get("surname", "").strip()
+            if not email or not name or not surname:
+                errors.append({"row": i + 1, "error": "email, name, surname required"})
+                continue
+            try:
+                auth_response = supabase_auth.auth.admin.create_user({
+                    "email": email, "password": password, "email_confirm": True,
+                })
+                uid = str(auth_response.user.id)
+            except Exception as exc:
+                errors.append({"row": i + 1, "error": f"Auth: {exc}"})
+                continue
+            try:
+                if import_type == "students":
+                    class_name = r.get("class_name", "").strip()
+                    class_id = cls_map.get(class_name)
+                    db.table("students").insert({
+                        "id": uid, "name": name, "surname": surname,
+                        "class_id": class_id,
+                    }).execute()
+                elif import_type == "teachers":
+                    db.table("teachers").insert({
+                        "id": uid, "name": name, "surname": surname,
+                    }).execute()
+                else:
+                    db.table("admins").insert({
+                        "id": uid, "name": name, "surname": surname,
+                    }).execute()
+                created += 1
+            except Exception as exc:
+                try:
+                    supabase_auth.auth.admin.delete_user(uid)
+                except Exception:
+                    pass
+                errors.append({"row": i + 1, "error": f"Profile: {exc}"})
+
+    elif import_type == "teacher_assignments":
+        # Resolve names to IDs
+        teachers = db.table("teachers").select("id, name, surname").execute()
+        t_map = {f"{t['surname']} {t['name']}".strip(): t["id"] for t in (teachers.data or [])}
+        t_email_map = {}  # will resolve by email if needed
+        subjects = db.table("subjects").select("id, name").execute()
+        s_map = {s["name"]: s["id"] for s in (subjects.data or [])}
+        classes = db.table("classes").select("id, class_name").execute()
+        c_map = {c["class_name"]: c["id"] for c in (classes.data or [])}
+
+        for i, r in enumerate(rows):
+            try:
+                tid = r.get("teacher_id") or t_map.get(r.get("teacher_name", "").strip())
+                sid = r.get("subject_id") or s_map.get(r.get("subject_name", "").strip())
+                cid = r.get("class_id") or c_map.get(r.get("class_name", "").strip())
+                if not tid or not sid or not cid:
+                    errors.append({"row": i + 1, "error": "Could not resolve teacher/subject/class"})
+                    continue
+                db.table("teacher_assignments").insert({
+                    "teacher_id": tid, "subject_id": sid, "class_id": cid,
+                }).execute()
+                created += 1
+            except Exception as exc:
+                errors.append({"row": i + 1, "error": str(exc)})
+
+    elif import_type == "student_subjects":
+        students = db.table("students").select("id, name, surname").execute()
+        st_map = {f"{s['surname']} {s['name']}".strip(): s["id"] for s in (students.data or [])}
+        subjects = db.table("subjects").select("id, name").execute()
+        s_map = {s["name"]: s["id"] for s in (subjects.data or [])}
+        classes = db.table("classes").select("id, class_name").execute()
+        c_map = {c["class_name"]: c["id"] for c in (classes.data or [])}
+
+        for i, r in enumerate(rows):
+            try:
+                student_id = r.get("student_id") or st_map.get(r.get("student_name", "").strip())
+                subject_id = r.get("subject_id") or s_map.get(r.get("subject_name", "").strip())
+                group_class_id = r.get("group_class_id") or c_map.get(r.get("group_class_name", "").strip()) or None
+                if not student_id or not subject_id:
+                    errors.append({"row": i + 1, "error": "Could not resolve student/subject"})
+                    continue
+                row_data = {"student_id": student_id, "subject_id": subject_id}
+                if group_class_id:
+                    row_data["group_class_id"] = group_class_id
+                db.table("student_subjects").insert(row_data).execute()
+                created += 1
+            except Exception as exc:
+                errors.append({"row": i + 1, "error": str(exc)})
+
+    elif import_type == "schedule":
+        teachers = db.table("teachers").select("id, name, surname").execute()
+        t_map = {f"{t['surname']} {t['name']}".strip(): t["id"] for t in (teachers.data or [])}
+        subjects = db.table("subjects").select("id, name").execute()
+        s_map = {s["name"]: s["id"] for s in (subjects.data or [])}
+        classes = db.table("classes").select("id, class_name").execute()
+        c_map = {c["class_name"]: c["id"] for c in (classes.data or [])}
+
+        for i, r in enumerate(rows):
+            try:
+                tid = r.get("teacher_id") or t_map.get(r.get("teacher_name", "").strip())
+                sid = r.get("subject_id") or s_map.get(r.get("subject_name", "").strip())
+                cid = r.get("class_id") or c_map.get(r.get("class_name", "").strip())
+                if not tid or not sid or not cid:
+                    errors.append({"row": i + 1, "error": "Could not resolve teacher/subject/class"})
+                    continue
+                db.table("schedule").insert({
+                    "teacher_id": tid, "subject_id": sid, "class_id": cid,
+                    "day_of_week": int(r.get("day_of_week", 0)),
+                    "period": int(r.get("period", 0)),
+                    "room": r.get("room", "").strip() or None,
+                }).execute()
+                created += 1
+            except Exception as exc:
+                errors.append({"row": i + 1, "error": str(exc)})
+
+    else:
+        return JsonResponse({"message": f"Unknown import type: {import_type}"}, status=400)
+
+    return JsonResponse({"created": created, "errors": errors})

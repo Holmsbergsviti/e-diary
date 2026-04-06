@@ -2793,3 +2793,275 @@ tr:hover td {
         max-width: none;
     }
 }
+
+/* ═══════════════════════════════════════════════════════
+   ADMIN PANEL
+   ═══════════════════════════════════════════════════════ */
+
+/* --- Admin Tabs --- */
+.admin-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 24px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 12px;
+}
+
+.admin-tab {
+    padding: 8px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px 8px 0 0;
+    background: transparent;
+    color: var(--text-lighter);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.admin-tab:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+.admin-tab.active {
+    background: var(--primary-color);
+    color: #fff;
+    border-color: var(--primary-color);
+}
+
+/* --- Admin Content Area --- */
+#adminContent {
+    padding: 0 24px 24px;
+}
+.admin-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+.admin-section-header h3 {
+    font-size: 1.2rem;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+/* --- Admin Table --- */
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-primary);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.admin-table thead {
+    background: var(--bg-secondary);
+}
+.admin-table th,
+.admin-table td {
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 0.88rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.admin-table th {
+    font-weight: 600;
+    color: var(--text-lighter);
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.03em;
+}
+.admin-table td {
+    color: var(--text-primary);
+}
+.admin-table tbody tr:hover {
+    background: var(--bg-secondary);
+}
+.admin-actions {
+    display: flex;
+    gap: 6px;
+}
+
+/* --- Admin Modal --- */
+.admin-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(0,0,0,0.45);
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+.admin-modal {
+    background: var(--bg-primary);
+    border-radius: 14px;
+    width: 100%;
+    max-width: 480px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+    animation: modal-pop 0.2s ease;
+}
+@keyframes modal-pop {
+    from { opacity: 0; transform: translateY(16px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.admin-modal-header {
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.admin-modal-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+}
+.admin-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.3rem;
+    color: var(--text-lighter);
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+}
+.admin-modal-close:hover { color: var(--text-primary); }
+.admin-modal-body {
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+.admin-modal-body label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-lighter);
+}
+.admin-modal-footer {
+    padding: 14px 22px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* --- Loading / Empty state --- */
+.loading {
+    text-align: center;
+    color: var(--text-lighter);
+    padding: 40px 0;
+}
+.empty-state {
+    text-align: center;
+    color: var(--text-lighter);
+    padding: 30px 0;
+    font-style: italic;
+}
+
+/* --- CSV Import --- */
+.import-instructions {
+    color: var(--text-lighter);
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+}
+.import-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+.import-card {
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    padding: 16px;
+}
+.import-card h4 {
+    margin: 0 0 8px;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+.csv-preview {
+    margin-bottom: 16px;
+}
+.csv-preview code {
+    background: var(--bg-secondary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.82rem;
+}
+.import-actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.import-result {
+    padding: 16px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+}
+.import-result-success {
+    background: rgba(34,197,94,0.1);
+    border: 1px solid rgba(34,197,94,0.3);
+    color: #16a34a;
+}
+.import-result-partial {
+    background: rgba(234,179,8,0.1);
+    border: 1px solid rgba(234,179,8,0.3);
+    color: #a16207;
+}
+.import-result ul {
+    margin: 8px 0 0;
+    padding-left: 20px;
+}
+
+/* --- Buttons used in admin --- */
+.btn-sm {
+    padding: 5px 12px;
+    font-size: 0.8rem;
+    border-radius: 6px;
+}
+.btn-danger {
+    background: #ef4444;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+}
+.btn-danger:hover { background: #dc2626; }
+.btn-secondary {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+}
+.btn-secondary:hover { background: var(--border-color); }
+
+/* --- Dark mode overrides --- */
+[data-theme="dark"] .admin-modal {
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+}
+[data-theme="dark"] .import-result-success {
+    background: rgba(34,197,94,0.12);
+    color: #4ade80;
+}
+[data-theme="dark"] .import-result-partial {
+    background: rgba(234,179,8,0.12);
+    color: #facc15;
+}
+
+/* --- Responsive --- */
+@media (max-width: 768px) {
+    .admin-tabs { gap: 4px; padding: 0 12px; }
+    .admin-tab { padding: 6px 10px; font-size: 0.78rem; }
+    #adminContent { padding: 0 12px 16px; }
+    .import-grid { grid-template-columns: 1fr; }
+    .admin-table { font-size: 0.82rem; }
+    .admin-table th, .admin-table td { padding: 8px 10px; }
+    .admin-actions { flex-direction: column; gap: 4px; }
+}

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="images/icon.png">
+    <link rel="stylesheet" href="styles/themes.css"><link rel="stylesheet" href="styles/shared.css">
+    <title>Admin – E-Diary</title>
+<script src="scripts/theme-loader.js"></script></head>
+<body>
+
+<nav class="topnav">
+    <div class="topnav-left">
+        <button id="sidebarToggleBtn" class="sidebar-toggle-btn" title="Toggle sidebar">☰</button>
+        <span class="topnav-brand">E-Diary</span>
+    </div>
+    <div class="topnav-right">
+        <span id="navUserName"></span>
+        <button id="logoutBtn">Log out</button>
+    </div>
+</nav>
+
+<div class="page-layout">
+    <aside class="sidebar">
+        <a href="admin.html" class="active"><span class="icon">⚙️</span> Admin Panel</a>
+        <a href="profile.html"><span class="icon">👤</span> Profile</a>
+    </aside>
+
+    <main class="content admin-page">
+
+        <!-- Section tabs -->
+        <div class="admin-tabs" id="adminTabs">
+            <button class="admin-tab active" data-section="classes">Classes</button>
+            <button class="admin-tab" data-section="subjects">Subjects</button>
+            <button class="admin-tab" data-section="teachers">Teachers</button>
+            <button class="admin-tab" data-section="students">Students</button>
+            <button class="admin-tab" data-section="admins">Admins</button>
+            <button class="admin-tab" data-section="assignments">Assignments</button>
+            <button class="admin-tab" data-section="enrollments">Enrollments</button>
+            <button class="admin-tab" data-section="schedule">Schedule</button>
+            <button class="admin-tab" data-section="import">CSV Import</button>
+        </div>
+
+        <div class="card" id="adminContent">
+            <p class="loading">Loading…</p>
+        </div>
+
+        <!-- Generic modal for add/edit forms -->
+        <div class="modal-overlay" id="adminModal" style="display:none;">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <span id="adminModalTitle">Add</span>
+                    <button class="modal-close" onclick="closeAdminModal()">×</button>
+                </div>
+                <div class="modal-body" id="adminModalBody"></div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeAdminModal()">Cancel</button>
+                    <button class="btn btn-primary" id="adminModalSave">Save</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<script src="scripts/auth.js"></script>
+<script src="scripts/admin.js"></script>
+</body>
+</html>

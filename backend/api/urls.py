@@ -6,6 +6,13 @@ from .views import (
     teacher_add_homework, teacher_delete_homework, teacher_homework_completions,
     behavioral_entries, teacher_add_behavioral, teacher_delete_behavioral,
     teacher_class_stats, teacher_student_comments, teacher_reports,
+    admin_classes, admin_class_detail,
+    admin_subjects, admin_subject_detail,
+    admin_users, admin_user_detail,
+    admin_teacher_assignments, admin_teacher_assignment_delete,
+    admin_student_subjects, admin_student_subject_delete,
+    admin_schedule, admin_schedule_detail,
+    admin_csv_import,
 )
 
 urlpatterns = [
@@ -32,4 +39,18 @@ urlpatterns = [
     path("teacher/class-stats/", teacher_class_stats),
     path("teacher/student-comments/", teacher_student_comments),
     path("teacher/reports/", teacher_reports),
+    # Admin
+    path("admin/classes/", admin_classes),
+    path("admin/classes/detail/", admin_class_detail),
+    path("admin/subjects/", admin_subjects),
+    path("admin/subjects/detail/", admin_subject_detail),
+    path("admin/users/", admin_users),
+    path("admin/users/detail/", admin_user_detail),
+    path("admin/teacher-assignments/", admin_teacher_assignments),
+    path("admin/teacher-assignments/delete/", admin_teacher_assignment_delete),
+    path("admin/student-subjects/", admin_student_subjects),
+    path("admin/student-subjects/delete/", admin_student_subject_delete),
+    path("admin/schedule/", admin_schedule),
+    path("admin/schedule/detail/", admin_schedule_detail),
+    path("admin/csv-import/", admin_csv_import),
 ]
