@@ -168,8 +168,18 @@ function initNav() {
         console.log("[initNav] All sidebar links:", Array.from(sidebarEl.querySelectorAll("a")).map(a => a.getAttribute("href")));
         
         if (pLink) {
+            if (user.role === "admin") {
+                // Inject Admin Panel link for admins
+                const adminLink = document.createElement("a");
+                adminLink.href = "admin.html";
+                if (window.location.pathname.endsWith("admin") || window.location.pathname.endsWith("admin.html")) adminLink.classList.add("active");
+                adminLink.innerHTML = '<span class="icon">⚙️</span> Admin Panel';
+                sidebarEl.insertBefore(adminLink, pLink);
+                console.log("[initNav] ✅ Injected Admin Panel tab");
+            }
+
             const newLink = document.createElement("a");
-            if (user.role === "teacher") {
+            if (user.role === "teacher" || user.role === "admin") {
                 newLink.href = "/marks";
                 if (window.location.pathname.endsWith("marks") || window.location.pathname.endsWith("marks.html")) newLink.classList.add("active");
                 newLink.innerHTML = '<span class="icon">📝</span> Marks';
