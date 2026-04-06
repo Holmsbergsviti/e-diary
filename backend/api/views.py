@@ -5,7 +5,7 @@ from jwt.exceptions import PyJWTError
 from datetime import datetime, timedelta, timezone
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from .supabase_client import supabase, supabase_auth, ediary
+from .supabase_client import supabase, supabase_auth, supabase_admin_auth, ediary
 
 JWT_SECRET = os.environ.get("JWT_SECRET", "dev-jwt-secret-change-this")
 JWT_ALGORITHM = "HS256"
@@ -201,7 +201,7 @@ def me(request):
             return JsonResponse({"message": "Nothing to update"}, status=400)
 
         try:
-            supabase_auth.auth.admin.update_user_by_id(user_id, updates)
+            supabase_admin_auth.auth.admin.update_user_by_id(user_id, updates)
         except Exception as exc:
             return JsonResponse({"message": f"Failed to update: {str(exc)}"}, status=400)
 
@@ -2156,7 +2156,7 @@ def admin_impersonate(request):
     # Try to get the user's email from Supabase Auth
     email = ""
     try:
-        auth_user = supabase_auth.auth.admin.get_user_by_id(target_id)
+        auth_user = supabase_admin_auth.auth.admin.get_user_by_id(target_id)
         if auth_user and auth_user.user:
             email = auth_user.user.email or ""
     except Exception:
@@ -2310,7 +2310,7 @@ def admin_users(request):
 
         # Create Supabase Auth user
         try:
-            auth_response = supabase_auth.auth.admin.create_user({
+            auth_response = supabase_admin_auth.auth.admin.create_user({
                 "email": email,
                 "password": password,
                 "email_confirm": True,
@@ -2342,7 +2342,7 @@ def admin_users(request):
         except Exception as exc:
             # Try to clean up auth user on profile insert failure
             try:
-                supabase_auth.auth.admin.delete_user(user_id)
+                supabase_admin_auth.auth.admin.delete_user(user_id)
             except Exception:
                 pass
             return JsonResponse({"message": f"Profile creation failed: {exc}"}, status=500)
@@ -2387,7 +2387,7 @@ def admin_user_detail(request):
                 auth_updates = {}
                 if data.get("email"): auth_updates["email"] = data["email"].strip()
                 if data.get("password"): auth_updates["password"] = data["password"].strip()
-                supabase_auth.auth.admin.update_user_by_id(uid, auth_updates)
+                supabase_admin_auth.auth.admin.update_user_by_id(uid, auth_updates)
             except Exception as exc:
                 return JsonResponse({"message": f"Auth update failed: {exc}"}, status=400)
 
@@ -2407,7 +2407,7 @@ def admin_user_detail(request):
         except Exception:
             pass
         try:
-            supabase_auth.auth.admin.delete_user(uid)
+            supabase_admin_auth.auth.admin.delete_user(uid)
         except Exception:
             pass
         return JsonResponse({"deleted": True})
@@ -2670,7 +2670,7 @@ def admin_csv_import(request):
                 errors.append({"row": i + 1, "error": "email, name, surname required"})
                 continue
             try:
-                auth_response = supabase_auth.auth.admin.create_user({
+                auth_response = supabase_admin_auth.auth.admin.create_user({
                     "email": email, "password": password, "email_confirm": True,
                 })
                 uid = str(auth_response.user.id)
@@ -2696,7 +2696,7 @@ def admin_csv_import(request):
                 created += 1
             except Exception as exc:
                 try:
-                    supabase_auth.auth.admin.delete_user(uid)
+                    supabase_admin_auth.auth.admin.delete_user(uid)
                 except Exception:
                     pass
                 errors.append({"row": i + 1, "error": f"Profile: {exc}"})
