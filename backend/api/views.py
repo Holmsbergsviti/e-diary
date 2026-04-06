@@ -1905,11 +1905,14 @@ def teacher_reports(request):
         if not pairs:
             return JsonResponse({"reports": []})
 
+        taught_class_ids = list({cid for _, cid in pairs})
         subjects_in_pairs = sorted(list({sid for sid, _ in pairs}))
 
+        # Get all students in the classes the teacher teaches
         students = (
             db.table("students")
             .select("id, name, surname, class_id")
+            .in_("class_id", taught_class_ids)
             .order("surname")
             .order("name")
             .execute()
@@ -1918,12 +1921,37 @@ def teacher_reports(request):
         student_ids = [s["id"] for s in student_rows]
         student_map = {s["id"]: s for s in student_rows}
 
-        ss = (
+        # Also fetch students from OTHER classes who might be group-enrolled
+        ss_all = (
             db.table("student_subjects")
             .select("student_id, subject_id, group_class_id")
             .in_("subject_id", subjects_in_pairs)
             .execute()
         ) if subjects_in_pairs else type('', (), {'data': []})()
+        ss_rows = ss_all.data or []
+
+        # Build group map: (student_id, subject_id) -> group_class_id
+        ss_group_map = {}
+        extra_student_ids = set()
+        for row in ss_rows:
+            sid = row.get("student_id")
+            subj_id = row.get("subject_id")
+            gc = row.get("group_class_id")
+            ss_group_map[(sid, subj_id)] = gc
+            if gc and gc in set(taught_class_ids) and sid not in student_map:
+                extra_student_ids.add(sid)
+
+        # Fetch extra students from other classes who are group-enrolled
+        if extra_student_ids:
+            extra = (
+                db.table("students")
+                .select("id, name, surname, class_id")
+                .in_("id", list(extra_student_ids))
+                .execute()
+            )
+            for s in (extra.data or []):
+                student_map[s["id"]] = s
+                student_rows.append(s)
 
         subjects = db.table("subjects").select("id, name").execute()
         subj_map = {s["id"]: s["name"] for s in (subjects.data or [])}
@@ -1939,11 +1967,8 @@ def teacher_reports(request):
                 .execute()
             )
             existing_rows = existing.data or []
-        except Exception as exc:
-            return JsonResponse({
-                "message": "teacher_reports table not available",
-                "details": str(exc),
-            }, status=500)
+        except Exception:
+            existing_rows = []
 
         existing_map = {
             (r.get("student_id"), r.get("subject_id"), r.get("class_id"), r.get("term")): r
@@ -1951,20 +1976,13 @@ def teacher_reports(request):
         }
 
         reports = []
-        ss_rows = ss.data or []
         seen_keys = set()
-        for row in ss_rows:
-            sid = row.get("student_id")
-            subj_id = row.get("subject_id")
-            gc = row.get("group_class_id")
-            s = student_map.get(sid)
-            if not s or not subj_id:
-                continue
+        for pair_subj_id, pair_class_id in pairs:
+            for s in student_rows:
+                sid = s["id"]
+                gc = ss_group_map.get((sid, pair_subj_id))
 
-            for pair_subj_id, pair_class_id in pairs:
-                if pair_subj_id != subj_id:
-                    continue
-
+                # Student belongs if: group_class_id matches, or no group_class and home class matches
                 in_group = (gc == pair_class_id) or (not gc and s.get("class_id") == pair_class_id)
                 if not in_group:
                     continue

@@ -51,10 +51,11 @@ async function loadReports(term) {
     try {
         const res = await apiFetch(`/teacher/reports/?term=${term}`);
         const data = await res.json();
+        console.log("Reports API response:", res.status, data);
         const rows = data.reports || [];
 
         if (!res.ok) {
-            container.innerHTML = `<p class="empty-state">${escHtml(data.message || "Failed to load reports")}</p>`;
+            container.innerHTML = `<p class="empty-state">${escHtml(data.message || "Failed to load reports")}${data.details ? '<br><small>' + escHtml(data.details) + '</small>' : ''}</p>`;
             return;
         }
 
@@ -167,7 +168,8 @@ async function loadReports(term) {
         });
 
     } catch (err) {
-        container.innerHTML = '<p class="empty-state">Failed to load reports.</p>';
+        console.error("Reports load error:", err);
+        container.innerHTML = `<p class="empty-state">Failed to load reports: ${escHtml(err.message || String(err))}</p>`;
     }
 }
 
