@@ -1042,7 +1042,7 @@ def teacher_marks(request):
 
         beh_data = (
             ediary().table("behavioral_entries")
-            .select("student_id, entry_type")
+            .select("student_id, entry_type, subject_id, content")
             .in_("student_id", student_ids)
             .execute()
         ).data or []
@@ -1053,7 +1053,7 @@ def teacher_marks(request):
             1: {"total": 0, "present_or_late": 0, "absent": 0},
             2: {"total": 0, "present_or_late": 0, "absent": 0},
         }
-        comment_count = 0
+        att_comment_count = 0
         today = datetime.now().date()
         week_start = today - timedelta(days=today.weekday())
         trend = {
@@ -1076,7 +1076,7 @@ def teacher_marks(request):
                 if st == "Absent":
                     att_term[term_no]["absent"] += 1
                 if (a.get("comment") or "").strip():
-                    comment_count += 1
+                    att_comment_count += 1
 
                 try:
                     d = datetime.fromisoformat(str(a.get("date_recorded"))).date()
@@ -1096,6 +1096,49 @@ def teacher_marks(request):
                         if st == "Absent":
                             trend["week"]["absent"] += 1
         att_total = sum(att_c.values())
+
+        # ── Absent-today and attendance-conflict detection (always unfiltered) ──
+        today_statuses = {}  # (subject_id, class_id) -> status
+        all_att_comments = 0
+        for a in att_data:
+            if a["student_id"] != sid:
+                continue
+            if (a.get("comment") or "").strip():
+                all_att_comments += 1
+            try:
+                d = datetime.fromisoformat(str(a.get("date_recorded"))).date()
+            except Exception:
+                d = None
+            if d == today:
+                key = (a.get("subject_id"), a.get("class_id"))
+                today_statuses[key] = a.get("status", "Present")
+
+        has_absent_today = any(s == "Absent" for s in today_statuses.values())
+        has_present_today = any(s in ("Present", "Late") for s in today_statuses.values())
+        absent_today = has_absent_today
+        attendance_conflict_today = has_absent_today and has_present_today
+
+        # ── Comment counts from ALL 3 sources ──
+        # Grade comments
+        grade_comments_filtered = 0
+        grade_comments_all = 0
+        for g in (grades_result.data or []):
+            if g["student_id"] == sid and (g.get("comment") or "").strip():
+                grade_comments_all += 1
+                if not subject_id or g.get("subject_id") == subject_id:
+                    grade_comments_filtered += 1
+
+        # Behavioral comments
+        beh_comments_filtered = 0
+        beh_comments_all = 0
+        for b in beh_data:
+            if b["student_id"] == sid and (b.get("content") or "").strip():
+                beh_comments_all += 1
+                if not subject_id or b.get("subject_id") == subject_id:
+                    beh_comments_filtered += 1
+
+        total_comments = att_comment_count + grade_comments_filtered + beh_comments_filtered
+        total_comments_all = all_att_comments + grade_comments_all + beh_comments_all
 
         pcts = [
             g["percentage"] for g in (grades_result.data or [])
@@ -1131,8 +1174,11 @@ def teacher_marks(request):
                     "absent": att_term[2]["absent"],
                 },
             },
+            "absent_today": absent_today,
+            "attendance_conflict_today": attendance_conflict_today,
             "comments": {
-                "count": comment_count,
+                "count": total_comments,
+                "all_count": total_comments_all,
             },
             "attendance_trends": {
                 "today": {
@@ -1163,7 +1209,7 @@ def teacher_marks(request):
                 enrollment_map.setdefault(ss["student_id"], set()).add(ss["subject_id"])
 
             overview_students = []
-            for s in sorted(homeroom_students, key=lambda x: (x.get("surname", ""), x.get("name", ""))):
+            for s in sorted(homeroom_students, key=lambda x: (x.get("surname", "").lower(), x.get("name", "").lower())):
                 enrolled_subjects = enrollment_map.get(s["id"], set())
                 subjects_data = []
                 for subj_id in sorted(enrolled_subjects, key=lambda x: subj_map.get(x, {}).get("name", "")):
@@ -1232,7 +1278,7 @@ def teacher_marks(request):
                 group_students.append(s)
 
         student_grades = []
-        for s in sorted(group_students, key=lambda x: (x.get("surname", ""), x.get("name", ""))):
+        for s in sorted(group_students, key=lambda x: (x.get("surname", "").lower(), x.get("name", "").lower())):
             s_grades = [
                 g for g in (grades_result.data or [])
                 if g["student_id"] == s["id"] and g["subject_id"] == subj_id

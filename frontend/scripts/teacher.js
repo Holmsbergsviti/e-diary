@@ -1085,7 +1085,7 @@ async function loadStudentsForBehavioral() {
             return;
         }
         stuSelect.innerHTML = students
-            .sort((a, b) => a.surname.localeCompare(b.surname))
+            .sort((a, b) => a.surname.localeCompare(b.surname) || a.name.localeCompare(b.name))
             .map(s => `<option value="${s.id}">${escHtml(s.surname)} ${escHtml(s.name)}</option>`)
             .join("");
     } catch (err) {

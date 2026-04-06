@@ -1814,6 +1814,33 @@ tr:hover td {
 .student-name-toggle:hover { color: #365a8a; text-decoration: underline; }
 .student-main-row.stats-expanded .student-name-toggle { color: #365a8a; font-weight: 700; }
 
+/* Absent-today asterisk */
+.absent-today-mark {
+    color: #dc2626;
+    font-weight: 900;
+    font-size: 1.1em;
+    vertical-align: super;
+    line-height: 1;
+}
+/* Conflict indicator */
+.conflict-mark {
+    font-size: 0.85em;
+    cursor: help;
+}
+/* New comment dot */
+.new-comment-dot {
+    color: #f97316;
+    font-size: 0.75em;
+}
+/* Absent-today row highlight */
+.student-main-row.student-absent-today { background: #fef2f2; }
+.overview-student.student-absent-today > .overview-student-header { background: #fef2f2; }
+
+/* Attendance % cell */
+.att-pct-cell { text-align: center; white-space: nowrap; }
+.att-pct-cell.att-low { color: #dc2626; font-weight: 700; }
+.att-terms { color: #94a3b8; font-size: 0.75rem; }
+
 .add-grade-inline-btn {
     display: inline-flex;
     align-items: center;

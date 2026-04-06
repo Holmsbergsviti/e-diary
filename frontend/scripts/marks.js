@@ -252,15 +252,20 @@ function renderClassOverview(container, group) {
         const att = st.attendance || {};
         const attRate = att.total > 0 ? Math.round(((att.Present || 0) + (att.Late || 0)) / att.total * 100) : null;
 
-        const commentCount = student.stats?.comments?.count || 0;
-        const hasNew = hasNewCommentForStudent(student.student_id, commentCount);
+        const allCommentCount = student.stats?.comments?.all_count || student.stats?.comments?.count || 0;
+        const hasNew = hasNewCommentForStudent(student.student_id, allCommentCount);
+        const absentToday = student.stats?.absent_today || false;
+        const conflictToday = student.stats?.attendance_conflict_today || false;
 
-        html += `<div class="overview-student" data-idx="${idx}">
+        const absentMark = absentToday ? ' <span class="absent-today-mark" title="Absent today">*</span>' : '';
+        const conflictMark = conflictToday ? ' <span class="conflict-mark" title="Absent in one class but present in another today">⚠️</span>' : '';
+
+        html += `<div class="overview-student${absentToday ? ' student-absent-today' : ''}" data-idx="${idx}">
             <div class="overview-student-header">
                 <span class="overview-num">${idx + 1}</span>
-                <span class="overview-name">${escHtml(student.surname)} ${escHtml(student.name)}${commentCount > 0 ? ` <span title="${commentCount} comments">💬</span>` : ''}${hasNew ? ' <span title="New comments" style="color:#f97316;">●</span>' : ''}</span>
+                <span class="overview-name">${escHtml(student.surname)} ${escHtml(student.name)}${absentMark}${conflictMark}${allCommentCount > 0 ? ` <span title="${allCommentCount} comments">💬</span>` : ''}${hasNew ? ' <span class="new-comment-dot" title="New comments">●</span>' : ''}</span>
                 <span class="overview-meta">${subjectCount} subj · ${totalGrades} grades${attRate !== null ? ` · ${attRate}% att.` : ''}</span>
-                <button class="btn btn-secondary btn-sm view-comments-btn" data-student-id="${student.student_id}" data-student-name="${escHtml(student.surname)} ${escHtml(student.name)}" style="margin-left:8px;">View Comments</button>
+                <button class="btn btn-secondary btn-sm view-comments-btn" data-student-id="${student.student_id}" data-student-name="${escHtml(student.surname)} ${escHtml(student.name)}" style="margin-left:8px;">View Comments (${allCommentCount})</button>
                 <span class="overview-expand">▸</span>
             </div>
             <div class="overview-student-detail" style="display:none;">`;
@@ -418,7 +423,7 @@ function renderGroup(container, group) {
     }
     const assessments = Array.from(assessmentSet).sort();
 
-    const colCount = 4 + (assessments.length > 0 ? assessments.length : 1) + 1; // #, Student, Class, Comments, assessments, Predicted
+    const colCount = 6 + (assessments.length > 0 ? assessments.length : 1) + 1; // #, Student, Class, Att%, Comments, All Comments, assessments, Predicted
 
     html += `<table>
         <thead>
@@ -426,7 +431,9 @@ function renderGroup(container, group) {
                 <th>#</th>
                 <th>Student</th>
                 <th>Class</th>
+                <th>Att %</th>
                 <th>Comments</th>
+                <th>All Comments</th>
                 ${assessments.length > 0
                     ? assessments.map(a => {
                         let cat = "";
@@ -444,7 +451,11 @@ function renderGroup(container, group) {
         <tbody>`;
 
     filteredStudents
-        .sort((a, b) => `${a.surname || ''} ${a.name || ''}`.localeCompare(`${b.surname || ''} ${b.name || ''}`))
+        .sort((a, b) => {
+            const sa = `${a.surname || ''} ${a.name || ''}`.toLowerCase();
+            const sb = `${b.surname || ''} ${b.name || ''}`.toLowerCase();
+            return sa.localeCompare(sb);
+        })
         .forEach((s, i) => {
             const gradeMap = {};
             for (const g of s.grades) {
@@ -455,16 +466,37 @@ function renderGroup(container, group) {
             const pred = predictGrade(s.grades);
 
             const commentCount = s.stats?.comments?.count || 0;
-            const hasNew = hasNewCommentForStudent(s.student_id, commentCount);
+            const allCommentCount = s.stats?.comments?.all_count || 0;
+            const hasNew = hasNewCommentForStudent(s.student_id, allCommentCount);
+            const absentToday = s.stats?.absent_today || false;
+            const conflictToday = s.stats?.attendance_conflict_today || false;
 
-            html += `<tr class="student-main-row" data-stats-target="stats-row-${i}">
+            // Attendance % for active term
+            const attByTerm = s.stats?.attendance_by_term || {};
+            let attPct = null;
+            if (activeTerm === 1) attPct = attByTerm.term_1?.attendance_pct;
+            else if (activeTerm === 2) attPct = attByTerm.term_2?.attendance_pct;
+            else {
+                // Both terms: overall
+                const att = s.stats?.attendance || {};
+                const attTotal = att.total || 0;
+                attPct = attTotal > 0 ? Math.round(((att.Present || 0) + (att.Late || 0)) / attTotal * 100) : null;
+            }
+
+            // Absent indicator
+            const absentMark = absentToday ? ' <span class="absent-today-mark" title="Absent today">*</span>' : '';
+            const conflictMark = conflictToday ? ' <span class="conflict-mark" title="Absent in one class but present in another today">⚠️</span>' : '';
+
+            html += `<tr class="student-main-row${absentToday ? ' student-absent-today' : ''}" data-stats-target="stats-row-${i}">
                 <td>${i + 1}</td>
                 <td>
-                    <span class="student-name-toggle" data-student-id="${s.student_id}" data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">${escHtml(s.surname)} ${escHtml(s.name)}${commentCount > 0 ? ' 💬' : ''}${hasNew ? ' <span style="color:#f97316;">●</span>' : ''}</span>
+                    <span class="student-name-toggle" data-student-id="${s.student_id}" data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">${escHtml(s.surname)} ${escHtml(s.name)}${absentMark}${conflictMark}${hasNew ? ' <span class="new-comment-dot" title="New comments">●</span>' : ''}</span>
                     <button class="add-grade-inline-btn" data-student-id="${s.student_id}" title="Add grade">＋</button>
                 </td>
                 <td><span class="class-tag">${escHtml(s.class_name)}</span></td>
-                <td><button class="btn btn-secondary btn-sm view-comments-btn" data-student-id="${s.student_id}" data-subject-id="${group.subject_id}" data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">View (${commentCount})</button></td>`;
+                <td class="att-pct-cell${attPct !== null && attPct < 80 ? ' att-low' : ''}">${attPct !== null ? attPct + '%' : '–'}<br><small class="att-terms" title="T1 / T2">${attByTerm.term_1?.attendance_pct ?? '–'}/${attByTerm.term_2?.attendance_pct ?? '–'}</small></td>
+                <td><button class="btn btn-secondary btn-sm view-comments-btn" data-student-id="${s.student_id}" data-subject-id="${group.subject_id}" data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">Subject (${commentCount})</button></td>
+                <td><button class="btn btn-secondary btn-sm view-comments-btn" data-student-id="${s.student_id}" data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">All (${allCommentCount})</button></td>`;
 
             if (assessments.length > 0) {
                 for (const a of assessments) {
@@ -585,7 +617,7 @@ function openGradeModal(gradeData, studentName, preSelectedStudentId) {
 
         const sel = document.getElementById("gradeStudent");
         sel.innerHTML = group.students
-            .sort((a, b) => a.surname.localeCompare(b.surname))
+            .sort((a, b) => a.surname.localeCompare(b.surname) || a.name.localeCompare(b.name))
             .map(s => `<option value="${s.student_id}">${escHtml(s.surname)} ${escHtml(s.name)} (${escHtml(s.class_name)})</option>`)
             .join("");
 
@@ -770,7 +802,8 @@ async function openCommentsModal(studentId, studentName, subjectId) {
     ensureCommentsModal();
     const modal = document.getElementById("commentsModal");
     const body = document.getElementById("commentsModalBody");
-    document.getElementById("commentsModalTitle").textContent = `Comments – ${studentName || "Student"}`;
+    const titleSuffix = subjectId ? " (Subject)" : " (All Subjects)";
+    document.getElementById("commentsModalTitle").textContent = `Comments – ${studentName || "Student"}${titleSuffix}`;
     modal.style.display = "flex";
     body.innerHTML = '<p class="loading">Loading comments…</p>';
 
