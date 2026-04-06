@@ -35,7 +35,21 @@ function getUser() {
 function logout() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("admin_token");
+    localStorage.removeItem("admin_user");
     window.location.href = "index.html";
+}
+
+function exitImpersonation() {
+    const adminToken = localStorage.getItem("admin_token");
+    const adminUser = localStorage.getItem("admin_user");
+    if (adminToken && adminUser) {
+        localStorage.setItem("token", adminToken);
+        localStorage.setItem("user", adminUser);
+        localStorage.removeItem("admin_token");
+        localStorage.removeItem("admin_user");
+        window.location.href = "admin.html";
+    }
 }
 
 function isTokenExpired() {
@@ -91,6 +105,15 @@ function initNav() {
     const logoutBtn = document.getElementById("logoutBtn");
     if (logoutBtn) {
         logoutBtn.addEventListener("click", logout);
+    }
+
+    // ---------- Impersonation banner ----------
+    if (localStorage.getItem("admin_token")) {
+        const banner = document.createElement("div");
+        banner.className = "impersonation-banner";
+        const targetUser = user ? (user.full_name || user.email) : "user";
+        banner.innerHTML = `<span>👁️ Viewing as <strong>${targetUser}</strong> (${user?.role || ""})</span><button onclick="exitImpersonation()" class="btn btn-sm" style="margin-left:12px;background:#fff;color:#7c3aed;font-weight:600;">Back to Admin</button>`;
+        document.body.prepend(banner);
     }
 
     // ---------- Mobile hamburger menu ----------

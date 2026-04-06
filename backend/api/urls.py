@@ -13,6 +13,8 @@ from .views import (
     admin_student_subjects, admin_student_subject_delete,
     admin_schedule, admin_schedule_detail,
     admin_csv_import,
+    admin_impersonate,
+    admin_stats,
 )
 
 urlpatterns = [
@@ -53,4 +55,6 @@ urlpatterns = [
     path("admin/schedule/", admin_schedule),
     path("admin/schedule/detail/", admin_schedule_detail),
     path("admin/csv-import/", admin_csv_import),
+    path("admin/impersonate/", admin_impersonate),
+    path("admin/stats/", admin_stats),
 ]

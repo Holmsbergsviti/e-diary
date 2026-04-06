@@ -1,6 +1,6 @@
 /* ===== Admin Panel – E-Diary ===== */
 
-let currentSection = "classes";
+let currentSection = "overview";
 let cachedClasses = [];
 let cachedSubjects = [];
 let cachedTeachers = [];
@@ -82,6 +82,7 @@ async function loadSection(section) {
     container.innerHTML = '<p class="loading">Loading…</p>';
     try {
         switch (section) {
+            case "overview": await loadOverview(container); break;
             case "classes": await loadClasses(container); break;
             case "subjects": await loadSubjects(container); break;
             case "teachers": await loadTeachers(container); break;
@@ -96,6 +97,33 @@ async function loadSection(section) {
     } catch (err) {
         container.innerHTML = `<p class="empty-state">Error loading: ${escHtml(err.message)}</p>`;
     }
+}
+
+/* ═══════════════ OVERVIEW ═══════════════ */
+async function loadOverview(container) {
+    const res = await apiFetch("/admin/stats/");
+    const stats = await res.json();
+    container.innerHTML = `
+        <div class="admin-section-header"><h3>School Overview</h3></div>
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-number">${stats.total_classes || 0}</div><div class="stat-label">Classes</div></div>
+            <div class="stat-card"><div class="stat-number">${stats.total_subjects || 0}</div><div class="stat-label">Subjects</div></div>
+            <div class="stat-card"><div class="stat-number">${stats.total_teachers || 0}</div><div class="stat-label">Teachers</div></div>
+            <div class="stat-card"><div class="stat-number">${stats.total_students || 0}</div><div class="stat-label">Students</div></div>
+            <div class="stat-card"><div class="stat-number">${stats.total_admins || 0}</div><div class="stat-label">Admins</div></div>
+            <div class="stat-card"><div class="stat-number">${stats.total_assignments || 0}</div><div class="stat-label">Teacher Assignments</div></div>
+            <div class="stat-card"><div class="stat-number">${stats.total_enrollments || 0}</div><div class="stat-label">Student Enrolments</div></div>
+            <div class="stat-card"><div class="stat-number">${stats.total_schedule_slots || 0}</div><div class="stat-label">Schedule Slots</div></div>
+        </div>
+        ${stats.classes_breakdown && stats.classes_breakdown.length ? `
+        <h4 style="margin:24px 0 12px;color:var(--text-primary)">Students per Class</h4>
+        <table class="admin-table">
+            <thead><tr><th>Class</th><th>Year</th><th>Students</th></tr></thead>
+            <tbody>${stats.classes_breakdown.map(c => `
+                <tr><td>${escHtml(c.class_name)}</td><td>${c.grade_level}</td><td>${c.student_count}</td></tr>
+            `).join("")}</tbody>
+        </table>` : ""}
+    `;
 }
 
 /* ═══════════════ CLASSES ═══════════════ */
@@ -240,6 +268,7 @@ async function loadTeachers(container) {
                     <td>${escHtml(t.surname)} ${escHtml(t.name)}</td>
                     <td>${t.is_class_teacher ? `✓ ${escHtml(t.class_teacher_class_name || "")}` : "—"}</td>
                     <td class="admin-actions">
+                        <button class="btn btn-sm btn-impersonate" onclick="impersonateUser('${t.id}')" title="Login as this teacher">Login as</button>
                         <button class="btn btn-sm btn-secondary" onclick='editTeacher(${JSON.stringify(t).replace(/'/g, "&#39;")})'>Edit</button>
                         <button class="btn btn-sm btn-danger" onclick="deleteUser('${t.id}','teacher')">Delete</button>
                     </td>
@@ -316,6 +345,7 @@ async function loadStudents(container) {
                     <td>${escHtml(s.surname)} ${escHtml(s.name)}</td>
                     <td>${escHtml(s.class_name || "—")}</td>
                     <td class="admin-actions">
+                        <button class="btn btn-sm btn-impersonate" onclick="impersonateUser('${s.id}')" title="Login as this student">Login as</button>
                         <button class="btn btn-sm btn-secondary" onclick='editStudent(${JSON.stringify(s).replace(/'/g, "&#39;")})'>Edit</button>
                         <button class="btn btn-sm btn-danger" onclick="deleteUser('${s.id}','student')">Delete</button>
                     </td>
@@ -766,6 +796,35 @@ function closeAdminModal() {
 }
 
 function gv(id) { return (document.getElementById(id)?.value || "").trim(); }
+
+/* ═══════════════ Impersonation ═══════════════ */
+async function impersonateUser(userId) {
+    try {
+        const res = await apiFetch("/admin/impersonate/", {
+            method: "POST",
+            body: JSON.stringify({ user_id: userId }),
+        });
+        const d = await res.json();
+        if (!res.ok) { showToast(d.message || "Failed to impersonate", "error"); return; }
+
+        // Save admin session so we can return later
+        localStorage.setItem("admin_token", localStorage.getItem("token"));
+        localStorage.setItem("admin_user", localStorage.getItem("user"));
+
+        // Switch to the target user's session
+        localStorage.setItem("token", d.token);
+        localStorage.setItem("user", JSON.stringify(d.user));
+
+        // Redirect to the appropriate page
+        if (d.user.role === "teacher") {
+            window.location.href = "teacher.html";
+        } else {
+            window.location.href = "dashboard.html";
+        }
+    } catch (err) {
+        showToast("Impersonation failed: " + err.message, "error");
+    }
+}
 
 /* ═══════════════ Init ═══════════════ */
 setTimeout(() => {

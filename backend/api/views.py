@@ -2086,6 +2086,96 @@ def _require_admin(request):
     return payload
 
 
+# ---------- Stats / Overview ----------
+
+@csrf_exempt
+def admin_stats(request):
+    """Return aggregate counts for the admin overview."""
+    if not _require_admin(request):
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+    if request.method != "GET":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+    db = ediary()
+    classes = db.table("classes").select("id,class_name,grade_level").order("grade_level").order("class_name").execute().data or []
+    subjects = db.table("subjects").select("id").execute().data or []
+    teachers = db.table("teachers").select("id").execute().data or []
+    students = db.table("students").select("id,class_id").execute().data or []
+    admins = db.table("admins").select("id").execute().data or []
+    assignments = db.table("teacher_assignments").select("teacher_id").execute().data or []
+    enrollments = db.table("student_subjects").select("student_id").execute().data or []
+    schedule_slots = db.table("schedule").select("id").execute().data or []
+
+    # Count students per class
+    class_student_count = {}
+    for s in students:
+        cid = s.get("class_id")
+        if cid:
+            class_student_count[cid] = class_student_count.get(cid, 0) + 1
+
+    classes_breakdown = []
+    for c in classes:
+        classes_breakdown.append({
+            "class_name": c["class_name"],
+            "grade_level": c["grade_level"],
+            "student_count": class_student_count.get(c["id"], 0),
+        })
+
+    return JsonResponse({
+        "total_classes": len(classes),
+        "total_subjects": len(subjects),
+        "total_teachers": len(teachers),
+        "total_students": len(students),
+        "total_admins": len(admins),
+        "total_assignments": len(assignments),
+        "total_enrollments": len(enrollments),
+        "total_schedule_slots": len(schedule_slots),
+        "classes_breakdown": classes_breakdown,
+    })
+
+
+# ---------- Impersonate ----------
+
+@csrf_exempt
+def admin_impersonate(request):
+    """Generate a token for a target user so the admin can log in as them."""
+    if not _require_admin(request):
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+    if request.method != "POST":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+    data = json.loads(request.body)
+    target_id = data.get("user_id", "").strip()
+    if not target_id:
+        return JsonResponse({"message": "user_id required"}, status=400)
+
+    role, profile = _get_profile(target_id)
+    if not role:
+        return JsonResponse({"message": "User not found"}, status=404)
+
+    # Build a standard token for the target user
+    db = ediary()
+    # Try to get the user's email from Supabase Auth
+    email = ""
+    try:
+        auth_user = supabase_auth.auth.admin.get_user_by_id(target_id)
+        if auth_user and auth_user.user:
+            email = auth_user.user.email or ""
+    except Exception:
+        pass
+
+    token = _make_token(target_id, role, email)
+
+    return JsonResponse({
+        "token": token,
+        "user": {
+            "id": target_id,
+            "email": email,
+            "full_name": profile["full_name"],
+            "role": role,
+            "class_name": profile.get("class_name", ""),
+        },
+    })
+
+
 # ---------- Classes ----------
 
 @csrf_exempt
