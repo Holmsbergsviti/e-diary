@@ -102,7 +102,17 @@ async function loadSection(section) {
 /* ═══════════════ OVERVIEW ═══════════════ */
 async function loadOverview(container) {
     const res = await apiFetch("/admin/stats/");
-    const stats = await res.json();
+    if (!res.ok) {
+        container.innerHTML = '<p class="empty-state">Could not load overview. The backend may still be deploying.</p>';
+        return;
+    }
+    let stats;
+    try {
+        stats = await res.json();
+    } catch (e) {
+        container.innerHTML = '<p class="empty-state">Could not load overview. The backend may still be deploying.</p>';
+        return;
+    }
     container.innerHTML = `
         <div class="admin-section-header"><h3>School Overview</h3></div>
         <div class="stats-grid">
