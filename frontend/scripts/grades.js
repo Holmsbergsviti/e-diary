@@ -45,10 +45,10 @@ async function initGrades() {
     await loadGrades();
 }
 
-// Initialize immediately with slight delay to ensure sidebar is rendered
-setTimeout(() => {
+// Initialize on DOMContentLoaded
+document.addEventListener("DOMContentLoaded", () => {
     initGrades().catch(err => console.error("Grades init error:", err));
-}, 100);
+});
 
 async function loadGrades() {
     const container = document.getElementById("gradesContainer");

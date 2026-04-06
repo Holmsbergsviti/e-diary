@@ -24,8 +24,7 @@ async function initTeacher() {
     }
 
     initNav();
-    await loadSchedule();
-    await Promise.all([loadHomework(), loadBehavioral(), loadClassStats()]);
+    await Promise.all([loadSchedule(), loadHomework(), loadBehavioral(), loadClassStats()]);
     
     // Initialize card collapse functionality
     initCardCollapse();
@@ -45,10 +44,10 @@ async function initTeacher() {
     }
 }
 
-// Initialize immediately with slight delay to ensure sidebar is rendered
-setTimeout(() => {
+// Initialize on DOMContentLoaded
+document.addEventListener("DOMContentLoaded", () => {
     initTeacher().catch(err => console.error("Teacher init error:", err));
-}, 100);
+});
 
 /* ---- Load schedule from API ----------------------------------- */
 async function loadSchedule() {
@@ -378,9 +377,11 @@ async function loadClassStats() {
     }
 }
 
-// Auto-refresh class stats every 10 seconds
-setInterval(async () => {
+// Auto-refresh class stats every 30 seconds (paused when tab hidden)
+let _statsInterval = setInterval(async () => {
+    if (document.hidden) return;
     try {
+        invalidateApiCache("/teacher/class-stats");
         const res = await apiFetch("/teacher/class-stats/");
         const data = await res.json();
         const stats = data.stats || [];
@@ -388,7 +389,7 @@ setInterval(async () => {
     } catch (err) {
         console.error("Failed to refresh class stats:", err);
     }
-}, 10000);
+}, 30000);
 
 /* ---- Ring diagram generators ---- */
 function generateAttendanceRing(present, late, absent, excused, total) {

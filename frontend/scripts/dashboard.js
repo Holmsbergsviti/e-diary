@@ -29,9 +29,9 @@ async function initDashboard() {
 }
 
 // Initialize immediately with slight delay to ensure sidebar is rendered
-setTimeout(() => {
+document.addEventListener("DOMContentLoaded", () => {
     initDashboard().catch(err => console.error("Dashboard init error:", err));
-}, 100);
+});
 
 // ---------- helper: grade code -> CSS class ----------
 function gradeClass(code) {

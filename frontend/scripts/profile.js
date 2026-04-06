@@ -5,10 +5,10 @@ async function initProfile() {
     initAccountForm();
 }
 
-// Initialize immediately with slight delay to ensure sidebar is rendered
-setTimeout(() => {
+// Initialize on DOMContentLoaded
+document.addEventListener("DOMContentLoaded", () => {
     initProfile().catch(err => console.error("Profile init error:", err));
-}, 100);
+});
 
 async function loadProfile() {
     const container = document.getElementById("profileContainer");

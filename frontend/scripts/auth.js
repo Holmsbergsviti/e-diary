@@ -1,25 +1,6 @@
 // Shared authentication utilities
 const API_BASE = "https://e-diary-backend-qsly.onrender.com/api";
 
-// Load saved color theme on every page
-(function loadTheme() {
-    const savedTheme = localStorage.getItem("selectedTheme") || "bright-blue";
-    const themeMap = {
-        "bright-blue": "",
-        "ocean": "ocean",
-        "purple": "purple",
-        "emerald": "emerald",
-        "rose": "rose",
-        "amber": "amber",
-        "indigo": "indigo"
-    };
-    
-    const themeAttr = themeMap[savedTheme] || "";
-    if (themeAttr) {
-        document.documentElement.setAttribute("data-theme", themeAttr);
-    }
-})();
-
 function getToken() {
     return localStorage.getItem("token");
 }
@@ -78,8 +59,22 @@ function requireAuth() {
     return true;
 }
 
+const _apiCache = {};
+const API_CACHE_TTL = 30000; // 30 seconds
+
 async function apiFetch(path, options = {}) {
     const token = getToken();
+    const method = (options.method || "GET").toUpperCase();
+
+    // Serve GET requests from short-lived cache
+    if (method === "GET") {
+        const cacheKey = path;
+        const cached = _apiCache[cacheKey];
+        if (cached && Date.now() - cached.ts < API_CACHE_TTL) {
+            return cached.response.clone();
+        }
+    }
+
     const res = await fetch(`${API_BASE}${path}`, {
         ...options,
         headers: {
@@ -92,7 +87,24 @@ async function apiFetch(path, options = {}) {
         logout();
         throw new Error("Session expired");
     }
+
+    // Cache successful GET responses
+    if (method === "GET" && res.ok) {
+        _apiCache[path] = { ts: Date.now(), response: res.clone() };
+    }
+
     return res;
+}
+
+/** Invalidate cached GET responses (call after mutations). */
+function invalidateApiCache(pathPrefix) {
+    if (pathPrefix) {
+        for (const key of Object.keys(_apiCache)) {
+            if (key.startsWith(pathPrefix)) delete _apiCache[key];
+        }
+    } else {
+        for (const key of Object.keys(_apiCache)) delete _apiCache[key];
+    }
 }
 
 // Populate the nav with the logged-in user's name
@@ -163,62 +175,46 @@ function initNav() {
         });
     }
 
-    // Update sidebar links based on role
+    // ---------- Build sidebar links from role ----------
     const sidebarEl = document.querySelector(".sidebar");
-    console.log("[initNav] Looking for sidebar and profile link...");
-    console.log("[initNav] Sidebar found:", !!sidebarEl);
-    console.log("[initNav] User role:", user?.role);
-    
+
     if (sidebarEl && user) {
-        // Rewrite dashboard link for the correct role
-        sidebarEl.querySelectorAll("a").forEach(a => {
-            const href = a.getAttribute("href");
-            if ((href === "dashboard.html" || href === "/dashboard" || href === "/teacher") && user.role === "teacher") {
-                a.setAttribute("href", "/teacher");
-            } else if ((href === "teacher.html" || href === "/teacher") && user.role !== "teacher") {
-                a.setAttribute("href", "/dashboard");
-            }
-        });
+        // Clear all existing links — we rebuild from scratch per role
+        sidebarEl.querySelectorAll("a").forEach(a => a.remove());
 
-        // Remove any existing grades/marks links first (clean slate)
-        const existingLinks = sidebarEl.querySelectorAll('a[href="/grades"], a[href="/marks"], a[href="grades.html"], a[href="marks.html"]');
-        console.log("[initNav] Removing existing links:", existingLinks.length);
-        existingLinks.forEach(a => a.remove());
+        const path = window.location.pathname;
+        const isPage = (names) => names.some(n => path.endsWith(n) || path.endsWith(n.replace(".html", "")));
 
-        // Inject the correct role-specific link before Profile
-        const pLink = sidebarEl.querySelector('a[href="/profile"], a[href="profile.html"]');
-        console.log("[initNav] Profile link found:", !!pLink);
-        console.log("[initNav] All sidebar links:", Array.from(sidebarEl.querySelectorAll("a")).map(a => a.getAttribute("href")));
-        
-        if (pLink) {
-            if (user.role === "admin") {
-                // Inject Admin Panel link for admins
-                const adminLink = document.createElement("a");
-                adminLink.href = "admin.html";
-                if (window.location.pathname.endsWith("admin") || window.location.pathname.endsWith("admin.html")) adminLink.classList.add("active");
-                adminLink.innerHTML = '<span class="icon">⚙️</span> Admin Panel';
-                sidebarEl.insertBefore(adminLink, pLink);
-                console.log("[initNav] ✅ Injected Admin Panel tab");
-            }
+        const links = [];
 
-            const newLink = document.createElement("a");
-            if (user.role === "teacher" || user.role === "admin") {
-                newLink.href = "/marks";
-                if (window.location.pathname.endsWith("marks") || window.location.pathname.endsWith("marks.html")) newLink.classList.add("active");
-                newLink.innerHTML = '<span class="icon">📝</span> Marks';
-                console.log("[initNav] ✅ Injected Marks tab");
-            } else {
-                newLink.href = "/grades";
-                if (window.location.pathname.endsWith("grades") || window.location.pathname.endsWith("grades.html")) newLink.classList.add("active");
-                newLink.innerHTML = '<span class="icon">📊</span> Grades';
-                console.log("[initNav] ✅ Injected Grades tab");
-            }
-            sidebarEl.insertBefore(newLink, pLink);
+        if (user.role === "admin") {
+            links.push({ href: "admin.html", icon: "⚙️", label: "Admin Panel", active: isPage(["admin.html"]) });
+            links.push({ href: "teacher.html", icon: "🏠", label: "Dashboard", active: isPage(["teacher.html"]) });
+            links.push({ href: "marks.html", icon: "📝", label: "Marks", active: isPage(["marks.html"]) });
+            links.push({ href: "report.html", icon: "🧾", label: "Reports", active: isPage(["report.html"]) });
+            links.push({ href: "schedule.html", icon: "📅", label: "Schedule", active: isPage(["schedule.html"]) });
+        } else if (user.role === "teacher") {
+            links.push({ href: "teacher.html", icon: "🏠", label: "Dashboard", active: isPage(["teacher.html"]) });
+            links.push({ href: "marks.html", icon: "📝", label: "Marks", active: isPage(["marks.html"]) });
+            links.push({ href: "report.html", icon: "🧾", label: "Reports", active: isPage(["report.html"]) });
+            links.push({ href: "schedule.html", icon: "📅", label: "Schedule", active: isPage(["schedule.html"]) });
         } else {
-            console.error("[initNav] ❌ Profile link not found! Sidebar HTML:", sidebarEl.innerHTML);
+            // student
+            links.push({ href: "dashboard.html", icon: "🏠", label: "Dashboard", active: isPage(["dashboard.html"]) });
+            links.push({ href: "grades.html", icon: "📊", label: "Grades", active: isPage(["grades.html"]) });
+            links.push({ href: "schedule.html", icon: "📅", label: "Schedule", active: isPage(["schedule.html"]) });
         }
-    } else {
-        console.error("[initNav] ❌ Sidebar or user not found");
+
+        // Profile always last
+        links.push({ href: "profile.html", icon: "👤", label: "Profile", active: isPage(["profile.html"]) });
+
+        links.forEach(l => {
+            const a = document.createElement("a");
+            a.href = l.href;
+            if (l.active) a.classList.add("active");
+            a.innerHTML = `<span class="icon">${l.icon}</span> ${l.label}`;
+            sidebarEl.appendChild(a);
+        });
     }
 
     // Initialize sidebar collapse toggle

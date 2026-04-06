@@ -87,10 +87,10 @@ async function initMarks() {
     });
 }
 
-// Initialize immediately with slight delay to ensure sidebar is rendered
-setTimeout(() => {
+// Initialize on DOMContentLoaded
+document.addEventListener("DOMContentLoaded", () => {
     initMarks().catch(err => console.error("Marks init error:", err));
-}, 100);
+});
 
 async function loadMarks() {
     const container = document.getElementById("marksContainer");

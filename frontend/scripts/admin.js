@@ -837,6 +837,6 @@ async function impersonateUser(userId) {
 }
 
 /* ═══════════════ Init ═══════════════ */
-setTimeout(() => {
+document.addEventListener("DOMContentLoaded", () => {
     initAdmin().catch(err => console.error("Admin init error:", err));
-}, 100);
+});

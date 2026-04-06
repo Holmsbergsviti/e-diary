@@ -22,10 +22,10 @@ async function initSchedule() {
     document.getElementById("weekNext").addEventListener("click", () => { weekOffset++; renderSchedule(); });
 }
 
-// Initialize immediately with slight delay to ensure sidebar is rendered
-setTimeout(() => {
+// Initialize on DOMContentLoaded
+document.addEventListener("DOMContentLoaded", () => {
     initSchedule().catch(err => console.error("Schedule init error:", err));
-}, 100);
+});
 
 async function fetchSchedule() {
     const container = document.getElementById("scheduleContainer");

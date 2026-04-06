@@ -182,6 +182,6 @@ function toggleClassSection(classId) {
     icon.classList.toggle("expanded");
 }
 
-setTimeout(() => {
+document.addEventListener("DOMContentLoaded", () => {
     initReports().catch(err => console.error("Reports init error:", err));
-}, 100);
+});
