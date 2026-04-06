@@ -622,12 +622,12 @@ async function saveGrade() {
     const comment = document.getElementById("gradeComment").value.trim();
 
     if (!gradeCode) {
-        alert("Please select a grade.");
+        showToast("Please select a grade", "warning");
         return;
     }
 
     if (percentage !== "" && parseFloat(percentage) < 0) {
-        alert("Percentage cannot be negative.");
+        showToast("Percentage cannot be negative", "warning");
         return;
     }
 
@@ -661,12 +661,12 @@ async function saveGrade() {
                 await loadMarks();
             } else {
                 const d = await res.json();
-                alert(d.message || "Failed to update grade");
+                showToast(d.message || "Failed to update grade", "error");
             }
         } else {
             const studentId = document.getElementById("gradeStudent").value;
             if (!studentId) {
-                alert("Please select a student.");
+                showToast("Please select a student", "warning");
                 btn.disabled = false;
                 btn.textContent = "Save Grade";
                 return;
@@ -693,11 +693,11 @@ async function saveGrade() {
                 await loadMarks();
             } else {
                 const d = await res.json();
-                alert(d.message || "Failed to save grade");
+                showToast(d.message || "Failed to save grade", "error");
             }
         }
     } catch (err) {
-        alert("Error saving grade");
+        showToast("Error saving grade", "error");
     } finally {
         btn.disabled = false;
         btn.textContent = editingGradeId ? "Update Grade" : "Save Grade";
@@ -720,10 +720,10 @@ async function deleteGradeFromModal() {
             await loadMarks();
         } else {
             const d = await res.json();
-            alert(d.message || "Failed to delete grade");
+            showToast(d.message || "Failed to delete grade", "error");
         }
     } catch (err) {
-        alert("Error deleting grade");
+        showToast("Error deleting grade", "error");
     } finally {
         btn.disabled = false;
         btn.textContent = "Delete";

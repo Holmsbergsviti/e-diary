@@ -148,7 +148,7 @@ async function loadReports(term) {
 
                     const payload = await resp.json();
                     if (!resp.ok) {
-                        alert(payload.message || "Failed to save report");
+                        showToast(payload.message || "Failed to save report", "error");
                         btn.textContent = "Save";
                         btn.disabled = false;
                         return;
@@ -160,7 +160,7 @@ async function loadReports(term) {
                         btn.disabled = false;
                     }, 1000);
                 } catch (err) {
-                    alert("Failed to save report");
+                    showToast("Failed to save report", "error");
                     btn.textContent = "Save";
                     btn.disabled = false;
                 }

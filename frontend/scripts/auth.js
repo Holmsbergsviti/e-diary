@@ -245,3 +245,43 @@ function initGlobalModalEscapeSupport() {
 
 // Initialize on page load
 document.addEventListener("DOMContentLoaded", initGlobalModalEscapeSupport);
+
+/* ───────── Toast notification system ───────── */
+function showToast(message, type = "error", duration = 4000) {
+    let container = document.getElementById("toast-container");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "toast-container";
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement("div");
+    toast.className = `toast toast-${type}`;
+
+    const icons = { error: "✕", success: "✓", warning: "⚠", info: "ℹ" };
+    toast.innerHTML = `
+        <span class="toast-icon">${icons[type] || icons.info}</span>
+        <span class="toast-message">${escHtml(message)}</span>
+        <button class="toast-close" aria-label="Close">×</button>
+    `;
+
+    toast.querySelector(".toast-close").addEventListener("click", () => dismissToast(toast));
+
+    container.appendChild(toast);
+    // Trigger entrance animation
+    requestAnimationFrame(() => toast.classList.add("toast-visible"));
+
+    const timer = setTimeout(() => dismissToast(toast), duration);
+    toast._timer = timer;
+}
+
+function dismissToast(toast) {
+    if (toast._dismissed) return;
+    toast._dismissed = true;
+    clearTimeout(toast._timer);
+    toast.classList.remove("toast-visible");
+    toast.classList.add("toast-exit");
+    toast.addEventListener("transitionend", () => toast.remove(), { once: true });
+    // Fallback removal if transitionend doesn't fire
+    setTimeout(() => toast.remove(), 400);
+}

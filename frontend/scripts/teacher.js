@@ -336,7 +336,7 @@ async function saveAttendance() {
         if (res.ok) {
             const conflicts = data.alerts?.absent_present_conflicts || [];
             if (conflicts.length > 0) {
-                alert(`Attendance alert: ${conflicts.length} student(s) were marked absent here but present in another class on the same day.`);
+                showToast(`Attendance conflict: ${conflicts.length} student(s) marked absent here but present in another class on the same day.`, "warning", 6000);
             }
             btn.textContent = "✓ Saved!";
             btn.classList.add("btn-success");
@@ -346,12 +346,12 @@ async function saveAttendance() {
                 btn.disabled = false;
             }, 2000);
         } else {
-            alert(data.message || "Failed to save attendance");
+            showToast(data.message || "Failed to save attendance", "error");
             btn.textContent = "Save Attendance";
             btn.disabled = false;
         }
     } catch (err) {
-        alert("Error saving attendance");
+        showToast("Error saving attendance", "error");
         btn.textContent = "Save Attendance";
         btn.disabled = false;
     }
@@ -730,7 +730,7 @@ function renderHomework() {
                 });
                 await loadHomework();
             } catch (err) {
-                alert("Failed to delete homework.");
+                showToast("Failed to delete homework", "error");
             }
         });
     });
@@ -782,8 +782,8 @@ async function saveHomework() {
     const description = document.getElementById("hwDesc").value.trim();
     const due_date = document.getElementById("hwDueDate").value;
 
-    if (!title) { alert("Title is required."); return; }
-    if (!due_date) { alert("Due date is required."); return; }
+    if (!title) { showToast("Title is required", "warning"); return; }
+    if (!due_date) { showToast("Due date is required", "warning"); return; }
 
     const btn = document.getElementById("hwSave");
     btn.disabled = true;
@@ -798,7 +798,7 @@ async function saveHomework() {
         document.getElementById("homeworkModal").style.display = "none";
         await loadHomework();
     } catch (err) {
-        alert("Failed to save homework.");
+        showToast("Failed to save homework", "error");
     } finally {
         btn.disabled = false;
         btn.textContent = "Save Homework";
@@ -909,7 +909,7 @@ async function saveHwCompletions(homeworkId) {
         });
         document.getElementById("hwCompletionModal").style.display = "none";
     } catch (err) {
-        alert("Failed to save completion status.");
+        showToast("Failed to save completion status", "error");
     } finally {
         btn.disabled = false;
         btn.textContent = "Save Completion";
@@ -991,7 +991,7 @@ function renderBehavioral() {
                 });
                 await loadBehavioral();
             } catch (err) {
-                alert("Failed to delete note.");
+                showToast("Failed to delete note", "error");
             }
         });
     });
@@ -1102,8 +1102,8 @@ async function saveBehavioral() {
     const severity = document.getElementById("behSeverity").value;
     const content = document.getElementById("behContent").value.trim();
 
-    if (!student_id) { alert("Please select a student."); return; }
-    if (!content) { alert("Please enter details."); return; }
+    if (!student_id) { showToast("Please select a student", "warning"); return; }
+    if (!content) { showToast("Please enter details", "warning"); return; }
 
     const btn = document.getElementById("behSave");
     btn.disabled = true;
@@ -1118,7 +1118,7 @@ async function saveBehavioral() {
         document.getElementById("behavioralModal").style.display = "none";
         await loadBehavioral();
     } catch (err) {
-        alert("Failed to save behavioral note.");
+        showToast("Failed to save behavioral note", "error");
     } finally {
         btn.disabled = false;
         btn.textContent = "Save Note";
