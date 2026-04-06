@@ -12,6 +12,7 @@ const PERIOD_TIMES = [
 
 let scheduleSlots = [];
 let weekOffset = 0;   // 0 = this week, -1 = last week, +1 = next week
+let studentAttendance = []; // attendance records for students
 
 async function initSchedule() {
     if (!requireAuth()) return;
@@ -30,9 +31,21 @@ document.addEventListener("DOMContentLoaded", () => {
 async function fetchSchedule() {
     const container = document.getElementById("scheduleContainer");
     try {
-        const res = await apiFetch("/schedule/");
-        const data = await res.json();
-        scheduleSlots = data.schedule || [];
+        const user = getUser();
+        const fetches = [apiFetch("/schedule/")];
+        // Students: also fetch attendance to highlight missed classes
+        if (user && user.role === "student") {
+            fetches.push(apiFetch("/attendance/"));
+        }
+        const results = await Promise.all(fetches);
+        const schedData = await results[0].json();
+        scheduleSlots = schedData.schedule || [];
+
+        if (results[1]) {
+            const attData = await results[1].json();
+            studentAttendance = attData.attendance || [];
+        }
+
         renderSchedule();
     } catch (err) {
         container.innerHTML = '<p class="empty-state">Failed to load schedule.</p>';
@@ -88,6 +101,7 @@ function renderSchedule() {
     const container = document.getElementById("scheduleContainer");
     const user = getUser();
     const isTeacher = user && user.role === "teacher";
+    const isStudent = user && user.role === "student";
     const slots = scheduleSlots;
 
     // Update week label
@@ -103,6 +117,20 @@ function renderSchedule() {
     if (slots.length === 0) {
         container.innerHTML = '<p class="empty-state">No schedule available.</p>';
         return;
+    }
+
+    // Build attendance lookup for students: "YYYY-MM-DD|subject_id" -> status
+    const attLookup = {};
+    if (isStudent && studentAttendance.length > 0) {
+        for (const a of studentAttendance) {
+            // key by date + subject so we can match schedule slots
+            const key = `${a.date_recorded}|${a.subject_id || ''}`;
+            // If multiple records for same date/subject, keep the worst status
+            const prev = attLookup[key];
+            if (!prev || a.status === "Absent" || (a.status === "Late" && prev !== "Absent")) {
+                attLookup[key] = a.status;
+            }
+        }
     }
 
     // Build lookup: grid[day][period] = slot
@@ -145,9 +173,29 @@ function renderSchedule() {
                 const cls = isTeacher ? "lesson clickable-lesson" : "lesson";
                 // Attach the actual date for this cell
                 const cellDate = new Date(mon); cellDate.setDate(mon.getDate() + d - 1);
-                const slotWithDate = { ...slot, _date: isoDate(cellDate) };
-                html += `<td class="${cls}" data-slot='${JSON.stringify(slotWithDate)}'>
-                    ${escHtml(slot.subject)}<br>
+                const cellDateStr = isoDate(cellDate);
+                const slotWithDate = { ...slot, _date: cellDateStr };
+
+                // Student attendance highlighting
+                let attClass = "";
+                let attBadge = "";
+                if (isStudent && cellDate <= today) {
+                    const attKey = `${cellDateStr}|${slot.subject_id || ''}`;
+                    const attStatus = attLookup[attKey];
+                    if (attStatus === "Absent") {
+                        attClass = " lesson-absent";
+                        attBadge = '<span class="att-badge att-badge-absent" title="Absent">✗</span>';
+                    } else if (attStatus === "Late") {
+                        attClass = " lesson-late";
+                        attBadge = '<span class="att-badge att-badge-late" title="Late">⏰</span>';
+                    } else if (attStatus === "Excused") {
+                        attClass = " lesson-excused";
+                        attBadge = '<span class="att-badge att-badge-excused" title="Excused">📋</span>';
+                    }
+                }
+
+                html += `<td class="${cls}${attClass}" data-slot='${JSON.stringify(slotWithDate)}'>
+                    ${escHtml(slot.subject)}${attBadge}<br>
                     <span class="lesson-room">${yearLabel}${isTeacher && slot.room ? " · " + escHtml(slot.room) : ""}</span>
                 </td>`;
             } else {

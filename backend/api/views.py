@@ -375,6 +375,7 @@ def attendance(request):
             "date_recorded": r["date_recorded"],
             "status": r["status"],
             "class_id": r["class_id"],
+            "subject_id": r.get("subject_id", ""),
             "subject": subj_map.get(r.get("subject_id"), ""),
             "comment": r.get("comment", ""),
         }
