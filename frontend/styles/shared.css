@@ -3076,6 +3076,23 @@ tr:hover td {
     gap: 6px;
 }
 
+/* --- Teacher Export Card --- */
+.export-section-list { display: flex; flex-direction: column; gap: 10px; }
+.export-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    gap: 12px;
+}
+.export-row-info { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.export-row-icon { font-size: 1.1rem; }
+.export-row-label { font-weight: 600; font-size: 0.9rem; color: var(--text-primary); }
+.export-row-count { font-size: 0.78rem; color: var(--text-muted); }
+.export-row-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
 /* --- Admin-level badges --- */
 .admin-level-badge {
     display: inline-block;

@@ -491,7 +491,8 @@ async function loadAdmins(container) {
     }
     const res = await apiFetch("/admin/users/?role=admin");
     const d = await res.json();
-    const admins = d.users || [];
+    // Filter out super admins on the client side too (safety net)
+    const admins = (d.users || []).filter(a => a.admin_level !== "super");
     const isSuperAdmin = _adminLevel() === "super";
     _registerExport("expAdmins", admins.map(a => {
         const perms = a.permissions || {};

@@ -24,7 +24,6 @@ async function initTeacher() {
     }
 
     initNav();
-    _injectTeacherExports();          // add export dropdowns to card headers
     await Promise.all([loadSchedule(), loadHomework(), loadBehavioral(), loadClassStats(), loadStudyHall()]);
     
     // Initialize card collapse functionality
@@ -1464,34 +1463,74 @@ const _exportData = {};
 
 function _registerExport(key, rows, columns, headerMap, filename) {
     _exportData[key] = { rows, columns, headerMap, filename };
+    renderExportCard();
 }
 
-/** Inject export dropdown buttons into each teacher card header */
-function _injectTeacherExports() {
-    const targets = [
-        { cardId: "class-statistics", key: "expClassStats" },
-        { cardId: "homework-teacher", key: "expHomework" },
-        { cardId: "behavioral-teacher", key: "expBehavioral" },
-        { cardId: "weekly-schedule", key: "expSchedule" },
+/** Render the Export card content */
+function renderExportCard() {
+    const container = document.getElementById("exportCardContent");
+    if (!container) return;
+
+    const sections = [
+        { key: "expSchedule", label: "My Schedule", icon: "📅" },
+        { key: "expClassStats", label: "Class Statistics", icon: "📋" },
+        { key: "expHomework", label: "Homework / Tasks", icon: "📝" },
+        { key: "expBehavioral", label: "Behavioral Notes", icon: "📋" },
     ];
-    for (const { cardId, key } of targets) {
-        const title = document.querySelector(`[data-card-id="${cardId}"] .card-title`);
-        if (!title) continue;
-        const collapseBtn = title.querySelector(".card-collapse-btn");
-        const wrapper = document.createElement("span");
-        wrapper.style.marginLeft = "auto";
-        wrapper.innerHTML = exportDropdownHTML(key, "Export");
-        if (collapseBtn) title.insertBefore(wrapper, collapseBtn);
-        else title.appendChild(wrapper);
-    }
+
+    container.innerHTML = `
+        <div class="export-section-list">
+            ${sections.map(s => {
+                const d = _exportData[s.key];
+                const count = d ? d.rows.length : 0;
+                const disabled = count === 0 ? 'disabled' : '';
+                return `
+                <div class="export-row">
+                    <div class="export-row-info">
+                        <span class="export-row-icon">${s.icon}</span>
+                        <span class="export-row-label">${s.label}</span>
+                        <span class="export-row-count">${count} record${count !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div class="export-row-actions">
+                        <button class="btn btn-sm btn-outline" ${disabled} onclick="_doExport('${s.key}','csv')">CSV</button>
+                        <button class="btn btn-sm btn-primary" ${disabled} onclick="_doExport('${s.key}','excel')">Excel</button>
+                    </div>
+                </div>`;
+            }).join("")}
+        </div>
+        <hr style="margin:16px 0;border-color:var(--border-color);">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <strong style="font-size:0.9rem;">Export All:</strong>
+            <button class="btn btn-sm btn-outline" onclick="_doExportAll('csv')">All as CSV (zip)</button>
+            <button class="btn btn-sm btn-primary" onclick="_doExportAll('excel')">All as Excel</button>
+        </div>
+    `;
 }
 
-/** Global export event handler */
-document.addEventListener("export", (e) => {
-    const { format, key } = e.detail;
+function _doExport(key, format) {
     const d = _exportData[key];
-    if (!d) { showToast("No data to export yet", "warning"); return; }
-    if (d.rows.length === 0) { showToast("No data to export", "warning"); return; }
+    if (!d || d.rows.length === 0) { showToast("No data to export", "warning"); return; }
     if (format === "csv") exportCSV(d.filename + ".csv", d.rows, d.columns, d.headerMap);
     else exportExcel(d.filename + ".xlsx", d.rows, d.columns, d.headerMap);
-});
+}
+
+function _doExportAll(format) {
+    const keys = ["expSchedule", "expClassStats", "expHomework", "expBehavioral"];
+    const available = keys.filter(k => _exportData[k] && _exportData[k].rows.length > 0);
+    if (available.length === 0) { showToast("No data to export", "warning"); return; }
+
+    if (format === "csv") {
+        // Export each individually
+        available.forEach(k => {
+            const d = _exportData[k];
+            exportCSV(d.filename + ".csv", d.rows, d.columns, d.headerMap);
+        });
+    } else {
+        // Multi-sheet Excel
+        const sheets = available.map(k => {
+            const d = _exportData[k];
+            return { name: d.filename, rows: d.rows, columns: d.columns, headerMap: d.headerMap };
+        });
+        exportExcelMultiSheet("teacher_export.xlsx", sheets);
+    }
+}
