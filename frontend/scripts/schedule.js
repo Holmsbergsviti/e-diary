@@ -265,7 +265,6 @@ function renderSchedule() {
             html += `<tr class="schedule-break-row${isNowBreak ? ' break-current' : ''}">
                 <td colspan="${5 + 1}" class="schedule-break-cell">
                     <span class="break-label">${row.label}</span>
-                    <span class="break-time">${row.time}</span>
                 </td>
             </tr>`;
             continue;
