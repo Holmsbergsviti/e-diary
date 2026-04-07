@@ -6,6 +6,43 @@ let cachedSubjects = [];
 let cachedTeachers = [];
 let cachedStudents = [];
 
+/* Permission-key → tab-section mapping */
+const TAB_PERMS = {
+    overview: null,          // always visible
+    classes: "classes",
+    subjects: "subjects",
+    teachers: "teachers",
+    students: "students",
+    admins: "__manage_admins__",  // special: super/master only
+    assignments: "schedule",
+    enrollments: "students",
+    schedule: "schedule",
+    events: "events",
+    holidays: "holidays",
+    import: "import",
+};
+
+const ALL_PERM_KEYS = [
+    { key: "students",   label: "Students" },
+    { key: "teachers",   label: "Teachers" },
+    { key: "classes",    label: "Classes" },
+    { key: "subjects",   label: "Subjects" },
+    { key: "schedule",   label: "Schedule" },
+    { key: "events",     label: "Events" },
+    { key: "holidays",   label: "Holidays" },
+    { key: "study_hall", label: "Study Hall" },
+    { key: "import",     label: "Import / Export" },
+];
+
+function _adminLevel() { return (getUser() || {}).admin_level || "regular"; }
+function _adminPerms() { return (getUser() || {}).permissions || {}; }
+function _hasPerm(key) {
+    const lvl = _adminLevel();
+    if (lvl === "super" || lvl === "master") return true;
+    return !!_adminPerms()[key];
+}
+function _canManageAdmins() { return ["super", "master"].includes(_adminLevel()); }
+
 async function initAdmin() {
     if (!requireAuth()) return;
     const user = getUser();
@@ -14,8 +51,22 @@ async function initAdmin() {
         return;
     }
     initNav();
+    filterAdminTabs();
     bindAdminTabs();
     await loadSection(currentSection);
+}
+
+function filterAdminTabs() {
+    document.querySelectorAll("#adminTabs .admin-tab").forEach(btn => {
+        const sec = btn.dataset.section;
+        const permKey = TAB_PERMS[sec];
+        if (permKey === null) return; // always visible
+        if (permKey === "__manage_admins__") {
+            btn.style.display = _canManageAdmins() ? "" : "none";
+        } else {
+            btn.style.display = _hasPerm(permKey) ? "" : "none";
+        }
+    });
 }
 
 function bindAdminTabs() {
@@ -411,9 +462,14 @@ function editStudent(s) {
 
 /* ═══════════════ ADMINS ═══════════════ */
 async function loadAdmins(container) {
+    if (!_canManageAdmins()) {
+        container.innerHTML = '<p class="empty-state">You do not have access to this section.</p>';
+        return;
+    }
     const res = await apiFetch("/admin/users/?role=admin");
     const d = await res.json();
     const admins = d.users || [];
+    const isSuperAdmin = _adminLevel() === "super";
     container.innerHTML = `
         <div class="admin-section-header">
             <h3>Admins</h3>
@@ -421,28 +477,55 @@ async function loadAdmins(container) {
         </div>
         ${admins.length === 0 ? '<p class="empty-state">No admins yet.</p>' : `
         <table class="admin-table">
-            <thead><tr><th>Name</th><th>Actions</th></tr></thead>
-            <tbody>${admins.map(a => `
-                <tr>
+            <thead><tr><th>Name</th><th>Email</th><th>Level</th><th>Permissions</th><th>Actions</th></tr></thead>
+            <tbody>${admins.map(a => {
+                const lvl = a.admin_level || "regular";
+                const perms = a.permissions || {};
+                const permTags = lvl === "master" ? '<span class="perm-tag perm-all">All</span>' :
+                    ALL_PERM_KEYS.filter(p => perms[p.key]).map(p => `<span class="perm-tag">${escHtml(p.label)}</span>`).join("") || '<span class="perm-tag perm-none">None</span>';
+                const isMaster = lvl === "master";
+                const canEdit = isSuperAdmin || !isMaster;
+                const canDelete = isSuperAdmin || !isMaster;
+                return `<tr>
                     <td>${escHtml(a.surname)} ${escHtml(a.name)}</td>
+                    <td>${escHtml(a.email || "")}</td>
+                    <td><span class="admin-level-badge level-${lvl}">${lvl}</span></td>
+                    <td class="perm-cell">${permTags}</td>
                     <td class="admin-actions">
-                        <button class="btn btn-sm btn-secondary" onclick='editAdmin(${JSON.stringify(a).replace(/'/g, "&#39;")})'>Edit</button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteUser('${a.id}','admin')">Delete</button>
+                        ${canEdit ? `<button class="btn btn-sm btn-secondary" onclick='editAdmin(${JSON.stringify(a).replace(/'/g, "&#39;")})'>Edit</button>` : ""}
+                        ${canDelete ? `<button class="btn btn-sm btn-danger" onclick="deleteUser('${a.id}','admin')">Delete</button>` : ""}
                     </td>
-                </tr>
-            `).join("")}</tbody>
+                </tr>`;
+            }).join("")}</tbody>
         </table>`}
     `;
 }
 
+function _permCheckboxes(perms) {
+    return `<div class="perm-grid">${ALL_PERM_KEYS.map(p =>
+        `<label class="perm-toggle"><input type="checkbox" data-perm="${p.key}" ${perms[p.key] ? "checked" : ""}> ${p.label}</label>`
+    ).join("")}</div>`;
+}
+function _collectPerms() {
+    const perms = {};
+    document.querySelectorAll(".perm-grid input[data-perm]").forEach(cb => {
+        perms[cb.dataset.perm] = cb.checked;
+    });
+    return perms;
+}
+
 function openAddAdmin() {
+    const defaultPerms = {};
+    ALL_PERM_KEYS.forEach(p => { defaultPerms[p.key] = true; });
     openAdminModal("Add Admin", `
         <label>Name <input class="form-input" id="mName" placeholder="First name"></label>
         <label>Surname <input class="form-input" id="mSurname" placeholder="Last name"></label>
         <label>Email <input class="form-input" id="mEmail" type="email" placeholder="admin@school.edu"></label>
         <label>Password <input class="form-input" id="mPassword" type="text" value="changeme"></label>
+        <fieldset class="perm-fieldset"><legend>Permissions</legend>${_permCheckboxes(defaultPerms)}</fieldset>
     `, async () => {
-        const body = { role: "admin", name: gv("mName"), surname: gv("mSurname"), email: gv("mEmail"), password: gv("mPassword") };
+        const perms = _collectPerms();
+        const body = { role: "admin", name: gv("mName"), surname: gv("mSurname"), email: gv("mEmail"), password: gv("mPassword"), permissions: perms };
         if (!body.name || !body.surname || !body.email) { showToast("All fields required", "warning"); return; }
         const res = await apiFetch("/admin/users/", { method: "POST", body: JSON.stringify(body) });
         const d = await res.json();
@@ -454,15 +537,19 @@ function openAddAdmin() {
 }
 
 function editAdmin(a) {
+    const existingPerms = a.permissions || {};
+    const isMaster = a.admin_level === "master";
     openAdminModal("Edit Admin", `
         <label>Name <input class="form-input" id="mName" value="${escHtml(a.name)}"></label>
         <label>Surname <input class="form-input" id="mSurname" value="${escHtml(a.surname)}"></label>
         <label>New Email <input class="form-input" id="mEmail" placeholder="Leave blank to keep"></label>
         <label>New Password <input class="form-input" id="mPassword" placeholder="Leave blank to keep"></label>
+        ${isMaster ? '' : `<fieldset class="perm-fieldset"><legend>Permissions</legend>${_permCheckboxes(existingPerms)}</fieldset>`}
     `, async () => {
         const body = { id: a.id, role: "admin", name: gv("mName"), surname: gv("mSurname") };
         const email = gv("mEmail"); if (email) body.email = email;
         const pw = gv("mPassword"); if (pw) body.password = pw;
+        if (!isMaster) body.permissions = _collectPerms();
         const res = await apiFetch("/admin/users/detail/", { method: "PATCH", body: JSON.stringify(body) });
         const d = await res.json();
         if (!res.ok) { showToast(d.message || "Failed", "error"); return; }

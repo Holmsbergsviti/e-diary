@@ -3024,6 +3024,63 @@ tr:hover td {
     gap: 6px;
 }
 
+/* --- Admin-level badges --- */
+.admin-level-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+.level-master { background: #7c3aed; color: #fff; }
+.level-regular { background: var(--bg-secondary); color: var(--text-primary); }
+
+/* --- Permission tags --- */
+.perm-cell { max-width: 260px; }
+.perm-tag {
+    display: inline-block;
+    padding: 1px 7px;
+    margin: 2px 2px;
+    border-radius: 10px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    background: var(--accent);
+    color: #fff;
+}
+.perm-tag.perm-all { background: #7c3aed; }
+.perm-tag.perm-none { background: var(--text-muted); }
+
+/* --- Permission checkboxes in modal --- */
+.perm-fieldset {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-top: 8px;
+}
+.perm-fieldset legend {
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 0 6px;
+}
+.perm-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 6px 12px;
+}
+.perm-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+.perm-toggle input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+}
+
 /* --- Admin Modal --- */
 .admin-modal-overlay {
     display: none;

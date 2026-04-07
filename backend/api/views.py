@@ -11,18 +11,32 @@ JWT_SECRET = os.environ.get("JWT_SECRET", "dev-jwt-secret-change-this")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 8
 
+# Admin hierarchy – these emails are resolved at login time
+SUPER_ADMIN_EMAIL = "system.core@chartwell.edu.rs"
+MASTER_ADMIN_EMAIL = "bojan.milenkovic@chartwell.edu.rs"
+
+ALL_ADMIN_PERMISSIONS = {
+    "students": True, "teachers": True, "classes": True,
+    "subjects": True, "schedule": True, "events": True,
+    "holidays": True, "study_hall": True, "import": True,
+}
+
 
 # ------------------------------------------------------------------
 # Token helpers
 # ------------------------------------------------------------------
 
-def _make_token(user_id: str, role: str, email: str = "") -> str:
+def _make_token(user_id: str, role: str, email: str = "", admin_level: str = "", permissions: dict = None) -> str:
     payload = {
         "sub": user_id,
         "role": role,
         "email": email,
         "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRY_HOURS),
     }
+    if admin_level:
+        payload["admin_level"] = admin_level
+    if permissions is not None:
+        payload["permissions"] = permissions
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
@@ -63,6 +77,8 @@ def _get_profile(user_id: str) -> tuple:
         return "admin", {
             "full_name": f"{a['name']} {a['surname']}",
             "class_name": "",
+            "admin_level": a.get("admin_level", "regular"),
+            "permissions": a.get("permissions") or ALL_ADMIN_PERMISSIONS,
         }
 
     # Teacher?
@@ -153,9 +169,20 @@ def login(request):
         role = "student"
         profile = {"full_name": user_email.split("@")[0], "class_name": ""}
 
-    token = _make_token(user_id, role, user_email)
+    # Determine admin level from email (super/master override DB value)
+    admin_level = profile.get("admin_level", "")
+    permissions = profile.get("permissions") or {}
+    if role == "admin":
+        if user_email.lower() == SUPER_ADMIN_EMAIL:
+            admin_level = "super"
+            permissions = ALL_ADMIN_PERMISSIONS
+        elif user_email.lower() == MASTER_ADMIN_EMAIL:
+            admin_level = "master"
+            permissions = ALL_ADMIN_PERMISSIONS
 
-    return JsonResponse({
+    token = _make_token(user_id, role, user_email, admin_level, permissions if role == "admin" else None)
+
+    resp = {
         "token": token,
         "user": {
             "id": user_id,
@@ -164,7 +191,12 @@ def login(request):
             "role": role,
             "class_name": profile.get("class_name", ""),
         },
-    })
+    }
+    if role == "admin":
+        resp["user"]["admin_level"] = admin_level
+        resp["user"]["permissions"] = permissions
+
+    return JsonResponse(resp)
 
 
 # ------------------------------------------------------------------
@@ -216,13 +248,26 @@ def me(request):
             "class_name": "",
         }
 
-    return JsonResponse({
+    resp = {
         "id": user_id,
         "email": payload.get("email", ""),
         "full_name": profile["full_name"],
         "role": role,
         "class_name": profile.get("class_name", ""),
-    })
+    }
+    if role == "admin":
+        email_lower = payload.get("email", "").lower()
+        if email_lower == SUPER_ADMIN_EMAIL:
+            resp["admin_level"] = "super"
+            resp["permissions"] = ALL_ADMIN_PERMISSIONS
+        elif email_lower == MASTER_ADMIN_EMAIL:
+            resp["admin_level"] = "master"
+            resp["permissions"] = ALL_ADMIN_PERMISSIONS
+        else:
+            resp["admin_level"] = profile.get("admin_level", "regular")
+            resp["permissions"] = profile.get("permissions") or ALL_ADMIN_PERMISSIONS
+
+    return JsonResponse(resp)
 
 
 # ------------------------------------------------------------------
@@ -2175,12 +2220,73 @@ def _require_admin(request):
     return payload
 
 
+def _admin_level(payload):
+    """Return the effective admin level from a JWT payload."""
+    email = (payload.get("email") or "").lower()
+    if email == SUPER_ADMIN_EMAIL:
+        return "super"
+    if email == MASTER_ADMIN_EMAIL:
+        return "master"
+    return payload.get("admin_level", "regular")
+
+
+def _admin_has_perm(payload, perm_key):
+    """Check if admin has a specific permission.  Super/master always have all perms."""
+    level = _admin_level(payload)
+    if level in ("super", "master"):
+        return True
+    perms = payload.get("permissions") or {}
+    return perms.get(perm_key, False)
+
+
+# Cache for super/master admin IDs (resolved once per process lifetime)
+_super_admin_id_cache = None
+_master_admin_id_cache = None
+
+
+def _is_super_admin_id(uid):
+    """Check if a user ID belongs to the super admin."""
+    global _super_admin_id_cache
+    if _super_admin_id_cache is None:
+        try:
+            from .supabase_client import supabase_admin_auth as _saa
+            users = _saa.auth.admin.list_users()
+            for u in users:
+                if u.email and u.email.lower() == SUPER_ADMIN_EMAIL:
+                    _super_admin_id_cache = str(u.id)
+                    break
+            if _super_admin_id_cache is None:
+                _super_admin_id_cache = ""
+        except Exception:
+            _super_admin_id_cache = ""
+    return uid == _super_admin_id_cache and _super_admin_id_cache != ""
+
+
+def _is_master_admin_id(uid):
+    """Check if a user ID belongs to the master admin."""
+    global _master_admin_id_cache
+    if _master_admin_id_cache is None:
+        try:
+            from .supabase_client import supabase_admin_auth as _saa
+            users = _saa.auth.admin.list_users()
+            for u in users:
+                if u.email and u.email.lower() == MASTER_ADMIN_EMAIL:
+                    _master_admin_id_cache = str(u.id)
+                    break
+            if _master_admin_id_cache is None:
+                _master_admin_id_cache = ""
+        except Exception:
+            _master_admin_id_cache = ""
+    return uid == _master_admin_id_cache and _master_admin_id_cache != ""
+
+
 # ---------- Stats / Overview ----------
 
 @csrf_exempt
 def admin_stats(request):
     """Return aggregate counts for the admin overview."""
-    if not _require_admin(request):
+    payload = _require_admin(request)
+    if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
     if request.method != "GET":
         return JsonResponse({"message": "Method not allowed"}, status=405)
@@ -2189,7 +2295,12 @@ def admin_stats(request):
     subjects = db.table("subjects").select("id").execute().data or []
     teachers = db.table("teachers").select("id").execute().data or []
     students = db.table("students").select("id,class_id").execute().data or []
-    admins = db.table("admins").select("id").execute().data or []
+    admins_raw = db.table("admins").select("id").execute().data or []
+    # Hide super admin from counts; hide master from non-super
+    caller_level = _admin_level(payload)
+    admins = [a for a in admins_raw if not _is_super_admin_id(a["id"])]
+    if caller_level != "super":
+        admins = [a for a in admins if not _is_master_admin_id(a["id"])]
     assignments = db.table("teacher_assignments").select("teacher_id").execute().data or []
     enrollments = db.table("student_subjects").select("student_id").execute().data or []
     schedule_slots = db.table("schedule").select("id").execute().data or []
@@ -2227,14 +2338,20 @@ def admin_stats(request):
 @csrf_exempt
 def admin_impersonate(request):
     """Generate a token for a target user so the admin can log in as them."""
-    if not _require_admin(request):
+    payload = _require_admin(request)
+    if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
     if request.method != "POST":
         return JsonResponse({"message": "Method not allowed"}, status=405)
+    caller_level = _admin_level(payload)
+    if caller_level not in ("super", "master"):
+        return JsonResponse({"message": "Only master+ can impersonate"}, status=403)
     data = json.loads(request.body)
     target_id = data.get("user_id", "").strip()
     if not target_id:
         return JsonResponse({"message": "user_id required"}, status=400)
+    if _is_super_admin_id(target_id):
+        return JsonResponse({"message": "Cannot impersonate this account"}, status=403)
 
     role, profile = _get_profile(target_id)
     if not role:
@@ -2269,8 +2386,11 @@ def admin_impersonate(request):
 
 @csrf_exempt
 def admin_classes(request):
-    if not _require_admin(request):
+    payload = _require_admin(request)
+    if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
+    if not _admin_has_perm(payload, "classes"):
+        return JsonResponse({"message": "No permission"}, status=403)
     db = ediary()
     if request.method == "GET":
         rows = db.table("classes").select("*").order("grade_level").order("class_name").execute()
@@ -2288,8 +2408,11 @@ def admin_classes(request):
 
 @csrf_exempt
 def admin_class_detail(request):
-    if not _require_admin(request):
+    payload = _require_admin(request)
+    if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
+    if not _admin_has_perm(payload, "classes"):
+        return JsonResponse({"message": "No permission"}, status=403)
     db = ediary()
     if request.method == "PATCH":
         data = json.loads(request.body)
@@ -2314,8 +2437,11 @@ def admin_class_detail(request):
 
 @csrf_exempt
 def admin_subjects(request):
-    if not _require_admin(request):
+    payload = _require_admin(request)
+    if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
+    if not _admin_has_perm(payload, "subjects"):
+        return JsonResponse({"message": "No permission"}, status=403)
     db = ediary()
     if request.method == "GET":
         rows = db.table("subjects").select("*").order("name").execute()
@@ -2333,8 +2459,11 @@ def admin_subjects(request):
 
 @csrf_exempt
 def admin_subject_detail(request):
-    if not _require_admin(request):
+    payload = _require_admin(request)
+    if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
+    if not _admin_has_perm(payload, "subjects"):
+        return JsonResponse({"message": "No permission"}, status=403)
     db = ediary()
     if request.method == "PATCH":
         data = json.loads(request.body)
@@ -2360,12 +2489,17 @@ def admin_subject_detail(request):
 @csrf_exempt
 def admin_users(request):
     """GET: list users by role; POST: create a user (auth + profile)."""
-    if not _require_admin(request):
+    payload = _require_admin(request)
+    if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
     db = ediary()
+    caller_level = _admin_level(payload)
+
     if request.method == "GET":
         role = request.GET.get("role", "student")
         if role == "teacher":
+            if not _admin_has_perm(payload, "teachers"):
+                return JsonResponse({"message": "No permission"}, status=403)
             rows = db.table("teachers").select("*").order("surname").order("name").execute()
             teachers = rows.data or []
             # Attach class name for class teachers
@@ -2375,9 +2509,27 @@ def admin_users(request):
                 t["class_teacher_class_name"] = cls_map.get(t.get("class_teacher_of_class_id"), "")
             return JsonResponse({"users": teachers})
         elif role == "admin":
+            # Only super and master can see admin list
+            if caller_level not in ("super", "master"):
+                return JsonResponse({"message": "No permission"}, status=403)
             rows = db.table("admins").select("*").order("surname").order("name").execute()
-            return JsonResponse({"users": rows.data or []})
+            admins_list = rows.data or []
+            # Super admin is always hidden from everyone
+            admins_list = [a for a in admins_list if not _is_super_admin_id(a["id"])]
+            # Master admin hidden from regular admins (but visible to super)
+            if caller_level != "super":
+                admins_list = [a for a in admins_list if not _is_master_admin_id(a["id"])]
+            # Attach email from auth for display
+            for a in admins_list:
+                try:
+                    auth_u = supabase_admin_auth.auth.admin.get_user_by_id(a["id"])
+                    a["email"] = auth_u.user.email if auth_u and auth_u.user else ""
+                except Exception:
+                    a["email"] = ""
+            return JsonResponse({"users": admins_list})
         else:
+            if not _admin_has_perm(payload, "students"):
+                return JsonResponse({"message": "No permission"}, status=403)
             rows = db.table("students").select("*").order("surname").order("name").execute()
             students = rows.data or []
             # Filter out any IDs that also appear in the admins table
@@ -2401,6 +2553,17 @@ def admin_users(request):
         if not email or not password or not name or not surname:
             return JsonResponse({"message": "email, password, name, surname required"}, status=400)
 
+        # Permission checks per role
+        if role == "admin":
+            if caller_level not in ("super", "master"):
+                return JsonResponse({"message": "Only master admins can create admins"}, status=403)
+        elif role == "teacher":
+            if not _admin_has_perm(payload, "teachers"):
+                return JsonResponse({"message": "No permission"}, status=403)
+        else:
+            if not _admin_has_perm(payload, "students"):
+                return JsonResponse({"message": "No permission"}, status=403)
+
         # Create Supabase Auth user
         try:
             auth_response = supabase_admin_auth.auth.admin.create_user({
@@ -2423,8 +2586,11 @@ def admin_users(request):
                     "class_teacher_of_class_id": class_teacher_of,
                 }).execute()
             elif role == "admin":
+                admin_permissions = data.get("permissions") or ALL_ADMIN_PERMISSIONS
                 db.table("admins").insert({
                     "id": user_id, "name": name, "surname": surname,
+                    "admin_level": "regular",
+                    "permissions": admin_permissions,
                 }).execute()
             else:
                 class_id = data.get("class_id", "").strip() or None
@@ -2448,9 +2614,11 @@ def admin_users(request):
 @csrf_exempt
 def admin_user_detail(request):
     """PATCH: update profile; DELETE: remove user (auth + profile)."""
-    if not _require_admin(request):
+    payload = _require_admin(request)
+    if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
     db = ediary()
+    caller_level = _admin_level(payload)
 
     if request.method == "PATCH":
         data = json.loads(request.body)
@@ -2458,6 +2626,19 @@ def admin_user_detail(request):
         role = data.get("role", "student").strip()
         if not uid:
             return JsonResponse({"message": "id required"}, status=400)
+
+        # --- hierarchy guards ---
+        if role == "admin":
+            if _is_super_admin_id(uid):
+                return JsonResponse({"message": "Cannot edit this account"}, status=403)
+            if _is_master_admin_id(uid) and caller_level != "super":
+                return JsonResponse({"message": "Cannot edit master admin"}, status=403)
+            if caller_level not in ("super", "master"):
+                return JsonResponse({"message": "Only master+ can edit admins"}, status=403)
+        elif role == "teacher" and not _admin_has_perm(payload, "teachers"):
+            return JsonResponse({"message": "No permission"}, status=403)
+        elif role == "student" and not _admin_has_perm(payload, "students"):
+            return JsonResponse({"message": "No permission"}, status=403)
 
         table = {"teacher": "teachers", "admin": "admins"}.get(role, "students")
         updates = {}
@@ -2473,6 +2654,10 @@ def admin_user_detail(request):
         elif role == "student":
             if "class_id" in data:
                 updates["class_id"] = data["class_id"].strip() or None
+        elif role == "admin":
+            # Allow super/master to update permissions for regular admins
+            if "permissions" in data and not _is_master_admin_id(uid):
+                updates["permissions"] = data["permissions"]
 
         # Update email/password in Supabase Auth if provided
         if data.get("email") or data.get("password"):
@@ -2494,6 +2679,19 @@ def admin_user_detail(request):
         if not uid:
             return JsonResponse({"message": "id required"}, status=400)
 
+        # --- hierarchy guards ---
+        if role == "admin":
+            if _is_super_admin_id(uid):
+                return JsonResponse({"message": "Cannot delete this account"}, status=403)
+            if _is_master_admin_id(uid) and caller_level != "super":
+                return JsonResponse({"message": "Cannot delete master admin"}, status=403)
+            if caller_level not in ("super", "master"):
+                return JsonResponse({"message": "Only master+ can delete admins"}, status=403)
+        elif role == "teacher" and not _admin_has_perm(payload, "teachers"):
+            return JsonResponse({"message": "No permission"}, status=403)
+        elif role == "student" and not _admin_has_perm(payload, "students"):
+            return JsonResponse({"message": "No permission"}, status=403)
+
         table = {"teacher": "teachers", "admin": "admins"}.get(role, "students")
         try:
             db.table(table).delete().eq("id", uid).execute()
@@ -2512,8 +2710,11 @@ def admin_user_detail(request):
 
 @csrf_exempt
 def admin_teacher_assignments(request):
-    if not _require_admin(request):
+    payload = _require_admin(request)
+    if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
+    if not _admin_has_perm(payload, "schedule"):
+        return JsonResponse({"message": "No permission"}, status=403)
     db = ediary()
     if request.method == "GET":
         rows = db.table("teacher_assignments").select("*").execute()
@@ -2552,8 +2753,11 @@ def admin_teacher_assignments(request):
 
 @csrf_exempt
 def admin_teacher_assignment_delete(request):
-    if not _require_admin(request):
+    payload = _require_admin(request)
+    if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
+    if not _admin_has_perm(payload, "schedule"):
+        return JsonResponse({"message": "No permission"}, status=403)
     if request.method != "DELETE":
         return JsonResponse({"message": "Method not allowed"}, status=405)
     db = ediary()
@@ -2570,8 +2774,11 @@ def admin_teacher_assignment_delete(request):
 
 @csrf_exempt
 def admin_student_subjects(request):
-    if not _require_admin(request):
+    payload = _require_admin(request)
+    if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
+    if not _admin_has_perm(payload, "students"):
+        return JsonResponse({"message": "No permission"}, status=403)
     db = ediary()
     if request.method == "GET":
         rows = db.table("student_subjects").select("*").execute()
@@ -2610,8 +2817,11 @@ def admin_student_subjects(request):
 
 @csrf_exempt
 def admin_student_subject_delete(request):
-    if not _require_admin(request):
+    payload = _require_admin(request)
+    if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
+    if not _admin_has_perm(payload, "students"):
+        return JsonResponse({"message": "No permission"}, status=403)
     if request.method != "DELETE":
         return JsonResponse({"message": "Method not allowed"}, status=405)
     db = ediary()
@@ -2627,8 +2837,11 @@ def admin_student_subject_delete(request):
 
 @csrf_exempt
 def admin_schedule(request):
-    if not _require_admin(request):
+    payload = _require_admin(request)
+    if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
+    if not _admin_has_perm(payload, "schedule"):
+        return JsonResponse({"message": "No permission"}, status=403)
     db = ediary()
     if request.method == "GET":
         rows = db.table("schedule").select("*").order("day_of_week").order("period").execute()
@@ -2671,8 +2884,11 @@ def admin_schedule(request):
 
 @csrf_exempt
 def admin_schedule_detail(request):
-    if not _require_admin(request):
+    payload = _require_admin(request)
+    if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
+    if not _admin_has_perm(payload, "schedule"):
+        return JsonResponse({"message": "No permission"}, status=403)
     db = ediary()
     if request.method == "PATCH":
         data = json.loads(request.body)
@@ -2709,8 +2925,11 @@ def admin_csv_import(request):
     POST with JSON: { "type": "classes|subjects|students|teachers|admins|teacher_assignments|student_subjects|schedule", "rows": [...] }
     Each row is a dict matching the required fields.
     """
-    if not _require_admin(request):
+    payload = _require_admin(request)
+    if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
+    if not _admin_has_perm(payload, "import"):
+        return JsonResponse({"message": "No permission"}, status=403)
     if request.method != "POST":
         return JsonResponse({"message": "Method not allowed"}, status=405)
 
@@ -2881,9 +3100,11 @@ def admin_csv_import(request):
 
 @csrf_exempt
 def admin_events(request):
-    payload = _verify_token(request)
-    if not payload or payload.get("role") != "admin":
+    payload = _require_admin(request)
+    if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
+    if not _admin_has_perm(payload, "events"):
+        return JsonResponse({"message": "No permission"}, status=403)
 
     try:
         db = ediary()
@@ -2934,9 +3155,11 @@ def admin_events(request):
 
 @csrf_exempt
 def admin_event_detail(request):
-    payload = _verify_token(request)
-    if not payload or payload.get("role") != "admin":
+    payload = _require_admin(request)
+    if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
+    if not _admin_has_perm(payload, "events"):
+        return JsonResponse({"message": "No permission"}, status=403)
 
     event_id = request.GET.get("id")
     if not event_id:
@@ -2973,9 +3196,11 @@ def admin_event_detail(request):
 
 @csrf_exempt
 def admin_holidays(request):
-    payload = _verify_token(request)
-    if not payload or payload.get("role") != "admin":
+    payload = _require_admin(request)
+    if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
+    if not _admin_has_perm(payload, "holidays"):
+        return JsonResponse({"message": "No permission"}, status=403)
 
     try:
         db = ediary()
@@ -3008,9 +3233,11 @@ def admin_holidays(request):
 
 @csrf_exempt
 def admin_holiday_detail(request):
-    payload = _verify_token(request)
-    if not payload or payload.get("role") != "admin":
+    payload = _require_admin(request)
+    if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
+    if not _admin_has_perm(payload, "holidays"):
+        return JsonResponse({"message": "No permission"}, status=403)
 
     holiday_id = request.GET.get("id")
     if not holiday_id:

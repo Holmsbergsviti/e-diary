@@ -37,6 +37,8 @@ CREATE TABLE ediary_schema.admins (
   id uuid NOT NULL,
   name text NOT NULL,
   surname text NOT NULL,
+  admin_level text NOT NULL DEFAULT 'regular' CHECK (admin_level IN ('super', 'master', 'regular')),
+  permissions jsonb DEFAULT '{"students":true,"teachers":true,"classes":true,"subjects":true,"schedule":true,"events":true,"holidays":true,"study_hall":true,"import":true}'::jsonb,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT admins_pkey PRIMARY KEY (id),
   CONSTRAINT admins_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)

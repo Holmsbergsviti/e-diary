@@ -189,10 +189,6 @@ function initNav() {
 
         if (user.role === "admin") {
             links.push({ href: "admin.html", icon: "⚙️", label: "Admin Panel", active: isPage(["admin.html"]) });
-            links.push({ href: "teacher.html", icon: "🏠", label: "Dashboard", active: isPage(["teacher.html"]) });
-            links.push({ href: "marks.html", icon: "📝", label: "Marks", active: isPage(["marks.html"]) });
-            links.push({ href: "report.html", icon: "🧾", label: "Reports", active: isPage(["report.html"]) });
-            links.push({ href: "schedule.html", icon: "📅", label: "Schedule", active: isPage(["schedule.html"]) });
         } else if (user.role === "teacher") {
             links.push({ href: "teacher.html", icon: "🏠", label: "Dashboard", active: isPage(["teacher.html"]) });
             links.push({ href: "marks.html", icon: "📝", label: "Marks", active: isPage(["marks.html"]) });
