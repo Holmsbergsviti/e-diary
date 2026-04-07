@@ -807,28 +807,7 @@ def teacher_attendance(request):
                 r.pop("topic", None)
             result = db2.table("attendance").insert(rows).execute()
 
-        # Alert: student marked absent here but present/late/excused in another class/subject same day
-        conflicting_students = []
-        absent_ids = [r.get("student_id") for r in rows if r.get("status") == "Absent"]
-        if absent_ids:
-            same_day = (
-                ediary().table("attendance")
-                .select("student_id, class_id, subject_id, status")
-                .eq("date_recorded", date)
-                .in_("student_id", absent_ids)
-                .execute()
-            )
-            for rec in (same_day.data or []):
-                if rec.get("status") in ("Present", "Late", "Excused"):
-                    if rec.get("class_id") != class_id or rec.get("subject_id") != subject_id:
-                        conflicting_students.append(rec.get("student_id"))
-
-        return JsonResponse({
-            "saved": len(result.data or []),
-            "alerts": {
-                "absent_present_conflicts": sorted(list(set(conflicting_students))),
-            },
-        }, status=201)
+        return JsonResponse({"saved": len(result.data or [])}, status=201)
 
     return JsonResponse({"message": "Method not allowed"}, status=405)
 

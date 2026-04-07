@@ -361,10 +361,6 @@ async function saveAttendance() {
         });
         const data = await res.json();
         if (res.ok) {
-            const conflicts = data.alerts?.absent_present_conflicts || [];
-            if (conflicts.length > 0) {
-                showToast(`Attendance conflict: ${conflicts.length} student(s) marked absent here but present in another class on the same day.`, "warning", 6000);
-            }
             btn.textContent = "✓ Saved!";
             btn.classList.add("btn-success");
             setTimeout(() => {

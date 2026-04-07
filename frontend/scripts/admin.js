@@ -19,6 +19,7 @@ const TAB_PERMS = {
     schedule: "schedule",
     events: "events",
     holidays: "holidays",
+    attendance: "students",
     import: "import",
 };
 
@@ -143,6 +144,7 @@ async function loadSection(section) {
             case "schedule": await loadSchedule(container); break;
             case "events": await loadEvents(container); break;
             case "holidays": await loadHolidays(container); break;
+            case "attendance": await loadAttendanceFlags(container); break;
             case "import": renderImportSection(container); break;
             default: container.innerHTML = '<p class="empty-state">Unknown section.</p>';
         }
@@ -1146,6 +1148,79 @@ async function deleteHoliday(id) {
     await apiFetch(`/admin/holidays/detail/?id=${id}`, { method: "DELETE" });
     showToast("Holiday deleted", "success");
     await loadSection("holidays");
+}
+
+/* ═══════════════ ATTENDANCE FLAGS ═══════════════ */
+async function loadAttendanceFlags(container) {
+    // Default: last 7 days
+    const today = new Date();
+    const weekAgo = new Date(today); weekAgo.setDate(today.getDate() - 7);
+    const defaultFrom = weekAgo.toISOString().slice(0, 10);
+    const defaultTo = today.toISOString().slice(0, 10);
+
+    container.innerHTML = `
+        <div class="admin-section-header">
+            <h3>⚠ Attendance Flags</h3>
+            <p style="color:var(--text-secondary);margin:4px 0 0;font-size:0.85rem">
+                Students marked <strong>absent</strong> in one subject but <strong>present / late</strong> in another on the same day.
+            </p>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+            <label style="font-size:0.85rem;color:var(--text-secondary)">From
+                <input type="date" id="flagsFrom" value="${defaultFrom}" class="modal-input" style="width:auto;margin-left:4px">
+            </label>
+            <label style="font-size:0.85rem;color:var(--text-secondary)">To
+                <input type="date" id="flagsTo" value="${defaultTo}" class="modal-input" style="width:auto;margin-left:4px">
+            </label>
+            <button class="btn btn-primary btn-sm" onclick="fetchAttendanceFlags()">Search</button>
+        </div>
+        <div id="flagsResult"><p class="loading">Loading…</p></div>
+    `;
+    await fetchAttendanceFlags();
+}
+
+async function fetchAttendanceFlags() {
+    const from = document.getElementById("flagsFrom")?.value || "";
+    const to = document.getElementById("flagsTo")?.value || "";
+    const resultDiv = document.getElementById("flagsResult");
+    if (!resultDiv) return;
+    resultDiv.innerHTML = '<p class="loading">Loading…</p>';
+
+    try {
+        const res = await apiFetch(`/admin/attendance-flags/?from=${from}&to=${to}`);
+        if (!res.ok) {
+            resultDiv.innerHTML = '<p class="empty-state">Failed to load attendance flags.</p>';
+            return;
+        }
+        const data = await res.json();
+        const flags = data.flags || [];
+
+        if (flags.length === 0) {
+            resultDiv.innerHTML = `<p class="empty-state">No suspicious attendance found between ${escHtml(data.date_from)} and ${escHtml(data.date_to)}. ✅</p>`;
+            return;
+        }
+
+        let html = `<p style="margin-bottom:12px;color:var(--text-secondary);font-size:0.85rem">
+            Found <strong>${flags.length}</strong> flag(s) between ${escHtml(data.date_from)} and ${escHtml(data.date_to)}
+        </p>`;
+        html += `<table class="admin-table"><thead><tr>
+            <th>Date</th><th>Student</th><th>Class</th><th>Absent In</th><th>Present In</th>
+        </tr></thead><tbody>`;
+
+        for (const f of flags) {
+            html += `<tr>
+                <td>${escHtml(f.date)}</td>
+                <td>${escHtml(f.student_name)}</td>
+                <td>${escHtml(f.class_name || "–")}</td>
+                <td><span class="flag-absent">${f.absent_in.map(s => escHtml(s)).join(", ")}</span></td>
+                <td><span class="flag-present">${f.present_in.map(s => escHtml(s)).join(", ")}</span></td>
+            </tr>`;
+        }
+        html += "</tbody></table>";
+        resultDiv.innerHTML = html;
+    } catch (err) {
+        resultDiv.innerHTML = `<p class="empty-state">Error: ${escHtml(err.message)}</p>`;
+    }
 }
 
 /* ═══════════════ CSV IMPORT ═══════════════ */

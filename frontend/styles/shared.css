@@ -3086,6 +3086,26 @@ tr:hover td {
     gap: 6px;
 }
 
+/* --- Attendance flag badges --- */
+.flag-absent {
+    display: inline-block;
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+    font-weight: 600;
+    font-size: 0.8rem;
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+.flag-present {
+    display: inline-block;
+    background: rgba(34, 197, 94, 0.12);
+    color: #22c55e;
+    font-weight: 600;
+    font-size: 0.8rem;
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+
 /* --- Teacher Export Card --- */
 .export-section-list { display: flex; flex-direction: column; gap: 10px; }
 .export-row {
