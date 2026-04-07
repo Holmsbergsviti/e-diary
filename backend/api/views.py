@@ -140,11 +140,21 @@ def _get_profile(user_id: str) -> tuple:
 # ------------------------------------------------------------------
 # Login – authenticate via Supabase Auth
 # ------------------------------------------------------------------
-from django_ratelimit.decorators import ratelimit
-from django_ratelimit.exceptions import Ratelimited
+try:
+    from django_ratelimit.decorators import ratelimit as _ratelimit
+    _HAS_RATELIMIT = True
+except ImportError:
+    _HAS_RATELIMIT = False
+    logger.warning("django-ratelimit not installed – login rate limiting disabled")
+
+    def _ratelimit(**kwargs):
+        """No-op decorator fallback."""
+        def decorator(fn):
+            return fn
+        return decorator
 
 @csrf_exempt
-@ratelimit(key="ip", rate="5/m", method="POST", block=False)
+@_ratelimit(key="ip", rate="5/m", method="POST", block=False)
 def login(request):
     if request.method != "POST":
         return JsonResponse({"message": "Method not allowed"}, status=405)
