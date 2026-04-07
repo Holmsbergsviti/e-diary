@@ -2902,6 +2902,9 @@ def admin_events(request):
             description = data.get("description", "").strip()
             event_date = data.get("event_date")
             event_end_date = data.get("event_end_date") or event_date
+            start_time = data.get("start_time") or None
+            end_time = data.get("end_time") or None
+            affected_periods = data.get("affected_periods", [])
             target_type = data.get("target_type", "all")  # all, class, students
             target_class_ids = data.get("target_class_ids", [])
             target_student_ids = data.get("target_student_ids", [])
@@ -2914,6 +2917,9 @@ def admin_events(request):
                 "description": description,
                 "event_date": event_date,
                 "event_end_date": event_end_date,
+                "start_time": start_time,
+                "end_time": end_time,
+                "affected_periods": affected_periods,
                 "target_type": target_type,
                 "target_class_ids": target_class_ids,
                 "target_student_ids": target_student_ids,
@@ -2949,7 +2955,7 @@ def admin_event_detail(request):
             except json.JSONDecodeError:
                 return JsonResponse({"message": "Invalid JSON"}, status=400)
             updates = {}
-            for key in ("title", "description", "event_date", "event_end_date", "target_type", "target_class_ids", "target_student_ids"):
+            for key in ("title", "description", "event_date", "event_end_date", "start_time", "end_time", "affected_periods", "target_type", "target_class_ids", "target_student_ids"):
                 if key in data:
                     updates[key] = data[key]
             if updates:

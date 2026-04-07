@@ -670,7 +670,7 @@ async function loadEvents(container) {
         </div>
         ${events.length === 0 ? '<p class="empty-state">No events yet.</p>' : `
         <table class="admin-table">
-            <thead><tr><th>Title</th><th>Date</th><th>End Date</th><th>Target</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Title</th><th>Date</th><th>Time / Periods</th><th>Target</th><th>Actions</th></tr></thead>
             <tbody>${events.map(ev => {
                 let targetLabel = "All";
                 if (ev.target_type === "class") {
@@ -680,10 +680,20 @@ async function loadEvents(container) {
                     const ids = ev.target_student_ids || [];
                     targetLabel = ids.length + " student" + (ids.length !== 1 ? "s" : "");
                 }
+                const dateRange = ev.event_end_date && ev.event_end_date !== ev.event_date
+                    ? `${escHtml(ev.event_date)} – ${escHtml(ev.event_end_date)}`
+                    : escHtml(ev.event_date || "");
+                const timeStr = ev.start_time
+                    ? `${ev.start_time}${ev.end_time ? "–" + ev.end_time : ""}`
+                    : "";
+                const periodsStr = (ev.affected_periods || []).length > 0
+                    ? "P" + ev.affected_periods.join(", P")
+                    : "";
+                const timePeriod = [timeStr, periodsStr].filter(Boolean).join(" · ") || "All day";
                 return `<tr>
                     <td><strong>${escHtml(ev.title)}</strong>${ev.description ? `<br><small style="color:var(--text-lighter)">${escHtml(ev.description.substring(0, 60))}${ev.description.length > 60 ? "…" : ""}</small>` : ""}</td>
-                    <td>${escHtml(ev.event_date || "")}</td>
-                    <td>${ev.event_end_date && ev.event_end_date !== ev.event_date ? escHtml(ev.event_end_date) : "—"}</td>
+                    <td>${dateRange}</td>
+                    <td><small>${escHtml(timePeriod)}</small></td>
                     <td><span class="event-target-badge event-target-${ev.target_type || 'all'}">${escHtml(targetLabel)}</span></td>
                     <td class="admin-actions">
                         <button class="btn btn-sm btn-secondary" onclick='openEditEvent(${JSON.stringify(ev).replace(/'/g, "&#39;")})'>Edit</button>
@@ -731,6 +741,7 @@ function buildEventFormHtml(ev) {
     const tt = ev ? ev.target_type || "all" : "all";
     const selClassIds = ev ? (ev.target_class_ids || []) : [];
     const selStudentIds = ev ? (ev.target_student_ids || []) : [];
+    const selPeriods = ev ? (ev.affected_periods || []) : [];
     return `
         <div class="event-form">
             <div class="event-form-section">
@@ -739,10 +750,24 @@ function buildEventFormHtml(ev) {
                 <label>Description <textarea class="form-input" id="mEvDesc" rows="2" placeholder="Optional details">${escHtml(ev ? ev.description || "" : "")}</textarea></label>
             </div>
             <div class="event-form-section">
-                <div class="event-form-section-label">📅 Dates</div>
+                <div class="event-form-section-label">📅 Dates & Time</div>
                 <div class="form-row-2col">
                     <label>Start Date <input class="form-input" id="mEvDate" type="date" value="${ev ? ev.event_date || "" : ""}"></label>
                     <label>End Date <input class="form-input" id="mEvEndDate" type="date" value="${ev && ev.event_end_date !== ev.event_date ? ev.event_end_date || "" : ""}"></label>
+                </div>
+                <div class="form-row-2col">
+                    <label>Start Time <input class="form-input" id="mEvStartTime" type="time" value="${ev ? ev.start_time || "" : ""}"></label>
+                    <label>End Time <input class="form-input" id="mEvEndTime" type="time" value="${ev ? ev.end_time || "" : ""}"></label>
+                </div>
+                <div class="event-period-section">
+                    <label class="picker-label">Affected Periods <small style="color:var(--text-lighter)">(which timetable periods this event replaces)</small></label>
+                    <div class="event-period-grid" id="mEvPeriods">
+                        ${[1,2,3,4,5,6,7,8].map(p => {
+                            const times = ["08:30–09:10","09:15–10:00","10:15–10:55","11:00–11:45","11:50–12:30","13:15–13:55","14:00–14:45","14:50–15:30"];
+                            return `<button type="button" class="period-toggle-btn${selPeriods.includes(p) ? ' active' : ''}" data-period="${p}"><strong>P${p}</strong><small>${times[p-1]}</small></button>`;
+                        }).join("")}
+                        <button type="button" class="period-toggle-btn period-all-btn" id="mEvPeriodsAll">All Day</button>
+                    </div>
                 </div>
             </div>
             <div class="event-form-section">
@@ -784,6 +809,24 @@ function bindEventTargetToggle() {
             document.getElementById("mEvStudentPicker").style.display = btn.dataset.value === "students" ? "block" : "none";
         });
     });
+
+    // Period toggle buttons
+    const periodGrid = document.getElementById("mEvPeriods");
+    if (periodGrid) {
+        periodGrid.querySelectorAll(".period-toggle-btn:not(.period-all-btn)").forEach(btn => {
+            btn.addEventListener("click", () => {
+                btn.classList.toggle("active");
+            });
+        });
+        const allBtn = document.getElementById("mEvPeriodsAll");
+        if (allBtn) {
+            allBtn.addEventListener("click", () => {
+                const periodBtns = periodGrid.querySelectorAll(".period-toggle-btn:not(.period-all-btn)");
+                const allActive = [...periodBtns].every(b => b.classList.contains("active"));
+                periodBtns.forEach(b => b.classList.toggle("active", !allActive));
+            });
+        }
+    }
 }
 
 function filterEventStudents() {
@@ -797,6 +840,9 @@ function collectEventForm() {
     const title = gv("mEvTitle");
     const event_date = gv("mEvDate");
     if (!title || !event_date) { showToast("Title and start date required", "warning"); return null; }
+    const start_time = gv("mEvStartTime") || null;
+    const end_time = gv("mEvEndTime") || null;
+    const affected_periods = [...document.querySelectorAll("#mEvPeriods .period-toggle-btn.active:not(.period-all-btn)")].map(b => parseInt(b.dataset.period));
     const target_type = gv("mEvTarget");
     let target_class_ids = [];
     let target_student_ids = [];
@@ -810,6 +856,7 @@ function collectEventForm() {
     return {
         title, description: gv("mEvDesc"), event_date,
         event_end_date: gv("mEvEndDate") || event_date,
+        start_time, end_time, affected_periods,
         target_type, target_class_ids, target_student_ids,
     };
 }

@@ -1,13 +1,27 @@
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const PERIOD_TIMES = [
-    "08:30–09:10",
-    "09:15–10:00",
-    "10:15–10:55",
-    "11:00–11:45",
-    "11:50–12:30",
-    "13:15–13:55",
-    "14:00–14:45",
-    "14:50–15:30",
+    "08:30–09:10",   // Period 1
+    "09:15–10:00",   // Period 2
+    "10:15–10:55",   // Period 3
+    "11:00–11:45",   // Period 4
+    "11:50–12:30",   // Period 5
+    "13:15–13:55",   // Period 6
+    "14:00–14:45",   // Period 7
+    "14:50–15:30",   // Period 8
+];
+
+// Rows in display order: periods with break rows inserted
+const SCHEDULE_ROWS = [
+    { type: "period", period: 1 },
+    { type: "period", period: 2 },
+    { type: "break",  label: "🥪 Snack Break", time: "10:00–10:10" },
+    { type: "period", period: 3 },
+    { type: "period", period: 4 },
+    { type: "period", period: 5 },
+    { type: "break",  label: "🍽 Lunch Break", time: "12:30–13:10" },
+    { type: "period", period: 6 },
+    { type: "period", period: 7 },
+    { type: "period", period: 8 },
 ];
 
 let scheduleSlots = [];
@@ -101,9 +115,14 @@ function getCurrentPeriod() {
     
     for (let i = 0; i < periodTimesInMinutes.length; i++) {
         if (time >= periodTimesInMinutes[i].start && time < periodTimesInMinutes[i].end) {
-            return i + 1; // Return period number (1-8)
+            return { type: "period", period: i + 1 };
         }
     }
+
+    // Check break times
+    if (time >= 10 * 60 && time < 10 * 60 + 10) return { type: "snack-break" };
+    if (time >= 12 * 60 + 30 && time < 13 * 60 + 10) return { type: "lunch-break" };
+
     return null;
 }
 
@@ -206,18 +225,53 @@ function renderSchedule() {
     html += "</tr></thead><tbody>";
 
     // Get current period + today's column index for cell-level highlighting
-    let currentPeriod = null;
+    let currentInfo = null;
     let todayCol = null; // 1-based day_of_week (1=Mon)
     if (isCurrentWeek) {
         const now = new Date();
         const dow = now.getDay(); // 0=Sun, 1=Mon … 5=Fri
         if (dow >= 1 && dow <= 5) {
-            currentPeriod = getCurrentPeriod();
+            currentInfo = getCurrentPeriod();
             todayCol = dow;
         }
     }
 
-    for (let p = 1; p <= 8; p++) {
+    // Build event-period lookup: for each day, which periods are overridden by events
+    // eventPeriodMap[dateStr][period] = event object
+    const eventPeriodMap = {};
+    for (const ev of scheduleEvents) {
+        const periods = ev.affected_periods || [];
+        if (periods.length === 0) continue;
+        const start = ev.event_date;
+        const end = ev.event_end_date || start;
+        const d = new Date(start);
+        const dEnd = new Date(end);
+        while (d <= dEnd) {
+            const ds = isoDate(d);
+            if (!eventPeriodMap[ds]) eventPeriodMap[ds] = {};
+            for (const p of periods) {
+                eventPeriodMap[ds][p] = ev;
+            }
+            d.setDate(d.getDate() + 1);
+        }
+    }
+
+    for (const row of SCHEDULE_ROWS) {
+        if (row.type === "break") {
+            // Break row spans all columns
+            const isSnack = row.label.includes("Snack");
+            const breakType = isSnack ? "snack-break" : "lunch-break";
+            const isNowBreak = currentInfo && currentInfo.type === breakType && todayCol;
+            html += `<tr class="schedule-break-row${isNowBreak ? ' break-current' : ''}">
+                <td colspan="${5 + 1}" class="schedule-break-cell">
+                    <span class="break-label">${row.label}</span>
+                    <span class="break-time">${row.time}</span>
+                </td>
+            </tr>`;
+            continue;
+        }
+
+        const p = row.period;
         const time = PERIOD_TIMES[p - 1] || `Period ${p}`;
         html += `<tr><td><strong>${p}</strong><br><small style="color:#9ca3af">${time}</small></td>`;
         for (let d = 1; d <= 5; d++) {
@@ -225,11 +279,21 @@ function renderSchedule() {
             const cellDate = new Date(mon); cellDate.setDate(mon.getDate() + d - 1);
             const cellDateStr = isoDate(cellDate);
             const holiday = getHoliday(cellDateStr);
-            const isNowCell = (p === currentPeriod && d === todayCol);
+            const isNowCell = (currentInfo && currentInfo.type === "period" && p === currentInfo.period && d === todayCol);
+
+            // Check if this period is overridden by an event
+            const eventOverride = (eventPeriodMap[cellDateStr] || {})[p];
 
             if (holiday) {
                 // Holiday cell – greyed out
                 html += `<td class="lesson-holiday" title="${escHtml(holiday.name)}"><span class="holiday-label">${p === 1 ? escHtml(holiday.name) : ""}</span></td>`;
+            } else if (eventOverride) {
+                // Event overrides this period
+                const nowClass = isNowCell ? " cell-current" : "";
+                html += `<td class="lesson-event${nowClass}" title="${escHtml(eventOverride.title)}${eventOverride.start_time ? '\n' + eventOverride.start_time + (eventOverride.end_time ? '–' + eventOverride.end_time : '') : ''}">
+                    <span class="event-cell-icon">🎉</span> ${escHtml(eventOverride.title)}
+                    ${eventOverride.start_time ? `<br><span class="lesson-room">${eventOverride.start_time}${eventOverride.end_time ? '–' + eventOverride.end_time : ''}</span>` : ""}
+                </td>`;
             } else if (slot) {
                 const yearLabel = isTeacher
                     ? escHtml(slot.class_name || `Year ${slot.grade_level}`)
@@ -299,9 +363,16 @@ function renderSchedule() {
             html += weekEvents.map(ev => {
                 const dateRange = ev.event_end_date && ev.event_end_date !== ev.event_date
                     ? `${ev.event_date} – ${ev.event_end_date}` : ev.event_date;
+                const timeStr = ev.start_time
+                    ? `${ev.start_time}${ev.end_time ? ' – ' + ev.end_time : ''}`
+                    : "";
+                const periodsStr = (ev.affected_periods || []).length > 0
+                    ? "Periods " + ev.affected_periods.join(", ")
+                    : "";
+                const extra = [timeStr, periodsStr].filter(Boolean).join(" · ");
                 return `<div class="schedule-event-item">
                     <strong>${escHtml(ev.title)}</strong>
-                    <span class="schedule-event-date">${dateRange}</span>
+                    <span class="schedule-event-date">${dateRange}${extra ? ' · ' + extra : ''}</span>
                     ${ev.description ? `<p>${escHtml(ev.description)}</p>` : ""}
                 </div>`;
             }).join("");
