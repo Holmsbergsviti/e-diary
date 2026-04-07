@@ -168,7 +168,29 @@ function renderWeeklySchedule() {
     }
     html += "</tr></thead><tbody>";
 
-    for (let p = 1; p <= 8; p++) {
+    const TEACHER_ROWS = [
+        { type: "period", period: 1 },
+        { type: "period", period: 2 },
+        { type: "break",  label: "🥪 Snack Break" },
+        { type: "period", period: 3 },
+        { type: "period", period: 4 },
+        { type: "period", period: 5 },
+        { type: "break",  label: "🍽 Lunch Break" },
+        { type: "period", period: 6 },
+        { type: "period", period: 7 },
+        { type: "period", period: 8 },
+    ];
+
+    for (const row of TEACHER_ROWS) {
+        if (row.type === "break") {
+            html += `<tr class="schedule-break-row">
+                <td colspan="6" class="schedule-break-cell">
+                    <span class="break-label">${row.label}</span>
+                </td>
+            </tr>`;
+            continue;
+        }
+        const p = row.period;
         const time = PERIOD_TIMES[p - 1] || `Period ${p}`;
         html += `<tr><td><strong>${p}</strong><br><small style="color:#9ca3af">${time}</small></td>`;
         for (let d = 1; d <= 5; d++) {
