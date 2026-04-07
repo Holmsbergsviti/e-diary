@@ -1498,12 +1498,6 @@ function renderExportCard() {
                 </div>`;
             }).join("")}
         </div>
-        <hr style="margin:16px 0;border-color:var(--border-color);">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <strong style="font-size:0.9rem;">Export All:</strong>
-            <button class="btn btn-sm btn-outline" onclick="_doExportAll('csv')">All as CSV (zip)</button>
-            <button class="btn btn-sm btn-primary" onclick="_doExportAll('excel')">All as Excel</button>
-        </div>
     `;
 }
 

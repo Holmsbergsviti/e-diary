@@ -548,7 +548,74 @@ def schedule(request):
             "room": slot.get("room", ""),
         })
 
-    return JsonResponse({"schedule": rows})
+    # Include study hall sessions
+    study_hall_sessions = _get_study_hall_for_schedule(ediary(), user_id, role)
+
+    return JsonResponse({"schedule": rows, "study_hall": study_hall_sessions})
+
+
+def _get_study_hall_for_schedule(db, user_id, role):
+    """Return study hall sessions relevant to this user as schedule-like rows.
+
+    For teachers: sessions they created.
+    For students: sessions where they are in the attendance list.
+    Returns list of dicts with date, period, room, teacher_name.
+    """
+    teacher_map = {}
+    def _teacher_name(tid):
+        if not teacher_map:
+            rows = db.table("teachers").select("id, name, surname").execute()
+            for t in (rows.data or []):
+                teacher_map[t["id"]] = f"{t['surname']} {t['name']}"
+        return teacher_map.get(tid, "Study Hall")
+
+    try:
+        if role == "teacher":
+            result = (
+                db.table("study_hall")
+                .select("id, date, period, room, teacher_id")
+                .eq("teacher_id", user_id)
+                .execute()
+            )
+            return [
+                {
+                    "date": s["date"],
+                    "period": s["period"],
+                    "room": s.get("room") or "",
+                    "teacher_name": _teacher_name(s["teacher_id"]),
+                    "is_study_hall": True,
+                }
+                for s in (result.data or [])
+            ]
+        else:
+            # Student: find study_hall_attendance rows for this student
+            att = (
+                db.table("study_hall_attendance")
+                .select("study_hall_id")
+                .eq("student_id", user_id)
+                .execute()
+            )
+            sh_ids = [a["study_hall_id"] for a in (att.data or [])]
+            if not sh_ids:
+                return []
+            sessions = (
+                db.table("study_hall")
+                .select("id, date, period, room, teacher_id")
+                .in_("id", sh_ids)
+                .execute()
+            )
+            return [
+                {
+                    "date": s["date"],
+                    "period": s["period"],
+                    "room": s.get("room") or "",
+                    "teacher_name": _teacher_name(s["teacher_id"]),
+                    "is_study_hall": True,
+                }
+                for s in (sessions.data or [])
+            ]
+    except Exception:
+        return []
 
 
 # ------------------------------------------------------------------
@@ -3439,10 +3506,11 @@ def teacher_study_hall_students(request):
         busy_class_ids = {s["class_id"] for s in sched}
         busy_subject_ids = {s["subject_id"] for s in sched}
 
-        # Get ALL students
+        # Get ALL students (only those with a class assignment)
         all_students = (
             db.table("students")
             .select("id, name, surname, class_id")
+            .not_.is_("class_id", "null")
             .order("surname")
             .order("name")
             .execute()

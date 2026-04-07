@@ -25,6 +25,7 @@ const SCHEDULE_ROWS = [
 ];
 
 let scheduleSlots = [];
+let studyHallSessions = []; // study hall sessions (date-specific)
 let weekOffset = 0;   // 0 = this week, -1 = last week, +1 = next week
 let studentAttendance = []; // attendance records for students
 let scheduleHolidays = []; // holidays
@@ -56,6 +57,7 @@ async function fetchSchedule() {
         const results = await Promise.all(fetches);
         const schedData = await results[0].json();
         scheduleSlots = schedData.schedule || [];
+        studyHallSessions = schedData.study_hall || [];
 
         // Events/holidays – don't let a failure break the whole schedule
         try {
@@ -256,6 +258,13 @@ function renderSchedule() {
         }
     }
 
+    // Build study-hall lookup: shMap[dateStr][period] = session
+    const shMap = {};
+    for (const sh of studyHallSessions) {
+        if (!shMap[sh.date]) shMap[sh.date] = {};
+        shMap[sh.date][sh.period] = sh;
+    }
+
     for (const row of SCHEDULE_ROWS) {
         if (row.type === "break") {
             // Break row spans all columns
@@ -327,8 +336,19 @@ function renderSchedule() {
                     <span class="lesson-room">${yearLabel}${isTeacher && slot.room ? " · " + escHtml(slot.room) : ""}</span>
                 </td>`;
             } else {
+                const shSession = (shMap[cellDateStr] || {})[p];
                 const nowClass = isNowCell ? " cell-current" : "";
-                html += `<td class="${nowClass}">${isNowCell ? '<span style="color:var(--text-lighter)">Free</span>' : "–"}</td>`;
+                if (shSession) {
+                    const roomInfo = shSession.room ? `Room ${escHtml(shSession.room)}` : "";
+                    const teacherInfo = shSession.teacher_name ? escHtml(shSession.teacher_name) : "";
+                    const detail = isStudent ? teacherInfo : "";
+                    html += `<td class="lesson-study-hall${nowClass}" title="Study Hall${shSession.room ? ' – Room ' + shSession.room : ''}">
+                        📖 Study Hall<br>
+                        <span class="lesson-room">${roomInfo}${roomInfo && detail ? " · " : ""}${detail}</span>
+                    </td>`;
+                } else {
+                    html += `<td class="${nowClass}">${isNowCell ? '<span style="color:var(--text-lighter)">Free</span>' : "–"}</td>`;
+                }
             }
         }
         html += "</tr>";
