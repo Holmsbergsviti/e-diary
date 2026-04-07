@@ -10,11 +10,13 @@ from .supabase_client import supabase, supabase_auth, supabase_admin_auth, ediar
 
 logger = logging.getLogger(__name__)
 
-# Fail loudly if secrets are not configured in production
+# Warn loudly if JWT secret is not configured, but don't crash
 _jwt_secret = os.environ.get("JWT_SECRET", "")
-if not _jwt_secret and os.environ.get("DEBUG", "False") != "True":
-    raise RuntimeError("JWT_SECRET environment variable is not set – refusing to start.")
-JWT_SECRET = _jwt_secret or "dev-jwt-secret-change-this"
+if not _jwt_secret:
+    import secrets as _s
+    _jwt_secret = _s.token_urlsafe(48)
+    logger.warning("JWT_SECRET is not set! Generated a random ephemeral key. Tokens will NOT survive restarts.")
+JWT_SECRET = _jwt_secret
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 8
 

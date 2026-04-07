@@ -19,9 +19,12 @@ load_dotenv(BASE_DIR / ".env")
 # SECURITY
 # --------------------------------------------------
 _secret = os.environ.get("DJANGO_SECRET_KEY", "")
-if not _secret and os.environ.get("DEBUG", "False") != "True":
-    raise RuntimeError("DJANGO_SECRET_KEY environment variable is not set.")
-SECRET_KEY = _secret or "dev-secret-key-change-this"
+if not _secret:
+    import secrets as _s
+    _secret = _s.token_urlsafe(50)
+    import logging as _log
+    _log.getLogger(__name__).warning("DJANGO_SECRET_KEY is not set! Using a random ephemeral key.")
+SECRET_KEY = _secret
 
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
