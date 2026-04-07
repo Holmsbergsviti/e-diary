@@ -3086,6 +3086,7 @@ tr:hover td {
     text-transform: capitalize;
 }
 .level-master { background: #7c3aed; color: #fff; }
+.level-super { background: #dc2626; color: #fff; }
 .level-regular { background: var(--bg-secondary); color: var(--text-primary); }
 
 /* --- Permission tags --- */

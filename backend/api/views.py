@@ -2557,11 +2557,11 @@ def admin_users(request):
         if role == "admin":
             if caller_level not in ("super", "master"):
                 return JsonResponse({"message": "Only master admins can create admins"}, status=403)
-            # Only super can create master-level admins
+            # Only super can create master/super-level admins
             requested_level = data.get("admin_level", "regular").strip()
-            if requested_level == "master" and caller_level != "super":
-                return JsonResponse({"message": "Only the super admin can create master admins"}, status=403)
-            if requested_level not in ("regular", "master"):
+            if requested_level in ("master", "super") and caller_level != "super":
+                return JsonResponse({"message": "Only the super admin can create master/super admins"}, status=403)
+            if requested_level not in ("regular", "master", "super"):
                 requested_level = "regular"
         elif role == "teacher":
             if not _admin_has_perm(payload, "teachers"):
@@ -2593,6 +2593,9 @@ def admin_users(request):
                 }).execute()
             elif role == "admin":
                 admin_permissions = data.get("permissions") or ALL_ADMIN_PERMISSIONS
+                # Super/master always get all permissions
+                if requested_level in ("super", "master"):
+                    admin_permissions = ALL_ADMIN_PERMISSIONS
                 db.table("admins").insert({
                     "id": user_id, "name": name, "surname": surname,
                     "admin_level": requested_level,
@@ -2667,7 +2670,7 @@ def admin_user_detail(request):
             # Only super can change admin_level
             if "admin_level" in data and caller_level == "super" and not _is_super_admin_id(uid):
                 new_level = data["admin_level"].strip()
-                if new_level in ("regular", "master"):
+                if new_level in ("regular", "master", "super"):
                     updates["admin_level"] = new_level
 
         # Update email/password in Supabase Auth if provided

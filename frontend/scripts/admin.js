@@ -513,14 +513,14 @@ async function loadAdmins(container) {
             <tbody>${admins.map(a => {
                 const lvl = a.admin_level || "regular";
                 const perms = a.permissions || {};
-                const permTags = lvl === "master" ? '<span class="perm-tag perm-all">All</span>' :
+                const permTags = (lvl === "master" || lvl === "super") ? '<span class="perm-tag perm-all">All</span>' :
                     ALL_PERM_KEYS.filter(p => perms[p.key]).map(p => `<span class="perm-tag">${escHtml(p.label)}</span>`).join("") || '<span class="perm-tag perm-none">None</span>';
-                const isMaster = lvl === "master";
-                const canEdit = isSuperAdmin || !isMaster;
-                const canDelete = isSuperAdmin || !isMaster;
-                const masterBadge = isMaster && isSuperAdmin ? ' <span class="admin-level-badge level-master">master</span>' : '';
+                const isHighLevel = lvl === "master" || lvl === "super";
+                const canEdit = isSuperAdmin || !isHighLevel;
+                const canDelete = isSuperAdmin || !isHighLevel;
+                const levelBadge = isHighLevel && isSuperAdmin ? ` <span class="admin-level-badge level-${lvl}">${lvl}</span>` : '';
                 return `<tr>
-                    <td>${escHtml(a.surname)} ${escHtml(a.name)}${masterBadge}</td>
+                    <td>${escHtml(a.surname)} ${escHtml(a.name)}${levelBadge}</td>
                     <td>${escHtml(a.email || "")}</td>
                     <td class="perm-cell">${permTags}</td>
                     <td class="admin-actions">
@@ -558,6 +558,7 @@ function openAddAdmin() {
         ${isSuperAdmin ? `<label>Admin Level <select class="form-input" id="mAdminLevel">
             <option value="regular" selected>Regular</option>
             <option value="master">Master</option>
+            <option value="super">Super</option>
         </select></label>` : ''}
         <fieldset class="perm-fieldset"><legend>Permissions</legend>${_permCheckboxes(defaultPerms)}</fieldset>
     `, async () => {
@@ -576,7 +577,7 @@ function openAddAdmin() {
 
 function editAdmin(a) {
     const existingPerms = a.permissions || {};
-    const isMaster = a.admin_level === "master";
+    const isHighLevel = a.admin_level === "master" || a.admin_level === "super";
     const isSuperAdmin = _adminLevel() === "super";
     openAdminModal("Edit Admin", `
         <label>Name <input class="form-input" id="mName" value="${escHtml(a.name)}"></label>
@@ -584,16 +585,17 @@ function editAdmin(a) {
         <label>New Email <input class="form-input" id="mEmail" placeholder="Leave blank to keep"></label>
         <label>New Password <input class="form-input" id="mPassword" placeholder="Leave blank to keep"></label>
         ${isSuperAdmin ? `<label>Admin Level <select class="form-input" id="mAdminLevel">
-            <option value="regular"${a.admin_level !== 'master' ? ' selected' : ''}>Regular</option>
+            <option value="regular"${a.admin_level === 'regular' ? ' selected' : ''}>Regular</option>
             <option value="master"${a.admin_level === 'master' ? ' selected' : ''}>Master</option>
+            <option value="super"${a.admin_level === 'super' ? ' selected' : ''}>Super</option>
         </select></label>` : ''}
-        ${isMaster && !isSuperAdmin ? '' : `<fieldset class="perm-fieldset"><legend>Permissions</legend>${_permCheckboxes(existingPerms)}</fieldset>`}
+        ${isHighLevel && !isSuperAdmin ? '' : `<fieldset class="perm-fieldset"><legend>Permissions</legend>${_permCheckboxes(existingPerms)}</fieldset>`}
     `, async () => {
         const body = { id: a.id, role: "admin", name: gv("mName"), surname: gv("mSurname") };
         const email = gv("mEmail"); if (email) body.email = email;
         const pw = gv("mPassword"); if (pw) body.password = pw;
         if (isSuperAdmin) body.admin_level = document.getElementById("mAdminLevel")?.value || a.admin_level;
-        if (!(isMaster && !isSuperAdmin)) body.permissions = _collectPerms();
+        if (!(isHighLevel && !isSuperAdmin)) body.permissions = _collectPerms();
         const res = await apiFetch("/admin/users/detail/", { method: "PATCH", body: JSON.stringify(body) });
         const d = await res.json();
         if (!res.ok) { showToast(d.message || "Failed", "error"); return; }
