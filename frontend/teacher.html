@@ -185,6 +185,60 @@
             <div class="card-content" id="classStatsList"><p class="loading">Loading…</p></div>
         </div>
 
+        <!-- Study Hall section -->
+        <div class="card" data-card-id="study-hall">
+            <div class="card-title">
+                <span>📖 Study Hall</span>
+                <button id="openStudyHallBtn" class="btn btn-primary btn-sm">+ New Session</button>
+                <button class="card-collapse-btn" title="Hide/Show card">−</button>
+            </div>
+            <div class="card-content" id="studyHallList"><p class="loading">Loading…</p></div>
+        </div>
+
+        <!-- Study Hall Modal -->
+        <div id="studyHallModal" class="modal-overlay" style="display:none;">
+            <div class="modal">
+                <div class="modal-header">
+                    <div>
+                        <h2 id="shModalTitle">Study Hall Attendance</h2>
+                        <p id="shModalSubtitle" class="modal-subtitle"></p>
+                    </div>
+                    <button id="shModalClose" class="modal-close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-row" style="gap:12px;margin-bottom:12px;">
+                        <div class="form-group" style="flex:1;">
+                            <label for="shDate">Date</label>
+                            <input type="date" id="shDate" class="form-input">
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label for="shPeriod">Period</label>
+                            <select id="shPeriod" class="form-input">
+                                <option value="">Select…</option>
+                                <option value="1">Period 1</option>
+                                <option value="2">Period 2</option>
+                                <option value="3">Period 3</option>
+                                <option value="4">Period 4</option>
+                                <option value="5">Period 5</option>
+                                <option value="6">Period 6</option>
+                                <option value="7">Period 7</option>
+                                <option value="8">Period 8</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label for="shRoom">Room</label>
+                            <input type="text" id="shRoom" class="form-input" placeholder="e.g. Library">
+                        </div>
+                    </div>
+                    <div id="shStudentList"><p class="empty-state">Select a date and period to load free students.</p></div>
+                </div>
+                <div class="modal-footer">
+                    <button id="shMarkAllPresent" class="btn btn-secondary">Mark all present</button>
+                    <button id="shSaveAttendance" class="btn btn-primary">Save Attendance</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Full week schedule -->
         <div class="card" data-card-id="weekly-schedule">
             <div class="card-title week-nav-header">

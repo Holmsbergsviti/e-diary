@@ -13,6 +13,8 @@ const PERIOD_TIMES = [
 let scheduleSlots = [];
 let weekOffset = 0;   // 0 = this week, -1 = last week, +1 = next week
 let studentAttendance = []; // attendance records for students
+let scheduleHolidays = []; // holidays
+let scheduleEvents = [];   // events visible to this user
 
 async function initSchedule() {
     if (!requireAuth()) return;
@@ -32,7 +34,7 @@ async function fetchSchedule() {
     const container = document.getElementById("scheduleContainer");
     try {
         const user = getUser();
-        const fetches = [apiFetch("/schedule/")];
+        const fetches = [apiFetch("/schedule/"), apiFetch("/events/")];
         // Students: also fetch attendance to highlight missed classes
         if (user && user.role === "student") {
             fetches.push(apiFetch("/attendance/"));
@@ -41,8 +43,12 @@ async function fetchSchedule() {
         const schedData = await results[0].json();
         scheduleSlots = schedData.schedule || [];
 
-        if (results[1]) {
-            const attData = await results[1].json();
+        const evData = await results[1].json();
+        scheduleHolidays = evData.holidays || [];
+        scheduleEvents = evData.events || [];
+
+        if (results[2]) {
+            const attData = await results[2].json();
             studentAttendance = attData.attendance || [];
         }
 
@@ -119,13 +125,35 @@ function renderSchedule() {
         return;
     }
 
+    // Build holiday lookup: check if a date falls within any holiday range
+    function getHoliday(dateStr) {
+        for (const h of scheduleHolidays) {
+            if (dateStr >= h.start_date && dateStr <= (h.end_date || h.start_date)) return h;
+        }
+        return null;
+    }
+
+    // Build event lookup: date -> [events]
+    const eventsByDate = {};
+    for (const ev of scheduleEvents) {
+        const start = ev.event_date;
+        const end = ev.event_end_date || start;
+        // Iterate each day in range
+        const d = new Date(start);
+        const dEnd = new Date(end);
+        while (d <= dEnd) {
+            const ds = isoDate(d);
+            if (!eventsByDate[ds]) eventsByDate[ds] = [];
+            eventsByDate[ds].push(ev);
+            d.setDate(d.getDate() + 1);
+        }
+    }
+
     // Build attendance lookup for students: "YYYY-MM-DD|subject_id" -> status
     const attLookup = {};
     if (isStudent && studentAttendance.length > 0) {
         for (const a of studentAttendance) {
-            // key by date + subject so we can match schedule slots
             const key = `${a.date_recorded}|${a.subject_id || ''}`;
-            // If multiple records for same date/subject, keep the worst status
             const prev = attLookup[key];
             if (!prev || a.status === "Absent" || (a.status === "Late" && prev !== "Absent")) {
                 attLookup[key] = a.status;
@@ -142,11 +170,33 @@ function renderSchedule() {
         if (s.period > maxPeriod) maxPeriod = s.period;
     }
 
+    // Collect events for this week to show below the table
+    const weekEvents = [];
+    for (let d = 0; d < 5; d++) {
+        const dayDate = new Date(mon); dayDate.setDate(mon.getDate() + d);
+        const ds = isoDate(dayDate);
+        const dayEvs = eventsByDate[ds] || [];
+        for (const ev of dayEvs) {
+            if (!weekEvents.find(e => e.id === ev.id)) weekEvents.push(ev);
+        }
+    }
+
     // Table header with day+date
     let html = '<table class="timetable"><thead><tr><th>Period</th>';
     for (let d = 0; d < 5; d++) {
         const dayDate = new Date(mon); dayDate.setDate(mon.getDate() + d);
-        html += `<th>${DAYS[d]}<br><small class="day-date">${shortDate(dayDate)}</small></th>`;
+        const ds = isoDate(dayDate);
+        const holiday = getHoliday(ds);
+        const dayEvs = eventsByDate[ds] || [];
+        const hasBadge = holiday || dayEvs.length > 0;
+        let headerExtra = "";
+        if (holiday) {
+            headerExtra += `<br><span class="schedule-holiday-badge" title="${escHtml(holiday.name)}">🏖 ${escHtml(holiday.name)}</span>`;
+        }
+        if (dayEvs.length > 0) {
+            headerExtra += `<br><span class="schedule-event-badge" title="${dayEvs.map(e => e.title).join(', ')}">🎉 ${dayEvs.length === 1 ? escHtml(dayEvs[0].title) : dayEvs.length + " events"}</span>`;
+        }
+        html += `<th${holiday ? ' class="schedule-holiday-col"' : ""}>${DAYS[d]}<br><small class="day-date">${shortDate(dayDate)}</small>${headerExtra}</th>`;
     }
     html += "</tr></thead><tbody>";
 
@@ -154,8 +204,8 @@ function renderSchedule() {
     let currentPeriod = null;
     if (isCurrentWeek) {
         const today = new Date();
-        const dayOfWeek = today.getDay(); // 0=Sunday, 1=Monday, ..., 5=Friday
-        if (dayOfWeek >= 1 && dayOfWeek <= 5) { // Monday to Friday
+        const dayOfWeek = today.getDay();
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
             currentPeriod = getCurrentPeriod();
         }
     }
@@ -166,14 +216,18 @@ function renderSchedule() {
         html += `<tr ${rowClass ? `class="${rowClass}"` : ''}><td><strong>${p}</strong><br><small style="color:#9ca3af">${time}</small></td>`;
         for (let d = 1; d <= 5; d++) {
             const slot = (grid[d] || {})[p];
-            if (slot) {
+            const cellDate = new Date(mon); cellDate.setDate(mon.getDate() + d - 1);
+            const cellDateStr = isoDate(cellDate);
+            const holiday = getHoliday(cellDateStr);
+
+            if (holiday) {
+                // Holiday cell – greyed out
+                html += `<td class="lesson-holiday" title="${escHtml(holiday.name)}"><span class="holiday-label">${p === 1 ? escHtml(holiday.name) : ""}</span></td>`;
+            } else if (slot) {
                 const yearLabel = isTeacher
                     ? escHtml(slot.class_name || `Year ${slot.grade_level}`)
                     : (slot.room ? "Room " + escHtml(slot.room) : "");
                 const cls = isTeacher ? "lesson clickable-lesson" : "lesson";
-                // Attach the actual date for this cell
-                const cellDate = new Date(mon); cellDate.setDate(mon.getDate() + d - 1);
-                const cellDateStr = isoDate(cellDate);
                 const slotWithDate = { ...slot, _date: cellDateStr };
 
                 // Student attendance highlighting
@@ -205,6 +259,22 @@ function renderSchedule() {
         html += "</tr>";
     }
     html += "</tbody></table>";
+
+    // Show week events below the timetable
+    if (weekEvents.length > 0) {
+        html += '<div class="schedule-week-events"><h4>📅 Events This Week</h4>';
+        html += weekEvents.map(ev => {
+            const dateRange = ev.event_end_date && ev.event_end_date !== ev.event_date
+                ? `${ev.event_date} – ${ev.event_end_date}` : ev.event_date;
+            return `<div class="schedule-event-item">
+                <strong>${escHtml(ev.title)}</strong>
+                <span class="schedule-event-date">${dateRange}</span>
+                ${ev.description ? `<p>${escHtml(ev.description)}</p>` : ""}
+            </div>`;
+        }).join("");
+        html += "</div>";
+    }
+
     container.innerHTML = html;
 
     // For teachers: clicking a lesson opens the attendance modal on teacher.html

@@ -235,3 +235,52 @@ CREATE TABLE ediary_schema.teacher_reports (
   CONSTRAINT teacher_reports_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES ediary_schema.subjects(id),
   CONSTRAINT teacher_reports_class_id_fkey FOREIGN KEY (class_id) REFERENCES ediary_schema.classes(id)
 );
+
+-- Events (special school events targeting groups or individual students)
+CREATE TABLE ediary_schema.events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  title text NOT NULL,
+  description text DEFAULT '',
+  event_date date NOT NULL,
+  event_end_date date,
+  target_type text NOT NULL DEFAULT 'all' CHECK (target_type IN ('all', 'class', 'students')),
+  target_class_ids jsonb DEFAULT '[]'::jsonb,
+  target_student_ids jsonb DEFAULT '[]'::jsonb,
+  created_at timestamptz DEFAULT now(),
+  CONSTRAINT events_pkey PRIMARY KEY (id)
+);
+
+-- Holidays (school-wide non-school days)
+CREATE TABLE ediary_schema.holidays (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  start_date date NOT NULL,
+  end_date date NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  CONSTRAINT holidays_pkey PRIMARY KEY (id)
+);
+
+-- Study hall sessions (duty teacher creates for free periods)
+CREATE TABLE ediary_schema.study_hall (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  teacher_id uuid NOT NULL,
+  date date NOT NULL,
+  period smallint NOT NULL CHECK (period BETWEEN 1 AND 8),
+  room text,
+  created_at timestamptz DEFAULT now(),
+  CONSTRAINT study_hall_pkey PRIMARY KEY (id),
+  CONSTRAINT study_hall_unique UNIQUE (teacher_id, date, period),
+  CONSTRAINT study_hall_teacher_fkey FOREIGN KEY (teacher_id) REFERENCES ediary_schema.teachers(id)
+);
+
+-- Study hall attendance
+CREATE TABLE ediary_schema.study_hall_attendance (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  study_hall_id uuid NOT NULL,
+  student_id uuid NOT NULL,
+  status text NOT NULL DEFAULT 'Present' CHECK (status IN ('Present', 'Absent')),
+  CONSTRAINT study_hall_attendance_pkey PRIMARY KEY (id),
+  CONSTRAINT study_hall_attendance_unique UNIQUE (study_hall_id, student_id),
+  CONSTRAINT study_hall_att_session_fkey FOREIGN KEY (study_hall_id) REFERENCES ediary_schema.study_hall(id) ON DELETE CASCADE,
+  CONSTRAINT study_hall_att_student_fkey FOREIGN KEY (student_id) REFERENCES ediary_schema.students(id)
+);

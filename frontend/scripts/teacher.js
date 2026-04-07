@@ -24,7 +24,7 @@ async function initTeacher() {
     }
 
     initNav();
-    await Promise.all([loadSchedule(), loadHomework(), loadBehavioral(), loadClassStats()]);
+    await Promise.all([loadSchedule(), loadHomework(), loadBehavioral(), loadClassStats(), loadStudyHall()]);
     
     // Initialize card collapse functionality
     initCardCollapse();
@@ -32,6 +32,9 @@ async function initTeacher() {
     // Week navigation arrows
     document.getElementById("weekPrev").addEventListener("click", () => { weekOffset--; renderWeeklySchedule(); });
     document.getElementById("weekNext").addEventListener("click", () => { weekOffset++; renderWeeklySchedule(); });
+
+    // Study hall button
+    document.getElementById("openStudyHallBtn").addEventListener("click", openStudyHallModal);
 
     // Check if redirected from schedule page with an attendance slot to open
     const pending = sessionStorage.getItem("openAttendance");
@@ -1123,5 +1126,241 @@ async function saveBehavioral() {
     } finally {
         btn.disabled = false;
         btn.textContent = "Save Note";
+    }
+}
+
+/* ================================================================
+   Study Hall – duty teacher takes attendance of free students
+   ================================================================ */
+
+let studyHallSessionId = null;
+
+async function loadStudyHall() {
+    const container = document.getElementById("studyHallList");
+    try {
+        const res = await apiFetch("/teacher/study-hall/");
+        const data = await res.json();
+        const sessions = data.sessions || [];
+
+        if (sessions.length === 0) {
+            container.innerHTML = '<p class="empty-state">No study hall sessions yet. Click "+ New Session" to create one.</p>';
+            return;
+        }
+
+        container.innerHTML = `
+            <table class="attendance-table">
+                <thead><tr><th>Date</th><th>Period</th><th>Room</th><th>Actions</th></tr></thead>
+                <tbody>${sessions.map(s => {
+                    const time = PERIOD_TIMES[s.period - 1] || `Period ${s.period}`;
+                    return `<tr>
+                        <td>${escHtml(s.date)}</td>
+                        <td>${s.period} <small style="color:var(--text-lighter)">(${time})</small></td>
+                        <td>${escHtml(s.room || "—")}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick='openStudyHallSession(${JSON.stringify(s).replace(/'/g, "&#39;")})'>View / Edit</button>
+                        </td>
+                    </tr>`;
+                }).join("")}</tbody>
+            </table>
+        `;
+    } catch (err) {
+        container.innerHTML = '<p class="empty-state">Failed to load study hall sessions.</p>';
+    }
+}
+
+function openStudyHallModal() {
+    const modal = document.getElementById("studyHallModal");
+    const dateInput = document.getElementById("shDate");
+    const periodSelect = document.getElementById("shPeriod");
+    const roomInput = document.getElementById("shRoom");
+    const studentList = document.getElementById("shStudentList");
+
+    studyHallSessionId = null;
+    dateInput.value = new Date().toISOString().slice(0, 10);
+    periodSelect.value = "";
+    roomInput.value = "";
+    studentList.innerHTML = '<p class="empty-state">Select a date and period to load free students.</p>';
+
+    document.getElementById("shModalTitle").textContent = "Study Hall Attendance";
+    document.getElementById("shModalSubtitle").textContent = "";
+
+    modal.style.display = "flex";
+
+    // Wire events
+    document.getElementById("shModalClose").onclick = () => { modal.style.display = "none"; };
+    modal.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; };
+
+    const loadFreeStudents = () => {
+        if (dateInput.value && periodSelect.value) {
+            fetchFreeStudents(dateInput.value, periodSelect.value);
+        }
+    };
+    dateInput.onchange = loadFreeStudents;
+    periodSelect.onchange = loadFreeStudents;
+
+    document.getElementById("shMarkAllPresent").onclick = () => {
+        document.querySelectorAll("#shStudentList .status-select").forEach(sel => {
+            sel.value = "Present";
+            sel.className = "status-select status-present";
+        });
+    };
+    document.getElementById("shSaveAttendance").onclick = saveStudyHallAttendance;
+}
+
+function openStudyHallSession(session) {
+    const modal = document.getElementById("studyHallModal");
+    const dateInput = document.getElementById("shDate");
+    const periodSelect = document.getElementById("shPeriod");
+    const roomInput = document.getElementById("shRoom");
+
+    studyHallSessionId = session.id;
+    dateInput.value = session.date;
+    periodSelect.value = String(session.period);
+    roomInput.value = session.room || "";
+
+    document.getElementById("shModalTitle").textContent = "Edit Study Hall";
+    const time = PERIOD_TIMES[session.period - 1] || `Period ${session.period}`;
+    document.getElementById("shModalSubtitle").textContent = `${session.date} · ${time}`;
+
+    modal.style.display = "flex";
+
+    document.getElementById("shModalClose").onclick = () => { modal.style.display = "none"; };
+    modal.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; };
+
+    const loadFreeStudents = () => {
+        if (dateInput.value && periodSelect.value) {
+            fetchFreeStudents(dateInput.value, periodSelect.value);
+        }
+    };
+    dateInput.onchange = loadFreeStudents;
+    periodSelect.onchange = loadFreeStudents;
+
+    document.getElementById("shMarkAllPresent").onclick = () => {
+        document.querySelectorAll("#shStudentList .status-select").forEach(sel => {
+            sel.value = "Present";
+            sel.className = "status-select status-present";
+        });
+    };
+    document.getElementById("shSaveAttendance").onclick = saveStudyHallAttendance;
+
+    // Load students immediately
+    fetchFreeStudents(session.date, session.period);
+}
+
+async function fetchFreeStudents(date, period) {
+    const studentList = document.getElementById("shStudentList");
+    studentList.innerHTML = '<p class="loading">Loading free students…</p>';
+
+    try {
+        const res = await apiFetch(`/teacher/study-hall/students/?date=${date}&period=${period}`);
+        const data = await res.json();
+        const students = data.students || [];
+        const existing = data.attendance || [];
+
+        if (students.length === 0) {
+            studentList.innerHTML = '<p class="empty-state">No students are free during this period.</p>';
+            return;
+        }
+
+        // Build lookup for existing attendance
+        const attMap = {};
+        for (const a of existing) {
+            attMap[a.student_id] = a.status;
+        }
+
+        studentList.innerHTML = `
+            <p style="color:var(--text-lighter);margin-bottom:8px;font-size:0.88rem">${students.length} student${students.length !== 1 ? "s" : ""} without a class this period</p>
+            <table class="attendance-table">
+                <thead><tr><th>#</th><th>Student</th><th>Class</th><th>Status</th></tr></thead>
+                <tbody>${students.map((s, i) => {
+                    const status = attMap[s.id] || "Present";
+                    return `<tr data-student-id="${s.id}">
+                        <td>${i + 1}</td>
+                        <td>${escHtml(s.surname)} ${escHtml(s.name)}</td>
+                        <td><span class="class-tag">${escHtml(s.class_name || "")}</span></td>
+                        <td>
+                            <select class="status-select status-${status.toLowerCase()}">
+                                <option value="Present" ${status === "Present" ? "selected" : ""}>✅ Present</option>
+                                <option value="Absent" ${status === "Absent" ? "selected" : ""}>❌ Absent</option>
+                            </select>
+                        </td>
+                    </tr>`;
+                }).join("")}</tbody>
+            </table>
+        `;
+
+        studentList.querySelectorAll(".status-select").forEach(sel => {
+            sel.addEventListener("change", () => {
+                sel.className = "status-select status-" + sel.value.toLowerCase();
+            });
+        });
+
+    } catch (err) {
+        studentList.innerHTML = '<p class="empty-state">Failed to load students.</p>';
+    }
+}
+
+async function saveStudyHallAttendance() {
+    const btn = document.getElementById("shSaveAttendance");
+    const date = document.getElementById("shDate").value;
+    const period = document.getElementById("shPeriod").value;
+    const room = document.getElementById("shRoom").value.trim();
+
+    if (!date || !period) { showToast("Date and period required", "warning"); return; }
+
+    const rows = document.querySelectorAll("#shStudentList tbody tr");
+    if (rows.length === 0) { showToast("No students to save", "warning"); return; }
+
+    btn.disabled = true;
+    btn.textContent = "Saving…";
+
+    try {
+        // Step 1: Create or update the study hall session
+        const sessionRes = await apiFetch("/teacher/study-hall/", {
+            method: "POST",
+            body: JSON.stringify({ date, period: parseInt(period), room }),
+        });
+        const sessionData = await sessionRes.json();
+        const sessionId = sessionData.session_id || studyHallSessionId;
+
+        if (!sessionId) {
+            showToast("Failed to create session", "error");
+            btn.disabled = false;
+            btn.textContent = "Save Attendance";
+            return;
+        }
+
+        studyHallSessionId = sessionId;
+
+        // Step 2: Save attendance records
+        const records = [];
+        rows.forEach(row => {
+            const studentId = row.dataset.studentId;
+            const status = row.querySelector(".status-select").value;
+            records.push({ student_id: studentId, status });
+        });
+
+        await apiFetch("/teacher/study-hall/attendance/", {
+            method: "POST",
+            body: JSON.stringify({ session_id: sessionId, records }),
+        });
+
+        btn.textContent = "✓ Saved!";
+        btn.classList.add("btn-success");
+        showToast("Study hall attendance saved", "success");
+
+        setTimeout(() => {
+            btn.textContent = "Save Attendance";
+            btn.classList.remove("btn-success");
+            btn.disabled = false;
+        }, 2000);
+
+        // Refresh the study hall list
+        loadStudyHall();
+
+    } catch (err) {
+        showToast("Failed to save: " + err.message, "error");
+        btn.textContent = "Save Attendance";
+        btn.disabled = false;
     }
 }

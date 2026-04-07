@@ -91,6 +91,8 @@ async function loadSection(section) {
             case "assignments": await loadAssignments(container); break;
             case "enrollments": await loadEnrollments(container); break;
             case "schedule": await loadSchedule(container); break;
+            case "events": await loadEvents(container); break;
+            case "holidays": await loadHolidays(container); break;
             case "import": renderImportSection(container); break;
             default: container.innerHTML = '<p class="empty-state">Unknown section.</p>';
         }
@@ -650,6 +652,238 @@ async function deleteScheduleSlot(id) {
     await apiFetch(`/admin/schedule/detail/?id=${id}`, { method: "DELETE" });
     showToast("Slot deleted", "success");
     await loadSection("schedule");
+}
+
+/* ═══════════════ EVENTS ═══════════════ */
+async function loadEvents(container) {
+    const res = await apiFetch("/admin/events/");
+    const d = await res.json();
+    const events = d.events || [];
+    container.innerHTML = `
+        <div class="admin-section-header">
+            <h3>Events</h3>
+            <button class="btn btn-primary btn-sm" onclick="openAddEvent()">+ Add Event</button>
+        </div>
+        ${events.length === 0 ? '<p class="empty-state">No events yet.</p>' : `
+        <table class="admin-table">
+            <thead><tr><th>Title</th><th>Date</th><th>End Date</th><th>Target</th><th>Actions</th></tr></thead>
+            <tbody>${events.map(ev => {
+                let targetLabel = "All";
+                if (ev.target_type === "class") {
+                    const ids = ev.target_class_ids || [];
+                    targetLabel = ids.length + " class" + (ids.length !== 1 ? "es" : "");
+                } else if (ev.target_type === "students") {
+                    const ids = ev.target_student_ids || [];
+                    targetLabel = ids.length + " student" + (ids.length !== 1 ? "s" : "");
+                }
+                return `<tr>
+                    <td><strong>${escHtml(ev.title)}</strong>${ev.description ? `<br><small style="color:var(--text-lighter)">${escHtml(ev.description.substring(0, 60))}${ev.description.length > 60 ? "…" : ""}</small>` : ""}</td>
+                    <td>${escHtml(ev.event_date || "")}</td>
+                    <td>${ev.event_end_date && ev.event_end_date !== ev.event_date ? escHtml(ev.event_end_date) : "—"}</td>
+                    <td><span class="event-target-badge event-target-${ev.target_type || 'all'}">${escHtml(targetLabel)}</span></td>
+                    <td class="admin-actions">
+                        <button class="btn btn-sm btn-secondary" onclick='openEditEvent(${JSON.stringify(ev).replace(/'/g, "&#39;")})'>Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteEvent('${ev.id}')">Delete</button>
+                    </td>
+                </tr>`;
+            }).join("")}</tbody>
+        </table>`}
+    `;
+}
+
+async function openAddEvent() {
+    await Promise.all([fetchClasses(), fetchStudents()]);
+    const body = buildEventFormHtml();
+    openAdminModal("Add Event", body, async () => {
+        const payload = collectEventForm();
+        if (!payload) return;
+        const res = await apiFetch("/admin/events/", { method: "POST", body: JSON.stringify(payload) });
+        const d = await res.json();
+        if (!res.ok) { showToast(d.message || "Failed", "error"); return; }
+        closeAdminModal();
+        showToast("Event created", "success");
+        await loadSection("events");
+    });
+    bindEventTargetToggle();
+}
+
+async function openEditEvent(ev) {
+    await Promise.all([fetchClasses(), fetchStudents()]);
+    const body = buildEventFormHtml(ev);
+    openAdminModal("Edit Event", body, async () => {
+        const payload = collectEventForm();
+        if (!payload) return;
+        const res = await apiFetch(`/admin/events/detail/?id=${ev.id}`, { method: "PATCH", body: JSON.stringify(payload) });
+        const d = await res.json();
+        if (!res.ok) { showToast(d.message || "Failed", "error"); return; }
+        closeAdminModal();
+        showToast("Event updated", "success");
+        await loadSection("events");
+    });
+    bindEventTargetToggle();
+}
+
+function buildEventFormHtml(ev) {
+    const tt = ev ? ev.target_type || "all" : "all";
+    const selClassIds = ev ? (ev.target_class_ids || []) : [];
+    const selStudentIds = ev ? (ev.target_student_ids || []) : [];
+    return `
+        <label>Title <input class="form-input" id="mEvTitle" value="${escHtml(ev ? ev.title : "")}" placeholder="e.g. School Trip"></label>
+        <label>Description <textarea class="form-input" id="mEvDesc" rows="2" placeholder="Optional details">${escHtml(ev ? ev.description || "" : "")}</textarea></label>
+        <div class="form-row-2col">
+            <label>Start Date <input class="form-input" id="mEvDate" type="date" value="${ev ? ev.event_date || "" : ""}"></label>
+            <label>End Date <input class="form-input" id="mEvEndDate" type="date" value="${ev && ev.event_end_date !== ev.event_date ? ev.event_end_date || "" : ""}"></label>
+        </div>
+        <label>Target
+            <select class="form-input" id="mEvTarget">
+                <option value="all" ${tt === "all" ? "selected" : ""}>All Students</option>
+                <option value="class" ${tt === "class" ? "selected" : ""}>Specific Classes</option>
+                <option value="students" ${tt === "students" ? "selected" : ""}>Specific Students</option>
+            </select>
+        </label>
+        <div id="mEvClassPicker" class="checkbox-picker" style="display:${tt === "class" ? "block" : "none"}">
+            <label class="picker-label">Select Classes:</label>
+            <div class="checkbox-list">${cachedClasses.map(c =>
+                `<label class="checkbox-item"><input type="checkbox" value="${c.id}" ${selClassIds.includes(c.id) ? "checked" : ""}> ${escHtml(c.class_name)} (Year ${c.grade_level})</label>`
+            ).join("")}</div>
+        </div>
+        <div id="mEvStudentPicker" class="checkbox-picker" style="display:${tt === "students" ? "block" : "none"}">
+            <label class="picker-label">Select Students:</label>
+            <input class="form-input" id="mEvStudentSearch" placeholder="Search students…" oninput="filterEventStudents()">
+            <div class="checkbox-list checkbox-list-tall" id="mEvStudentList">${cachedStudents.map(s =>
+                `<label class="checkbox-item" data-name="${escHtml((s.surname + ' ' + s.name).toLowerCase())}"><input type="checkbox" value="${s.id}" ${selStudentIds.includes(s.id) ? "checked" : ""}> ${escHtml(s.surname)} ${escHtml(s.name)}${s.class_name ? ` <small>(${escHtml(s.class_name)})</small>` : ""}</label>`
+            ).join("")}</div>
+        </div>
+    `;
+}
+
+function bindEventTargetToggle() {
+    const sel = document.getElementById("mEvTarget");
+    if (!sel) return;
+    sel.addEventListener("change", () => {
+        document.getElementById("mEvClassPicker").style.display = sel.value === "class" ? "block" : "none";
+        document.getElementById("mEvStudentPicker").style.display = sel.value === "students" ? "block" : "none";
+    });
+}
+
+function filterEventStudents() {
+    const q = (document.getElementById("mEvStudentSearch")?.value || "").toLowerCase();
+    document.querySelectorAll("#mEvStudentList .checkbox-item").forEach(lbl => {
+        lbl.style.display = !q || lbl.dataset.name.includes(q) ? "" : "none";
+    });
+}
+
+function collectEventForm() {
+    const title = gv("mEvTitle");
+    const event_date = gv("mEvDate");
+    if (!title || !event_date) { showToast("Title and start date required", "warning"); return null; }
+    const target_type = gv("mEvTarget");
+    let target_class_ids = [];
+    let target_student_ids = [];
+    if (target_type === "class") {
+        target_class_ids = [...document.querySelectorAll("#mEvClassPicker input:checked")].map(cb => cb.value);
+        if (target_class_ids.length === 0) { showToast("Select at least one class", "warning"); return null; }
+    } else if (target_type === "students") {
+        target_student_ids = [...document.querySelectorAll("#mEvStudentPicker input[type=checkbox]:checked")].map(cb => cb.value);
+        if (target_student_ids.length === 0) { showToast("Select at least one student", "warning"); return null; }
+    }
+    return {
+        title, description: gv("mEvDesc"), event_date,
+        event_end_date: gv("mEvEndDate") || event_date,
+        target_type, target_class_ids, target_student_ids,
+    };
+}
+
+async function deleteEvent(id) {
+    if (!confirm("Delete this event?")) return;
+    await apiFetch(`/admin/events/detail/?id=${id}`, { method: "DELETE" });
+    showToast("Event deleted", "success");
+    await loadSection("events");
+}
+
+/* ═══════════════ HOLIDAYS ═══════════════ */
+async function loadHolidays(container) {
+    const res = await apiFetch("/admin/holidays/");
+    const d = await res.json();
+    const holidays = d.holidays || [];
+    container.innerHTML = `
+        <div class="admin-section-header">
+            <h3>Holidays</h3>
+            <button class="btn btn-primary btn-sm" onclick="openAddHoliday()">+ Add Holiday</button>
+        </div>
+        ${holidays.length === 0 ? '<p class="empty-state">No holidays yet.</p>' : `
+        <table class="admin-table">
+            <thead><tr><th>Name</th><th>Start Date</th><th>End Date</th><th>Duration</th><th>Actions</th></tr></thead>
+            <tbody>${holidays.map(h => {
+                const start = new Date(h.start_date);
+                const end = new Date(h.end_date || h.start_date);
+                const days = Math.round((end - start) / 86400000) + 1;
+                return `<tr>
+                    <td>${escHtml(h.name)}</td>
+                    <td>${escHtml(h.start_date)}</td>
+                    <td>${h.end_date !== h.start_date ? escHtml(h.end_date) : "—"}</td>
+                    <td>${days} day${days !== 1 ? "s" : ""}</td>
+                    <td class="admin-actions">
+                        <button class="btn btn-sm btn-secondary" onclick='openEditHoliday(${JSON.stringify(h).replace(/'/g, "&#39;")})'>Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteHoliday('${h.id}')">Delete</button>
+                    </td>
+                </tr>`;
+            }).join("")}</tbody>
+        </table>`}
+    `;
+}
+
+function openAddHoliday() {
+    openAdminModal("Add Holiday", `
+        <label>Name <input class="form-input" id="mHolName" placeholder="e.g. Christmas Break"></label>
+        <div class="form-row-2col">
+            <label>Start Date <input class="form-input" id="mHolStart" type="date"></label>
+            <label>End Date <input class="form-input" id="mHolEnd" type="date"></label>
+        </div>
+    `, async () => {
+        const name = gv("mHolName");
+        const start_date = gv("mHolStart");
+        if (!name || !start_date) { showToast("Name and start date required", "warning"); return; }
+        const res = await apiFetch("/admin/holidays/", {
+            method: "POST",
+            body: JSON.stringify({ name, start_date, end_date: gv("mHolEnd") || start_date }),
+        });
+        const d = await res.json();
+        if (!res.ok) { showToast(d.message || "Failed", "error"); return; }
+        closeAdminModal();
+        showToast("Holiday created", "success");
+        await loadSection("holidays");
+    });
+}
+
+function openEditHoliday(h) {
+    openAdminModal("Edit Holiday", `
+        <label>Name <input class="form-input" id="mHolName" value="${escHtml(h.name)}"></label>
+        <div class="form-row-2col">
+            <label>Start Date <input class="form-input" id="mHolStart" type="date" value="${h.start_date}"></label>
+            <label>End Date <input class="form-input" id="mHolEnd" type="date" value="${h.end_date || h.start_date}"></label>
+        </div>
+    `, async () => {
+        const name = gv("mHolName");
+        const start_date = gv("mHolStart");
+        if (!name || !start_date) { showToast("Name and start date required", "warning"); return; }
+        const res = await apiFetch(`/admin/holidays/detail/?id=${h.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ name, start_date, end_date: gv("mHolEnd") || start_date }),
+        });
+        const d = await res.json();
+        if (!res.ok) { showToast(d.message || "Failed", "error"); return; }
+        closeAdminModal();
+        showToast("Holiday updated", "success");
+        await loadSection("holidays");
+    });
+}
+
+async function deleteHoliday(id) {
+    if (!confirm("Delete this holiday?")) return;
+    await apiFetch(`/admin/holidays/detail/?id=${id}`, { method: "DELETE" });
+    showToast("Holiday deleted", "success");
+    await loadSection("holidays");
 }
 
 /* ═══════════════ CSV IMPORT ═══════════════ */

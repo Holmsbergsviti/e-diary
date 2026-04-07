@@ -3183,3 +3183,159 @@ tr:hover td {
     .admin-table th, .admin-table td { padding: 8px 10px; }
     .admin-actions { flex-direction: column; gap: 4px; }
 }
+
+/* ═══════════ Events / Holidays / Study Hall ═══════════ */
+
+/* Event target badges */
+.event-target-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+.event-target-all { background: var(--accent-bg, #e0f2fe); color: var(--accent, #0369a1); }
+.event-target-class { background: #fef3c7; color: #92400e; }
+.event-target-students { background: #ede9fe; color: #6d28d9; }
+
+/* Two-column form rows in modals */
+.form-row-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+/* Checkbox picker (for event targeting) */
+.checkbox-picker {
+    margin-top: 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: var(--bg-card, var(--card-bg));
+}
+.picker-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    display: block;
+}
+.checkbox-list {
+    max-height: 180px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.checkbox-list-tall { max-height: 260px; }
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    font-size: 0.88rem;
+    cursor: pointer;
+}
+.checkbox-item:hover { background: var(--hover-bg, rgba(0,0,0,0.04)); }
+.checkbox-item input[type="checkbox"] { flex-shrink: 0; }
+.checkbox-item small { color: var(--text-lighter); }
+
+/* Schedule holiday column */
+.schedule-holiday-col {
+    background: var(--holiday-bg, rgba(239, 68, 68, 0.06)) !important;
+}
+.schedule-holiday-badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    background: #fecaca;
+    color: #991b1b;
+    padding: 1px 6px;
+    border-radius: 8px;
+    margin-top: 2px;
+}
+.schedule-event-badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    background: #dbeafe;
+    color: #1e40af;
+    padding: 1px 6px;
+    border-radius: 8px;
+    margin-top: 2px;
+}
+
+/* Holiday cells in timetable */
+.lesson-holiday {
+    background: repeating-linear-gradient(
+        45deg,
+        var(--holiday-stripe1, rgba(239,68,68,0.05)),
+        var(--holiday-stripe1, rgba(239,68,68,0.05)) 6px,
+        var(--holiday-stripe2, rgba(239,68,68,0.10)) 6px,
+        var(--holiday-stripe2, rgba(239,68,68,0.10)) 12px
+    ) !important;
+    text-align: center;
+    color: var(--text-lighter);
+    font-size: 0.78rem;
+}
+.holiday-label {
+    font-weight: 600;
+    color: #dc2626;
+    font-size: 0.72rem;
+}
+
+/* Events list below schedule */
+.schedule-week-events {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: var(--bg-card, var(--card-bg));
+    border-radius: 10px;
+    border: 1px solid var(--border);
+}
+.schedule-week-events h4 {
+    margin: 0 0 10px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+}
+.schedule-event-item {
+    padding: 8px 12px;
+    border-radius: 6px;
+    background: var(--hover-bg, rgba(0,0,0,0.03));
+    margin-bottom: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+.schedule-event-item strong {
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+.schedule-event-date {
+    font-size: 0.8rem;
+    color: var(--text-lighter);
+    background: var(--accent-bg, #e0f2fe);
+    padding: 1px 8px;
+    border-radius: 8px;
+}
+.schedule-event-item p {
+    width: 100%;
+    margin: 4px 0 0;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* Dashboard upcoming events */
+.dashboard-event-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    margin-bottom: 4px;
+}
+.dashboard-event-item:hover { background: var(--hover-bg, rgba(0,0,0,0.03)); }
+.dashboard-event-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 2px; }
+.dashboard-event-info { display: flex; flex-direction: column; gap: 2px; }
+.dashboard-event-info strong { font-size: 0.92rem; color: var(--text-primary); }
+.dashboard-event-info .schedule-holiday-badge,
+.dashboard-event-info .schedule-event-badge { width: fit-content; }

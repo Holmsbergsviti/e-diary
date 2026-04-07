@@ -15,6 +15,10 @@ from .views import (
     admin_csv_import,
     admin_impersonate,
     admin_stats,
+    admin_events, admin_event_detail,
+    admin_holidays, admin_holiday_detail,
+    public_events,
+    teacher_study_hall, teacher_study_hall_students, teacher_study_hall_attendance,
 )
 
 urlpatterns = [
@@ -57,4 +61,12 @@ urlpatterns = [
     path("admin/csv-import/", admin_csv_import),
     path("admin/impersonate/", admin_impersonate),
     path("admin/stats/", admin_stats),
+    path("admin/events/", admin_events),
+    path("admin/events/detail/", admin_event_detail),
+    path("admin/holidays/", admin_holidays),
+    path("admin/holidays/detail/", admin_holiday_detail),
+    path("events/", public_events),
+    path("teacher/study-hall/", teacher_study_hall),
+    path("teacher/study-hall/students/", teacher_study_hall_students),
+    path("teacher/study-hall/attendance/", teacher_study_hall_attendance),
 ]

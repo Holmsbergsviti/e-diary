@@ -18,6 +18,7 @@ async function initDashboard() {
     // Load all data - use Promise.all to load in parallel
     try {
         await Promise.all([
+            loadUpcomingEvents(),
             loadAnnouncements(),
             loadRecentGrades(),
             loadAttendance(),
@@ -43,6 +44,55 @@ function gradeClass(code) {
     if (c === "D") return "grade-d";
     if (c === "E") return "grade-e";
     return "grade-u";
+}
+
+async function loadUpcomingEvents() {
+    const container = document.getElementById("upcomingEventsContainer");
+    try {
+        const res = await apiFetch("/events/");
+        const data = await res.json();
+        const events = data.events || [];
+        const holidays = data.holidays || [];
+        const today = new Date().toISOString().slice(0, 10);
+
+        // Combine upcoming events and holidays into one list
+        const items = [];
+        for (const ev of events) {
+            const endDate = ev.event_end_date || ev.event_date;
+            if (endDate >= today) {
+                items.push({ type: "event", title: ev.title, description: ev.description, start: ev.event_date, end: ev.event_end_date });
+            }
+        }
+        for (const h of holidays) {
+            const endDate = h.end_date || h.start_date;
+            if (endDate >= today) {
+                items.push({ type: "holiday", title: h.name, start: h.start_date, end: h.end_date });
+            }
+        }
+        items.sort((a, b) => a.start.localeCompare(b.start));
+
+        if (items.length === 0) {
+            container.innerHTML = '<p class="empty-state">No upcoming events or holidays.</p>';
+            return;
+        }
+
+        container.innerHTML = items.slice(0, 10).map(item => {
+            const icon = item.type === "holiday" ? "🏖" : "🎉";
+            const badgeCls = item.type === "holiday" ? "schedule-holiday-badge" : "schedule-event-badge";
+            const dateRange = item.end && item.end !== item.start
+                ? `${formatDate(item.start)} – ${formatDate(item.end)}` : formatDate(item.start);
+            return `<div class="dashboard-event-item">
+                <span class="dashboard-event-icon">${icon}</span>
+                <div class="dashboard-event-info">
+                    <strong>${escHtml(item.title)}</strong>
+                    <span class="${badgeCls}">${dateRange}</span>
+                    ${item.description ? `<p style="margin:2px 0 0;font-size:0.84rem;color:var(--text-secondary)">${escHtml(item.description)}</p>` : ""}
+                </div>
+            </div>`;
+        }).join("");
+    } catch (err) {
+        container.innerHTML = '<p class="empty-state">Could not load events.</p>';
+    }
 }
 
 async function loadAnnouncements() {
