@@ -590,14 +590,17 @@ def teacher_attendance(request):
         db = ediary()
         result = (
             db.table("attendance")
-            .select("id, student_id, status, comment")
+            .select("id, student_id, status, comment, topic")
             .eq("class_id", class_id)
             .eq("subject_id", subject_id)
             .eq("date_recorded", date)
             .eq("recorded_by_teacher_id", teacher_id)
             .execute()
         )
-        return JsonResponse({"attendance": result.data or []})
+        # Extract topic from any record (same for all in a session)
+        att_rows = result.data or []
+        topic = att_rows[0].get("topic", "") if att_rows else ""
+        return JsonResponse({"attendance": att_rows, "topic": topic})
 
     if request.method == "POST":
         try:
@@ -609,6 +612,7 @@ def teacher_attendance(request):
         class_id = data.get("class_id")
         subject_id = data.get("subject_id")
         date = data.get("date")
+        topic = data.get("topic", "").strip()
 
         if not records or not class_id or not subject_id or not date:
             return JsonResponse({"message": "records, class_id, subject_id, and date required"}, status=400)
@@ -632,6 +636,7 @@ def teacher_attendance(request):
                 "date_recorded": date,
                 "status": rec.get("status", "Present"),
                 "comment": rec.get("comment", ""),
+                "topic": topic,
                 "recorded_by_teacher_id": teacher_id,
             })
 

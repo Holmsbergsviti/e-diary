@@ -200,25 +200,27 @@ function renderSchedule() {
     }
     html += "</tr></thead><tbody>";
 
-    // Get current period only if viewing current week and it's a weekday
+    // Get current period + today's column index for cell-level highlighting
     let currentPeriod = null;
+    let todayCol = null; // 1-based day_of_week (1=Mon)
     if (isCurrentWeek) {
-        const today = new Date();
-        const dayOfWeek = today.getDay();
-        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        const now = new Date();
+        const dow = now.getDay(); // 0=Sun, 1=Mon … 5=Fri
+        if (dow >= 1 && dow <= 5) {
             currentPeriod = getCurrentPeriod();
+            todayCol = dow;
         }
     }
 
     for (let p = 1; p <= 8; p++) {
         const time = PERIOD_TIMES[p - 1] || `Period ${p}`;
-        const rowClass = (p === currentPeriod) ? 'period-current' : '';
-        html += `<tr ${rowClass ? `class="${rowClass}"` : ''}><td><strong>${p}</strong><br><small style="color:#9ca3af">${time}</small></td>`;
+        html += `<tr><td><strong>${p}</strong><br><small style="color:#9ca3af">${time}</small></td>`;
         for (let d = 1; d <= 5; d++) {
             const slot = (grid[d] || {})[p];
             const cellDate = new Date(mon); cellDate.setDate(mon.getDate() + d - 1);
             const cellDateStr = isoDate(cellDate);
             const holiday = getHoliday(cellDateStr);
+            const isNowCell = (p === currentPeriod && d === todayCol);
 
             if (holiday) {
                 // Holiday cell – greyed out
@@ -245,15 +247,20 @@ function renderSchedule() {
                     } else if (attStatus === "Excused") {
                         attClass = " lesson-excused";
                         attBadge = '<span class="att-badge att-badge-excused" title="Excused">📋</span>';
+                    } else if (attStatus === "Present") {
+                        attClass = " lesson-present";
+                        attBadge = '<span class="att-badge att-badge-present" title="Present">✓</span>';
                     }
                 }
 
-                html += `<td class="${cls}${attClass}" data-slot='${JSON.stringify(slotWithDate)}'>
+                const nowClass = isNowCell ? " cell-current" : "";
+                html += `<td class="${cls}${attClass}${nowClass}" data-slot='${JSON.stringify(slotWithDate)}'>
                     ${escHtml(slot.subject)}${attBadge}<br>
                     <span class="lesson-room">${yearLabel}${isTeacher && slot.room ? " · " + escHtml(slot.room) : ""}</span>
                 </td>`;
             } else {
-                html += "<td>–</td>";
+                const nowClass = isNowCell ? " cell-current" : "";
+                html += `<td class="${nowClass}">${isNowCell ? '<span style="color:var(--text-lighter)">Free</span>' : "–"}</td>`;
             }
         }
         html += "</tr>";

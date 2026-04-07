@@ -129,6 +129,9 @@ CREATE TABLE ediary_schema.attendance (
   date_recorded date NOT NULL,
   status text NOT NULL
     CHECK (status = ANY (ARRAY['Present','Absent','Late','Excused'])),
+  comment text,
+  subject_id uuid REFERENCES ediary_schema.subjects(id),
+  topic text DEFAULT '',
   recorded_by_teacher_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT attendance_pkey PRIMARY KEY (id),

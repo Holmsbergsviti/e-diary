@@ -234,6 +234,14 @@ async function loadStudentsAndAttendance(slot, date) {
         const students = studentsData.students || [];
         const existing = attendanceData.attendance || [];
 
+        // Populate topic field from existing data
+        const topicInput = document.getElementById("lessonTopic");
+        if (topicInput && attendanceData.topic) {
+            topicInput.value = attendanceData.topic;
+        } else if (topicInput && existing.length === 0) {
+            topicInput.value = "";
+        }
+
         // Build lookup: student_id -> record
         const attendanceMap = {};
         for (const rec of existing) {
@@ -324,6 +332,8 @@ async function saveAttendance() {
     btn.disabled = true;
     btn.textContent = "Saving…";
 
+    const topic = (document.getElementById("lessonTopic")?.value || "").trim();
+
     try {
         const res = await apiFetch("/teacher/attendance/", {
             method: "POST",
@@ -331,6 +341,7 @@ async function saveAttendance() {
                 class_id: currentSlot.class_id,
                 subject_id: currentSlot.subject_id,
                 date: date,
+                topic: topic,
                 records: records,
             }),
         });
