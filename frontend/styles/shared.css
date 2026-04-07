@@ -3293,7 +3293,7 @@ tr:hover td {
 /* Events list below schedule */
 .schedule-week-events {
     margin-top: 16px;
-    padding: 12px 16px;
+    padding: 14px 18px;
     background: var(--bg-card, var(--card-bg));
     border-radius: 10px;
     border: 1px solid var(--border);
@@ -3303,9 +3303,12 @@ tr:hover td {
     color: var(--text-primary);
     font-size: 0.95rem;
 }
+.schedule-week-events h4 + h4 {
+    margin-top: 16px;
+}
 .schedule-event-item {
-    padding: 8px 12px;
-    border-radius: 6px;
+    padding: 10px 14px;
+    border-radius: 8px;
     background: var(--hover-bg, rgba(0,0,0,0.03));
     margin-bottom: 6px;
     display: flex;
@@ -3321,7 +3324,7 @@ tr:hover td {
     font-size: 0.8rem;
     color: var(--text-lighter);
     background: var(--accent-bg, #e0f2fe);
-    padding: 1px 8px;
+    padding: 2px 10px;
     border-radius: 8px;
 }
 .schedule-event-item p {
@@ -3329,6 +3332,34 @@ tr:hover td {
     margin: 4px 0 0;
     font-size: 0.85rem;
     color: var(--text-secondary);
+}
+.schedule-holiday-item {
+    background: rgba(251, 146, 60, 0.08);
+    border-left: 3px solid #fb923c;
+}
+.schedule-event-icon {
+    font-size: 1.15rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.schedule-event-details {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+/* Upcoming events/holidays section on schedule page */
+.schedule-upcoming-section {
+    margin-top: 16px;
+    padding: 14px 18px;
+    background: var(--bg-card, var(--card-bg));
+    border-radius: 10px;
+    border: 1px solid var(--border);
+}
+.schedule-upcoming-section h4 {
+    margin: 0 0 10px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
 }
 
 /* Dashboard upcoming events */

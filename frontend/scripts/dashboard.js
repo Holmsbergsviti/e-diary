@@ -18,7 +18,6 @@ async function initDashboard() {
     // Load all data - use Promise.all to load in parallel
     try {
         await Promise.all([
-            loadUpcomingEvents(),
             loadAnnouncements(),
             loadRecentGrades(),
             loadAttendance(),

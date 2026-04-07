@@ -272,19 +272,80 @@ function renderSchedule() {
     }
     html += "</tbody></table>";
 
-    // Show week events below the timetable
-    if (weekEvents.length > 0) {
-        html += '<div class="schedule-week-events"><h4>📅 Events This Week</h4>';
-        html += weekEvents.map(ev => {
-            const dateRange = ev.event_end_date && ev.event_end_date !== ev.event_date
-                ? `${ev.event_date} – ${ev.event_end_date}` : ev.event_date;
-            return `<div class="schedule-event-item">
-                <strong>${escHtml(ev.title)}</strong>
-                <span class="schedule-event-date">${dateRange}</span>
-                ${ev.description ? `<p>${escHtml(ev.description)}</p>` : ""}
-            </div>`;
-        }).join("");
+    // Show week events + holidays below the timetable
+    const weekHolidays = [];
+    for (let d = 0; d < 5; d++) {
+        const dayDate = new Date(mon); dayDate.setDate(mon.getDate() + d);
+        const ds = isoDate(dayDate);
+        const h = getHoliday(ds);
+        if (h && !weekHolidays.find(wh => wh.name === h.name)) weekHolidays.push(h);
+    }
+
+    if (weekEvents.length > 0 || weekHolidays.length > 0) {
+        html += '<div class="schedule-week-events">';
+        if (weekHolidays.length > 0) {
+            html += '<h4>🏖 Holidays This Week</h4>';
+            html += weekHolidays.map(h => {
+                const dateRange = h.end_date && h.end_date !== h.start_date
+                    ? `${h.start_date} – ${h.end_date}` : h.start_date;
+                return `<div class="schedule-event-item schedule-holiday-item">
+                    <strong>${escHtml(h.name)}</strong>
+                    <span class="schedule-event-date">${dateRange}</span>
+                </div>`;
+            }).join("");
+        }
+        if (weekEvents.length > 0) {
+            html += '<h4>🎉 Events This Week</h4>';
+            html += weekEvents.map(ev => {
+                const dateRange = ev.event_end_date && ev.event_end_date !== ev.event_date
+                    ? `${ev.event_date} – ${ev.event_end_date}` : ev.event_date;
+                return `<div class="schedule-event-item">
+                    <strong>${escHtml(ev.title)}</strong>
+                    <span class="schedule-event-date">${dateRange}</span>
+                    ${ev.description ? `<p>${escHtml(ev.description)}</p>` : ""}
+                </div>`;
+            }).join("");
+        }
         html += "</div>";
+    }
+
+    // Upcoming events & holidays (beyond this week) for students
+    if (isStudent) {
+        const todayStr = isoDate(new Date());
+        const friStr = isoDate(fri);
+        const upcoming = [];
+        for (const ev of scheduleEvents) {
+            const end = ev.event_end_date || ev.event_date;
+            if (end > friStr) {
+                upcoming.push({ type: "event", title: ev.title, description: ev.description, start: ev.event_date, end: ev.event_end_date });
+            }
+        }
+        for (const h of scheduleHolidays) {
+            const end = h.end_date || h.start_date;
+            if (end > friStr) {
+                upcoming.push({ type: "holiday", title: h.name, start: h.start_date, end: h.end_date });
+            }
+        }
+        upcoming.sort((a, b) => a.start.localeCompare(b.start));
+
+        if (upcoming.length > 0) {
+            html += '<div class="schedule-upcoming-section"><h4>📅 Upcoming Events & Holidays</h4>';
+            html += upcoming.slice(0, 10).map(item => {
+                const icon = item.type === "holiday" ? "🏖" : "🎉";
+                const cls = item.type === "holiday" ? "schedule-holiday-item" : "";
+                const dateRange = item.end && item.end !== item.start
+                    ? `${item.start} – ${item.end}` : item.start;
+                return `<div class="schedule-event-item ${cls}">
+                    <span class="schedule-event-icon">${icon}</span>
+                    <div class="schedule-event-details">
+                        <strong>${escHtml(item.title)}</strong>
+                        <span class="schedule-event-date">${dateRange}</span>
+                        ${item.description ? `<p>${escHtml(item.description)}</p>` : ""}
+                    </div>
+                </div>`;
+            }).join("");
+            html += "</div>";
+        }
     }
 
     container.innerHTML = html;
