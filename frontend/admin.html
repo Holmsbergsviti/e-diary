@@ -48,14 +48,14 @@
         </div>
 
         <!-- Generic modal for add/edit forms -->
-        <div class="modal-overlay" id="adminModal" style="display:none;">
-            <div class="modal-card">
-                <div class="modal-header">
-                    <span id="adminModalTitle">Add</span>
-                    <button class="modal-close" onclick="closeAdminModal()">×</button>
+        <div class="admin-modal-overlay" id="adminModal" style="display:none;">
+            <div class="admin-modal">
+                <div class="admin-modal-header">
+                    <h3 id="adminModalTitle">Add</h3>
+                    <button class="admin-modal-close" onclick="closeAdminModal()">×</button>
                 </div>
-                <div class="modal-body" id="adminModalBody"></div>
-                <div class="modal-footer">
+                <div class="admin-modal-body" id="adminModalBody"></div>
+                <div class="admin-modal-footer">
                     <button class="btn btn-secondary" onclick="closeAdminModal()">Cancel</button>
                     <button class="btn btn-primary" id="adminModalSave">Save</button>
                 </div>

@@ -1025,7 +1025,9 @@ let modalSaveCallback = null;
 function openAdminModal(title, bodyHtml, onSave) {
     document.getElementById("adminModalTitle").textContent = title;
     document.getElementById("adminModalBody").innerHTML = bodyHtml;
-    document.getElementById("adminModal").style.display = "flex";
+    const overlay = document.getElementById("adminModal");
+    overlay.style.display = "flex";
+    overlay.onclick = (e) => { if (e.target === overlay) closeAdminModal(); };
     modalSaveCallback = onSave;
     const saveBtn = document.getElementById("adminModalSave");
     saveBtn.onclick = async () => {
