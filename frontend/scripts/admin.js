@@ -732,41 +732,57 @@ function buildEventFormHtml(ev) {
     const selClassIds = ev ? (ev.target_class_ids || []) : [];
     const selStudentIds = ev ? (ev.target_student_ids || []) : [];
     return `
-        <label>Title <input class="form-input" id="mEvTitle" value="${escHtml(ev ? ev.title : "")}" placeholder="e.g. School Trip"></label>
-        <label>Description <textarea class="form-input" id="mEvDesc" rows="2" placeholder="Optional details">${escHtml(ev ? ev.description || "" : "")}</textarea></label>
-        <div class="form-row-2col">
-            <label>Start Date <input class="form-input" id="mEvDate" type="date" value="${ev ? ev.event_date || "" : ""}"></label>
-            <label>End Date <input class="form-input" id="mEvEndDate" type="date" value="${ev && ev.event_end_date !== ev.event_date ? ev.event_end_date || "" : ""}"></label>
-        </div>
-        <label>Target
-            <select class="form-input" id="mEvTarget">
-                <option value="all" ${tt === "all" ? "selected" : ""}>All Students</option>
-                <option value="class" ${tt === "class" ? "selected" : ""}>Specific Classes</option>
-                <option value="students" ${tt === "students" ? "selected" : ""}>Specific Students</option>
-            </select>
-        </label>
-        <div id="mEvClassPicker" class="checkbox-picker" style="display:${tt === "class" ? "block" : "none"}">
-            <label class="picker-label">Select Classes:</label>
-            <div class="checkbox-list">${cachedClasses.map(c =>
-                `<label class="checkbox-item"><input type="checkbox" value="${c.id}" ${selClassIds.includes(c.id) ? "checked" : ""}> ${escHtml(c.class_name)} (Year ${c.grade_level})</label>`
-            ).join("")}</div>
-        </div>
-        <div id="mEvStudentPicker" class="checkbox-picker" style="display:${tt === "students" ? "block" : "none"}">
-            <label class="picker-label">Select Students:</label>
-            <input class="form-input" id="mEvStudentSearch" placeholder="Search students…" oninput="filterEventStudents()">
-            <div class="checkbox-list checkbox-list-tall" id="mEvStudentList">${cachedStudents.map(s =>
-                `<label class="checkbox-item" data-name="${escHtml((s.surname + ' ' + s.name).toLowerCase())}"><input type="checkbox" value="${s.id}" ${selStudentIds.includes(s.id) ? "checked" : ""}> ${escHtml(s.surname)} ${escHtml(s.name)}${s.class_name ? ` <small>(${escHtml(s.class_name)})</small>` : ""}</label>`
-            ).join("")}</div>
+        <div class="event-form">
+            <div class="event-form-section">
+                <div class="event-form-section-label">📝 Details</div>
+                <label>Title <input class="form-input" id="mEvTitle" value="${escHtml(ev ? ev.title : "")}" placeholder="e.g. School Trip"></label>
+                <label>Description <textarea class="form-input" id="mEvDesc" rows="2" placeholder="Optional details">${escHtml(ev ? ev.description || "" : "")}</textarea></label>
+            </div>
+            <div class="event-form-section">
+                <div class="event-form-section-label">📅 Dates</div>
+                <div class="form-row-2col">
+                    <label>Start Date <input class="form-input" id="mEvDate" type="date" value="${ev ? ev.event_date || "" : ""}"></label>
+                    <label>End Date <input class="form-input" id="mEvEndDate" type="date" value="${ev && ev.event_end_date !== ev.event_date ? ev.event_end_date || "" : ""}"></label>
+                </div>
+            </div>
+            <div class="event-form-section">
+                <div class="event-form-section-label">🎯 Target Audience</div>
+                <div class="event-target-toggle" id="mEvTargetToggle">
+                    <button type="button" class="target-btn${tt === "all" ? " active" : ""}" data-value="all">👥 All Students</button>
+                    <button type="button" class="target-btn${tt === "class" ? " active" : ""}" data-value="class">🏫 Classes</button>
+                    <button type="button" class="target-btn${tt === "students" ? " active" : ""}" data-value="students">🧑‍🎓 Students</button>
+                </div>
+                <input type="hidden" id="mEvTarget" value="${tt}">
+                <div id="mEvClassPicker" class="checkbox-picker" style="display:${tt === "class" ? "block" : "none"}">
+                    <label class="picker-label">Select Classes:</label>
+                    <div class="checkbox-list">${cachedClasses.map(c =>
+                        `<label class="checkbox-item"><input type="checkbox" value="${c.id}" ${selClassIds.includes(c.id) ? "checked" : ""}> ${escHtml(c.class_name)} (Year ${c.grade_level})</label>`
+                    ).join("")}</div>
+                </div>
+                <div id="mEvStudentPicker" class="checkbox-picker" style="display:${tt === "students" ? "block" : "none"}">
+                    <label class="picker-label">Select Students:</label>
+                    <input class="form-input" id="mEvStudentSearch" placeholder="🔍 Search students…" oninput="filterEventStudents()">
+                    <div class="checkbox-list checkbox-list-tall" id="mEvStudentList">${cachedStudents.map(s =>
+                        `<label class="checkbox-item" data-name="${escHtml((s.surname + ' ' + s.name).toLowerCase())}"><input type="checkbox" value="${s.id}" ${selStudentIds.includes(s.id) ? "checked" : ""}> ${escHtml(s.surname)} ${escHtml(s.name)}${s.class_name ? ` <small>(${escHtml(s.class_name)})</small>` : ""}</label>`
+                    ).join("")}</div>
+                </div>
+            </div>
         </div>
     `;
 }
 
 function bindEventTargetToggle() {
-    const sel = document.getElementById("mEvTarget");
-    if (!sel) return;
-    sel.addEventListener("change", () => {
-        document.getElementById("mEvClassPicker").style.display = sel.value === "class" ? "block" : "none";
-        document.getElementById("mEvStudentPicker").style.display = sel.value === "students" ? "block" : "none";
+    const toggle = document.getElementById("mEvTargetToggle");
+    const hidden = document.getElementById("mEvTarget");
+    if (!toggle || !hidden) return;
+    toggle.querySelectorAll(".target-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            toggle.querySelectorAll(".target-btn").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            hidden.value = btn.dataset.value;
+            document.getElementById("mEvClassPicker").style.display = btn.dataset.value === "class" ? "block" : "none";
+            document.getElementById("mEvStudentPicker").style.display = btn.dataset.value === "students" ? "block" : "none";
+        });
     });
 }
 
@@ -843,10 +859,18 @@ async function loadHolidays(container) {
 
 function openAddHoliday() {
     openAdminModal("Add Holiday", `
-        <label>Name <input class="form-input" id="mHolName" placeholder="e.g. Christmas Break"></label>
-        <div class="form-row-2col">
-            <label>Start Date <input class="form-input" id="mHolStart" type="date"></label>
-            <label>End Date <input class="form-input" id="mHolEnd" type="date"></label>
+        <div class="event-form">
+            <div class="event-form-section">
+                <div class="event-form-section-label">🏖 Holiday Details</div>
+                <label>Name <input class="form-input" id="mHolName" placeholder="e.g. Christmas Break"></label>
+            </div>
+            <div class="event-form-section">
+                <div class="event-form-section-label">📅 Dates</div>
+                <div class="form-row-2col">
+                    <label>Start Date <input class="form-input" id="mHolStart" type="date"></label>
+                    <label>End Date <input class="form-input" id="mHolEnd" type="date"></label>
+                </div>
+            </div>
         </div>
     `, async () => {
         const name = gv("mHolName");
@@ -866,10 +890,18 @@ function openAddHoliday() {
 
 function openEditHoliday(h) {
     openAdminModal("Edit Holiday", `
-        <label>Name <input class="form-input" id="mHolName" value="${escHtml(h.name)}"></label>
-        <div class="form-row-2col">
-            <label>Start Date <input class="form-input" id="mHolStart" type="date" value="${h.start_date}"></label>
-            <label>End Date <input class="form-input" id="mHolEnd" type="date" value="${h.end_date || h.start_date}"></label>
+        <div class="event-form">
+            <div class="event-form-section">
+                <div class="event-form-section-label">🏖 Holiday Details</div>
+                <label>Name <input class="form-input" id="mHolName" value="${escHtml(h.name)}"></label>
+            </div>
+            <div class="event-form-section">
+                <div class="event-form-section-label">📅 Dates</div>
+                <div class="form-row-2col">
+                    <label>Start Date <input class="form-input" id="mHolStart" type="date" value="${h.start_date}"></label>
+                    <label>End Date <input class="form-input" id="mHolEnd" type="date" value="${h.end_date || h.start_date}"></label>
+                </div>
+            </div>
         </div>
     `, async () => {
         const name = gv("mHolName");

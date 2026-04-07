@@ -2361,6 +2361,10 @@ def admin_users(request):
         else:
             rows = db.table("students").select("*").order("surname").order("name").execute()
             students = rows.data or []
+            # Filter out any IDs that also appear in the admins table
+            admin_rows = db.table("admins").select("id").execute()
+            admin_ids = {a["id"] for a in (admin_rows.data or [])}
+            students = [s for s in students if s["id"] not in admin_ids]
             classes = db.table("classes").select("id, class_name").execute()
             cls_map = {c["id"]: c["class_name"] for c in (classes.data or [])}
             for s in students:
