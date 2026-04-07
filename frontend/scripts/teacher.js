@@ -24,6 +24,7 @@ async function initTeacher() {
     }
 
     initNav();
+    _injectTeacherExports();          // add export dropdowns to card headers
     await Promise.all([loadSchedule(), loadHomework(), loadBehavioral(), loadClassStats(), loadStudyHall()]);
     
     // Initialize card collapse functionality
@@ -60,6 +61,20 @@ async function loadSchedule() {
         allSlots = data.schedule || [];
         renderTodayClasses();
         renderWeeklySchedule();
+
+        // Register schedule export
+        const scheduleRows = allSlots.map(s => ({
+            day: DAYS[s.day_of_week - 1] || String(s.day_of_week),
+            period: s.period,
+            time: PERIOD_TIMES[s.period - 1] || "",
+            subject: s.subject,
+            class_name: s.class_name || "Year " + s.grade_level,
+            room: s.room || "",
+        }));
+        _registerExport("expSchedule", scheduleRows,
+            ["day", "period", "time", "subject", "class_name", "room"],
+            { day: "Day", period: "Period", time: "Time", subject: "Subject", class_name: "Class", room: "Room" },
+            "my_schedule");
     } catch (err) {
         console.error("[teacher.js] loadSchedule error:", err);
         document.getElementById("todayClasses").innerHTML =
@@ -386,6 +401,34 @@ async function loadClassStats() {
         const data = await res.json();
         const stats = data.stats || [];
         renderClassStats(stats);
+
+        // Register class stats export
+        const statsRows = stats.map(s => {
+            const attT = s.attendance.total;
+            return {
+                subject: s.subject,
+                class_name: s.class_name,
+                student_count: s.student_count,
+                att_present: s.attendance.present,
+                att_late: s.attendance.late,
+                att_absent: s.attendance.absent,
+                att_excused: s.attendance.excused,
+                att_rate: attT ? Math.round((s.attendance.present / attT) * 100) + "%" : "N/A",
+                grade_avg: s.grades.average !== null ? s.grades.average.toFixed(1) : "–",
+                grade_count: s.grades.count,
+                hw_assigned: s.homework.assigned,
+                hw_completed: s.homework.completed,
+                hw_partial: s.homework.partial,
+                hw_not_done: s.homework.not_done,
+                beh_positive: s.behavioral.positive,
+                beh_negative: s.behavioral.negative,
+                beh_note: s.behavioral.note,
+            };
+        });
+        _registerExport("expClassStats", statsRows,
+            ["subject", "class_name", "student_count", "att_present", "att_late", "att_absent", "att_excused", "att_rate", "grade_avg", "grade_count", "hw_assigned", "hw_completed", "hw_partial", "hw_not_done", "beh_positive", "beh_negative", "beh_note"],
+            { subject: "Subject", class_name: "Class", student_count: "Students", att_present: "Present", att_late: "Late", att_absent: "Absent", att_excused: "Excused", att_rate: "Att. Rate", grade_avg: "Grade Avg", grade_count: "Grades", hw_assigned: "HW Assigned", hw_completed: "HW Done", hw_partial: "HW Partial", hw_not_done: "HW Not Done", beh_positive: "Positive", beh_negative: "Negative", beh_note: "Notes" },
+            "class_statistics");
     } catch (err) {
         container.innerHTML = '<p class="empty-state">Failed to load statistics.</p>';
     }
@@ -710,6 +753,20 @@ async function loadHomework() {
 
 function renderHomework() {
     const container = document.getElementById("homeworkList");
+
+    // Register homework export
+    const hwRows = homeworkAssignments.map(hw => ({
+        title: hw.title,
+        subject: hw.subject || "",
+        class_name: hw.class_name || "",
+        due_date: hw.due_date || "",
+        description: hw.body || "",
+    }));
+    _registerExport("expHomework", hwRows,
+        ["title", "subject", "class_name", "due_date", "description"],
+        { title: "Title", subject: "Subject", class_name: "Class", due_date: "Due Date", description: "Description" },
+        "homework_assignments");
+
     if (homeworkAssignments.length === 0) {
         container.innerHTML = '<p class="empty-state">No homework assigned yet.</p>';
         return;
@@ -972,6 +1029,21 @@ const SEVERITY_LABELS = { low: "Low", medium: "Medium", high: "High" };
 
 function renderBehavioral() {
     const container = document.getElementById("behavioralList");
+
+    // Register behavioral export
+    const behRows = behavioralEntries.map(e => ({
+        student: e.student || "",
+        entry_type: e.entry_type || "",
+        severity: e.severity || "",
+        subject: e.subject || "",
+        content: e.content || "",
+        date: e.created_at ? e.created_at.slice(0, 10) : "",
+    }));
+    _registerExport("expBehavioral", behRows,
+        ["student", "entry_type", "severity", "subject", "content", "date"],
+        { student: "Student", entry_type: "Type", severity: "Severity", subject: "Subject", content: "Details", date: "Date" },
+        "behavioral_notes");
+
     if (behavioralEntries.length === 0) {
         container.innerHTML = '<p class="empty-state">No behavioral notes yet.</p>';
         return;
@@ -1383,3 +1455,43 @@ async function saveStudyHallAttendance() {
         btn.disabled = false;
     }
 }
+
+/* ================================================================
+   EXPORT FUNCTIONALITY
+   ================================================================ */
+
+const _exportData = {};
+
+function _registerExport(key, rows, columns, headerMap, filename) {
+    _exportData[key] = { rows, columns, headerMap, filename };
+}
+
+/** Inject export dropdown buttons into each teacher card header */
+function _injectTeacherExports() {
+    const targets = [
+        { cardId: "class-statistics", key: "expClassStats" },
+        { cardId: "homework-teacher", key: "expHomework" },
+        { cardId: "behavioral-teacher", key: "expBehavioral" },
+        { cardId: "weekly-schedule", key: "expSchedule" },
+    ];
+    for (const { cardId, key } of targets) {
+        const title = document.querySelector(`[data-card-id="${cardId}"] .card-title`);
+        if (!title) continue;
+        const collapseBtn = title.querySelector(".card-collapse-btn");
+        const wrapper = document.createElement("span");
+        wrapper.style.marginLeft = "auto";
+        wrapper.innerHTML = exportDropdownHTML(key, "Export");
+        if (collapseBtn) title.insertBefore(wrapper, collapseBtn);
+        else title.appendChild(wrapper);
+    }
+}
+
+/** Global export event handler */
+document.addEventListener("export", (e) => {
+    const { format, key } = e.detail;
+    const d = _exportData[key];
+    if (!d) { showToast("No data to export yet", "warning"); return; }
+    if (d.rows.length === 0) { showToast("No data to export", "warning"); return; }
+    if (format === "csv") exportCSV(d.filename + ".csv", d.rows, d.columns, d.headerMap);
+    else exportExcel(d.filename + ".xlsx", d.rows, d.columns, d.headerMap);
+});

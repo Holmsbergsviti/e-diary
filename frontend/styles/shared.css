@@ -2986,6 +2986,58 @@ tr:hover td {
     color: var(--text-primary);
     margin: 0;
 }
+.section-header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* --- Export dropdown --- */
+.export-dropdown {
+    position: relative;
+    display: inline-block;
+}
+.export-dropdown .btn-outline {
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 0.82rem;
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+.export-dropdown .btn-outline:hover {
+    background: var(--bg-secondary);
+    border-color: var(--accent);
+}
+.export-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    z-index: 100;
+    min-width: 130px;
+    overflow: hidden;
+}
+.export-menu button {
+    display: block;
+    width: 100%;
+    padding: 8px 14px;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+.export-menu button:hover {
+    background: var(--bg-secondary);
+}
 
 /* --- Admin Table --- */
 .admin-table {

@@ -30,7 +30,6 @@ const ALL_PERM_KEYS = [
     { key: "schedule",   label: "Schedule" },
     { key: "events",     label: "Events" },
     { key: "holidays",   label: "Holidays" },
-    { key: "study_hall", label: "Study Hall" },
     { key: "import",     label: "Import / Export" },
 ];
 
@@ -192,10 +191,14 @@ async function loadOverview(container) {
 /* ═══════════════ CLASSES ═══════════════ */
 async function loadClasses(container) {
     const classes = await fetchClasses();
+    _registerExport("expClasses", classes, ["class_name", "grade_level"], { class_name: "Class Name", grade_level: "Year Level" }, "Classes");
     container.innerHTML = `
         <div class="admin-section-header">
             <h3>Classes</h3>
-            <button class="btn btn-primary btn-sm" onclick="openAddClass()">+ Add Class</button>
+            <div class="section-header-actions">
+                ${exportDropdownHTML("expClasses", "⬇ Export")}
+                <button class="btn btn-primary btn-sm" onclick="openAddClass()">+ Add Class</button>
+            </div>
         </div>
         ${classes.length === 0 ? '<p class="empty-state">No classes yet.</p>' : `
         <table class="admin-table">
@@ -254,10 +257,14 @@ async function deleteClass(id) {
 /* ═══════════════ SUBJECTS ═══════════════ */
 async function loadSubjects(container) {
     const subjects = await fetchSubjects();
+    _registerExport("expSubjects", subjects, ["name", "color_code"], { name: "Subject Name", color_code: "Color Code" }, "Subjects");
     container.innerHTML = `
         <div class="admin-section-header">
             <h3>Subjects</h3>
-            <button class="btn btn-primary btn-sm" onclick="openAddSubject()">+ Add Subject</button>
+            <div class="section-header-actions">
+                ${exportDropdownHTML("expSubjects", "⬇ Export")}
+                <button class="btn btn-primary btn-sm" onclick="openAddSubject()">+ Add Subject</button>
+            </div>
         </div>
         ${subjects.length === 0 ? '<p class="empty-state">No subjects yet.</p>' : `
         <table class="admin-table">
@@ -318,10 +325,19 @@ async function deleteSubject(id) {
 async function loadTeachers(container) {
     await fetchClasses();
     const teachers = await fetchTeachers();
+    _registerExport("expTeachers", teachers.map(t => ({
+        surname: t.surname, name: t.name, email: t.email || "",
+        is_class_teacher: t.is_class_teacher ? "Yes" : "No",
+        class_teacher_of: t.class_teacher_class_name || ""
+    })), ["surname","name","email","is_class_teacher","class_teacher_of"],
+    { surname:"Surname", name:"Name", email:"Email", is_class_teacher:"Class Teacher", class_teacher_of:"Class" }, "Teachers");
     container.innerHTML = `
         <div class="admin-section-header">
             <h3>Teachers</h3>
-            <button class="btn btn-primary btn-sm" onclick="openAddTeacher()">+ Add Teacher</button>
+            <div class="section-header-actions">
+                ${exportDropdownHTML("expTeachers", "⬇ Export")}
+                <button class="btn btn-primary btn-sm" onclick="openAddTeacher()">+ Add Teacher</button>
+            </div>
         </div>
         ${teachers.length === 0 ? '<p class="empty-state">No teachers yet.</p>' : `
         <table class="admin-table">
@@ -395,10 +411,17 @@ function editTeacher(t) {
 async function loadStudents(container) {
     await fetchClasses();
     const students = await fetchStudents();
+    _registerExport("expStudents", students.map(s => ({
+        surname: s.surname, name: s.name, email: s.email || "", class_name: s.class_name || ""
+    })), ["surname","name","email","class_name"],
+    { surname:"Surname", name:"Name", email:"Email", class_name:"Class" }, "Students");
     container.innerHTML = `
         <div class="admin-section-header">
             <h3>Students</h3>
-            <button class="btn btn-primary btn-sm" onclick="openAddStudent()">+ Add Student</button>
+            <div class="section-header-actions">
+                ${exportDropdownHTML("expStudents", "⬇ Export")}
+                <button class="btn btn-primary btn-sm" onclick="openAddStudent()">+ Add Student</button>
+            </div>
         </div>
         ${students.length === 0 ? '<p class="empty-state">No students yet.</p>' : `
         <table class="admin-table">
@@ -470,10 +493,19 @@ async function loadAdmins(container) {
     const d = await res.json();
     const admins = d.users || [];
     const isSuperAdmin = _adminLevel() === "super";
+    _registerExport("expAdmins", admins.map(a => {
+        const perms = a.permissions || {};
+        const permStr = (a.admin_level === "master") ? "All" : ALL_PERM_KEYS.filter(p => perms[p.key]).map(p => p.label).join(", ") || "None";
+        return { surname: a.surname, name: a.name, email: a.email || "", admin_level: a.admin_level || "regular", permissions: permStr };
+    }), ["surname","name","email","admin_level","permissions"],
+    { surname:"Surname", name:"Name", email:"Email", admin_level:"Level", permissions:"Permissions" }, "Admins");
     container.innerHTML = `
         <div class="admin-section-header">
             <h3>Admins</h3>
-            <button class="btn btn-primary btn-sm" onclick="openAddAdmin()">+ Add Admin</button>
+            <div class="section-header-actions">
+                ${exportDropdownHTML("expAdmins", "⬇ Export")}
+                <button class="btn btn-primary btn-sm" onclick="openAddAdmin()">+ Add Admin</button>
+            </div>
         </div>
         ${admins.length === 0 ? '<p class="empty-state">No admins yet.</p>' : `
         <table class="admin-table">
@@ -576,10 +608,17 @@ async function loadAssignments(container) {
     const res = await apiFetch("/admin/teacher-assignments/");
     const d = await res.json();
     const assignments = d.assignments || [];
+    _registerExport("expAssign", assignments.map(a => ({
+        teacher_name: a.teacher_name, subject_name: a.subject_name, class_name: a.class_name
+    })), ["teacher_name","subject_name","class_name"],
+    { teacher_name:"Teacher", subject_name:"Subject", class_name:"Class" }, "Assignments");
     container.innerHTML = `
         <div class="admin-section-header">
             <h3>Teacher Assignments</h3>
-            <button class="btn btn-primary btn-sm" onclick="openAddAssignment()">+ Add Assignment</button>
+            <div class="section-header-actions">
+                ${exportDropdownHTML("expAssign", "⬇ Export")}
+                <button class="btn btn-primary btn-sm" onclick="openAddAssignment()">+ Add Assignment</button>
+            </div>
         </div>
         ${assignments.length === 0 ? '<p class="empty-state">No assignments yet.</p>' : `
         <table class="admin-table">
@@ -628,10 +667,17 @@ async function loadEnrollments(container) {
     const res = await apiFetch("/admin/student-subjects/");
     const d = await res.json();
     const enrollments = d.enrollments || [];
+    _registerExport("expEnroll", enrollments.map(e => ({
+        student_name: e.student_name, subject_name: e.subject_name, group_class_name: e.group_class_name || ""
+    })), ["student_name","subject_name","group_class_name"],
+    { student_name:"Student", subject_name:"Subject", group_class_name:"Group Class" }, "Enrollments");
     container.innerHTML = `
         <div class="admin-section-header">
             <h3>Student Subject Enrolments</h3>
-            <button class="btn btn-primary btn-sm" onclick="openAddEnrollment()">+ Add Enrolment</button>
+            <div class="section-header-actions">
+                ${exportDropdownHTML("expEnroll", "⬇ Export")}
+                <button class="btn btn-primary btn-sm" onclick="openAddEnrollment()">+ Add Enrolment</button>
+            </div>
         </div>
         ${enrollments.length === 0 ? '<p class="empty-state">No enrolments yet.</p>' : `
         <table class="admin-table">
@@ -681,10 +727,19 @@ async function loadSchedule(container) {
     const res = await apiFetch("/admin/schedule/");
     const d = await res.json();
     const slots = d.schedule || [];
+    _registerExport("expSchedule", slots.map(s => ({
+        day: DAY_NAMES[s.day_of_week] || s.day_of_week, period: s.period,
+        teacher_name: s.teacher_name, subject_name: s.subject_name,
+        class_name: s.class_name, room: s.room || ""
+    })), ["day","period","teacher_name","subject_name","class_name","room"],
+    { day:"Day", period:"Period", teacher_name:"Teacher", subject_name:"Subject", class_name:"Class", room:"Room" }, "Schedule");
     container.innerHTML = `
         <div class="admin-section-header">
             <h3>Schedule</h3>
-            <button class="btn btn-primary btn-sm" onclick="openAddScheduleSlot()">+ Add Time Slot</button>
+            <div class="section-header-actions">
+                ${exportDropdownHTML("expSchedule", "⬇ Export")}
+                <button class="btn btn-primary btn-sm" onclick="openAddScheduleSlot()">+ Add Time Slot</button>
+            </div>
         </div>
         ${slots.length === 0 ? '<p class="empty-state">No schedule slots yet.</p>' : `
         <table class="admin-table">
@@ -750,10 +805,21 @@ async function loadEvents(container) {
     }
     const d = await res.json();
     const events = d.events || [];
+    _registerExport("expEvents", events.map(ev => ({
+        title: ev.title, description: ev.description || "",
+        event_date: ev.event_date, event_end_date: ev.event_end_date || "",
+        start_time: ev.start_time || "", end_time: ev.end_time || "",
+        affected_periods: (ev.affected_periods || []).join(", "),
+        target_type: ev.target_type || "all"
+    })), ["title","description","event_date","event_end_date","start_time","end_time","affected_periods","target_type"],
+    { title:"Title", description:"Description", event_date:"Start Date", event_end_date:"End Date", start_time:"Start Time", end_time:"End Time", affected_periods:"Periods", target_type:"Target" }, "Events");
     container.innerHTML = `
         <div class="admin-section-header">
             <h3>Events</h3>
-            <button class="btn btn-primary btn-sm" onclick="openAddEvent()">+ Add Event</button>
+            <div class="section-header-actions">
+                ${exportDropdownHTML("expEvents", "⬇ Export")}
+                <button class="btn btn-primary btn-sm" onclick="openAddEvent()">+ Add Event</button>
+            </div>
         </div>
         ${events.length === 0 ? '<p class="empty-state">No events yet.</p>' : `
         <table class="admin-table">
@@ -964,10 +1030,17 @@ async function loadHolidays(container) {
     }
     const d = await res.json();
     const holidays = d.holidays || [];
+    _registerExport("expHolidays", holidays.map(h => ({
+        name: h.name, start_date: h.start_date, end_date: h.end_date || h.start_date
+    })), ["name","start_date","end_date"],
+    { name:"Name", start_date:"Start Date", end_date:"End Date" }, "Holidays");
     container.innerHTML = `
         <div class="admin-section-header">
             <h3>Holidays</h3>
-            <button class="btn btn-primary btn-sm" onclick="openAddHoliday()">+ Add Holiday</button>
+            <div class="section-header-actions">
+                ${exportDropdownHTML("expHolidays", "⬇ Export")}
+                <button class="btn btn-primary btn-sm" onclick="openAddHoliday()">+ Add Holiday</button>
+            </div>
         </div>
         ${holidays.length === 0 ? '<p class="empty-state">No holidays yet.</p>' : `
         <table class="admin-table">
@@ -1247,6 +1320,21 @@ async function impersonateUser(userId) {
 }
 
 /* ═══════════════ Init ═══════════════ */
+/* --- Admin export wiring --- */
+let _exportData = {};   // { sectionKey: { rows, columns, headerMap, filename } }
+
+function _registerExport(key, rows, columns, headerMap, filename) {
+    _exportData[key] = { rows, columns, headerMap, filename };
+}
+
+document.addEventListener("export", (e) => {
+    const { id, fmt } = e.detail;
+    const d = _exportData[id];
+    if (!d) { showToast("No data to export", "warning"); return; }
+    if (fmt === "csv") exportCSV(d.filename + ".csv", d.rows, d.columns, d.headerMap);
+    else exportExcel(d.filename + ".xlsx", d.rows, d.columns, d.headerMap, d.filename);
+});
+
 document.addEventListener("DOMContentLoaded", () => {
     initAdmin().catch(err => console.error("Admin init error:", err));
 });

@@ -18,7 +18,7 @@ MASTER_ADMIN_EMAIL = "bojan.milenkovic@chartwell.edu.rs"
 ALL_ADMIN_PERMISSIONS = {
     "students": True, "teachers": True, "classes": True,
     "subjects": True, "schedule": True, "events": True,
-    "holidays": True, "study_hall": True, "import": True,
+    "holidays": True, "import": True,
 }
 
 

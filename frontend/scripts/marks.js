@@ -148,9 +148,11 @@ function renderActiveGroup(container) {
     if (group.type === "class_overview") {
         renderClassOverview(container, group);
         document.getElementById("addGradeBtn").style.display = "none";
+        _showExportBtns(false);
     } else {
         renderGroup(container, group);
         document.getElementById("addGradeBtn").style.display = "inline-block";
+        _showExportBtns(true);
     }
 }
 
@@ -834,4 +836,76 @@ async function openCommentsModal(studentId, studentName, subjectId) {
     } catch (err) {
         body.innerHTML = '<p class="empty-state">Failed to load comments.</p>';
     }
+}
+
+/* ═══════════════ EXPORT ═══════════════ */
+function _showExportBtns(show) {
+    const csv = document.getElementById("exportGradesBtn");
+    const xlsx = document.getElementById("exportGradesXlsxBtn");
+    if (csv) csv.style.display = show ? "inline-block" : "none";
+    if (xlsx) xlsx.style.display = show ? "inline-block" : "none";
+}
+
+function _buildExportRows(group) {
+    if (!group || !group.students) return [];
+    const rows = [];
+    for (const stu of group.students) {
+        const grades = stu.grades || [];
+        if (grades.length === 0) {
+            rows.push({
+                student: `${stu.surname} ${stu.name}`,
+                class_name: stu.class_name || group.class_name || "",
+                subject: group.subject || "",
+                assessment: "", category: "", grade: "", percentage: "", date: "", term: "", comment: ""
+            });
+        }
+        for (const g of grades) {
+            rows.push({
+                student: `${stu.surname} ${stu.name}`,
+                class_name: stu.class_name || group.class_name || "",
+                subject: group.subject || "",
+                assessment: g.assessment_name || "",
+                category: g.category || "",
+                grade: g.grade_code || "",
+                percentage: g.percentage != null ? g.percentage : "",
+                date: g.date_taken || "",
+                term: g.term || "",
+                comment: g.comment || ""
+            });
+        }
+    }
+    return rows;
+}
+
+const _gradeExportCols = ["student","class_name","subject","assessment","category","grade","percentage","date","term","comment"];
+const _gradeExportHeaders = {
+    student: "Student", class_name: "Class", subject: "Subject",
+    assessment: "Assessment", category: "Category", grade: "Grade",
+    percentage: "%", date: "Date", term: "Term", comment: "Comment"
+};
+
+function exportCurrentGroupCSV() {
+    const group = allGroups[activeGroupIdx];
+    if (!group) return;
+    const rows = _buildExportRows(group);
+    const fname = `Grades_${(group.class_name || "Year" + group.year_group)}_${group.subject || "Overview"}`.replace(/\s+/g, "_");
+    exportCSV(fname + ".csv", rows, _gradeExportCols, _gradeExportHeaders);
+}
+
+function exportCurrentGroupExcel() {
+    const group = allGroups[activeGroupIdx];
+    if (!group) return;
+    const rows = _buildExportRows(group);
+    const fname = `Grades_${(group.class_name || "Year" + group.year_group)}_${group.subject || "Overview"}`.replace(/\s+/g, "_");
+    exportExcel(fname + ".xlsx", rows, _gradeExportCols, _gradeExportHeaders, group.subject || "Grades");
+}
+
+function exportAllGroupsExcel() {
+    const sheets = allGroups.filter(g => g.type !== "class_overview").map(g => ({
+        name: `${g.class_name || "Y" + g.year_group} ${g.subject || ""}`.substring(0, 31),
+        rows: _buildExportRows(g),
+        columns: _gradeExportCols,
+        headerMap: _gradeExportHeaders
+    }));
+    exportExcelMultiSheet("All_Grades.xlsx", sheets);
 }
