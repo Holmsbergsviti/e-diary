@@ -549,15 +549,21 @@ function _collectPerms() {
 function openAddAdmin() {
     const defaultPerms = {};
     ALL_PERM_KEYS.forEach(p => { defaultPerms[p.key] = true; });
+    const isSuperAdmin = _adminLevel() === "super";
     openAdminModal("Add Admin", `
         <label>Name <input class="form-input" id="mName" placeholder="First name"></label>
         <label>Surname <input class="form-input" id="mSurname" placeholder="Last name"></label>
         <label>Email <input class="form-input" id="mEmail" type="email" placeholder="admin@school.edu"></label>
         <label>Password <input class="form-input" id="mPassword" type="text" value="changeme"></label>
+        ${isSuperAdmin ? `<label>Admin Level <select class="form-input" id="mAdminLevel">
+            <option value="regular" selected>Regular</option>
+            <option value="master">Master</option>
+        </select></label>` : ''}
         <fieldset class="perm-fieldset"><legend>Permissions</legend>${_permCheckboxes(defaultPerms)}</fieldset>
     `, async () => {
         const perms = _collectPerms();
         const body = { role: "admin", name: gv("mName"), surname: gv("mSurname"), email: gv("mEmail"), password: gv("mPassword"), permissions: perms };
+        if (isSuperAdmin) body.admin_level = document.getElementById("mAdminLevel")?.value || "regular";
         if (!body.name || !body.surname || !body.email) { showToast("All fields required", "warning"); return; }
         const res = await apiFetch("/admin/users/", { method: "POST", body: JSON.stringify(body) });
         const d = await res.json();
@@ -571,17 +577,23 @@ function openAddAdmin() {
 function editAdmin(a) {
     const existingPerms = a.permissions || {};
     const isMaster = a.admin_level === "master";
+    const isSuperAdmin = _adminLevel() === "super";
     openAdminModal("Edit Admin", `
         <label>Name <input class="form-input" id="mName" value="${escHtml(a.name)}"></label>
         <label>Surname <input class="form-input" id="mSurname" value="${escHtml(a.surname)}"></label>
         <label>New Email <input class="form-input" id="mEmail" placeholder="Leave blank to keep"></label>
         <label>New Password <input class="form-input" id="mPassword" placeholder="Leave blank to keep"></label>
-        ${isMaster ? '' : `<fieldset class="perm-fieldset"><legend>Permissions</legend>${_permCheckboxes(existingPerms)}</fieldset>`}
+        ${isSuperAdmin ? `<label>Admin Level <select class="form-input" id="mAdminLevel">
+            <option value="regular"${a.admin_level !== 'master' ? ' selected' : ''}>Regular</option>
+            <option value="master"${a.admin_level === 'master' ? ' selected' : ''}>Master</option>
+        </select></label>` : ''}
+        ${isMaster && !isSuperAdmin ? '' : `<fieldset class="perm-fieldset"><legend>Permissions</legend>${_permCheckboxes(existingPerms)}</fieldset>`}
     `, async () => {
         const body = { id: a.id, role: "admin", name: gv("mName"), surname: gv("mSurname") };
         const email = gv("mEmail"); if (email) body.email = email;
         const pw = gv("mPassword"); if (pw) body.password = pw;
-        if (!isMaster) body.permissions = _collectPerms();
+        if (isSuperAdmin) body.admin_level = document.getElementById("mAdminLevel")?.value || a.admin_level;
+        if (!(isMaster && !isSuperAdmin)) body.permissions = _collectPerms();
         const res = await apiFetch("/admin/users/detail/", { method: "PATCH", body: JSON.stringify(body) });
         const d = await res.json();
         if (!res.ok) { showToast(d.message || "Failed", "error"); return; }

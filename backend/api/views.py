@@ -2557,6 +2557,12 @@ def admin_users(request):
         if role == "admin":
             if caller_level not in ("super", "master"):
                 return JsonResponse({"message": "Only master admins can create admins"}, status=403)
+            # Only super can create master-level admins
+            requested_level = data.get("admin_level", "regular").strip()
+            if requested_level == "master" and caller_level != "super":
+                return JsonResponse({"message": "Only the super admin can create master admins"}, status=403)
+            if requested_level not in ("regular", "master"):
+                requested_level = "regular"
         elif role == "teacher":
             if not _admin_has_perm(payload, "teachers"):
                 return JsonResponse({"message": "No permission"}, status=403)
@@ -2589,7 +2595,7 @@ def admin_users(request):
                 admin_permissions = data.get("permissions") or ALL_ADMIN_PERMISSIONS
                 db.table("admins").insert({
                     "id": user_id, "name": name, "surname": surname,
-                    "admin_level": "regular",
+                    "admin_level": requested_level,
                     "permissions": admin_permissions,
                 }).execute()
             else:
@@ -2658,6 +2664,11 @@ def admin_user_detail(request):
             # Allow super/master to update permissions for regular admins
             if "permissions" in data and not _is_master_admin_id(uid):
                 updates["permissions"] = data["permissions"]
+            # Only super can change admin_level
+            if "admin_level" in data and caller_level == "super" and not _is_super_admin_id(uid):
+                new_level = data["admin_level"].strip()
+                if new_level in ("regular", "master"):
+                    updates["admin_level"] = new_level
 
         # Update email/password in Supabase Auth if provided
         if data.get("email") or data.get("password"):
