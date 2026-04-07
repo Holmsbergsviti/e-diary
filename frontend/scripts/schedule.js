@@ -314,15 +314,17 @@ function renderSchedule() {
         const todayStr = isoDate(new Date());
         const friStr = isoDate(fri);
         const upcoming = [];
+        const monStr = isoDate(mon);
         for (const ev of scheduleEvents) {
-            const end = ev.event_end_date || ev.event_date;
-            if (end > friStr) {
+            const start = ev.event_date;
+            // Only show if it starts after this week (not already active)
+            if (start > friStr) {
                 upcoming.push({ type: "event", title: ev.title, description: ev.description, start: ev.event_date, end: ev.event_end_date });
             }
         }
         for (const h of scheduleHolidays) {
-            const end = h.end_date || h.start_date;
-            if (end > friStr) {
+            // Only show if it starts after this week (not already active)
+            if (h.start_date > friStr) {
                 upcoming.push({ type: "holiday", title: h.name, start: h.start_date, end: h.end_date });
             }
         }
