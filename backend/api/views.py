@@ -3687,3 +3687,106 @@ def teacher_study_hall_attendance(request):
     except Exception as exc:
         logger.exception("Server error")
         return JsonResponse({"message": "Internal server error"}, status=500)
+
+
+# ------------------------------------------------------------------
+# Admin: Attendance flags – suspicious students
+# Students marked absent in one subject but present/late in another
+# on the same day.
+# ------------------------------------------------------------------
+
+@csrf_exempt
+def admin_attendance_flags(request):
+    payload = _require_admin(request)
+    if not payload:
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+    if not _admin_has_perm(payload, "students"):
+        return JsonResponse({"message": "No permission"}, status=403)
+    if request.method != "GET":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+
+    # Optional date filter (default: last 7 days)
+    from datetime import date as _date
+    date_from = request.GET.get("from", "")
+    date_to = request.GET.get("to", "")
+    if not date_from:
+        date_from = (_date.today() - timedelta(days=7)).isoformat()
+    if not date_to:
+        date_to = _date.today().isoformat()
+
+    db = ediary()
+    try:
+        att_result = (
+            db.table("attendance")
+            .select("student_id, class_id, subject_id, date_recorded, status")
+            .gte("date_recorded", date_from)
+            .lte("date_recorded", date_to)
+            .execute()
+        )
+        records = att_result.data or []
+
+        # Build per-student-per-date status pairs
+        from collections import defaultdict
+        lookup = defaultdict(list)
+        for r in records:
+            lookup[(r["student_id"], r["date_recorded"])].append(r)
+
+        # Find conflicts: absent in one subject, present/late/excused in another
+        flags = []
+        seen = set()
+        for (sid, dt), entries in lookup.items():
+            statuses = {e["status"] for e in entries}
+            if "Absent" in statuses and statuses & {"Present", "Late", "Excused"}:
+                if (sid, dt) in seen:
+                    continue
+                seen.add((sid, dt))
+                absent_in = [e["subject_id"] for e in entries if e["status"] == "Absent"]
+                present_in = [e["subject_id"] for e in entries if e["status"] in ("Present", "Late", "Excused")]
+                flags.append({
+                    "student_id": sid,
+                    "date": dt,
+                    "absent_subject_ids": absent_in,
+                    "present_subject_ids": present_in,
+                })
+
+        # Enrich with student names + subject names
+        student_ids = list({f["student_id"] for f in flags})
+        subject_ids = list({sid for f in flags for sid in f["absent_subject_ids"] + f["present_subject_ids"]})
+
+        student_map = {}
+        if student_ids:
+            stus = ediary().table("students").select("id, name, surname, class_id").in_("id", student_ids).execute()
+            for s in (stus.data or []):
+                student_map[s["id"]] = s
+
+        subject_map = {}
+        if subject_ids:
+            subs = ediary().table("subjects").select("id, name").in_("id", subject_ids).execute()
+            for s in (subs.data or []):
+                subject_map[s["id"]] = s["name"]
+
+        class_map = {}
+        class_ids = list({s.get("class_id") for s in student_map.values() if s.get("class_id")})
+        if class_ids:
+            cls = ediary().table("classes").select("id, class_name").in_("id", class_ids).execute()
+            for c in (cls.data or []):
+                class_map[c["id"]] = c["class_name"]
+
+        result = []
+        for f in flags:
+            stu = student_map.get(f["student_id"], {})
+            result.append({
+                "student_id": f["student_id"],
+                "student_name": f"{stu.get('name', '')} {stu.get('surname', '')}".strip(),
+                "class_name": class_map.get(stu.get("class_id"), ""),
+                "date": f["date"],
+                "absent_in": [subject_map.get(sid, sid) for sid in f["absent_subject_ids"]],
+                "present_in": [subject_map.get(sid, sid) for sid in f["present_subject_ids"]],
+            })
+
+        result.sort(key=lambda x: (x["date"], x["student_name"]), reverse=True)
+
+        return JsonResponse({"flags": result, "date_from": date_from, "date_to": date_to})
+    except Exception as exc:
+        logger.exception("admin_attendance_flags error")
+        return JsonResponse({"message": "Internal server error"}, status=500)
