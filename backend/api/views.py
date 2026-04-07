@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import jwt
 from jwt.exceptions import PyJWTError
@@ -7,7 +8,13 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from .supabase_client import supabase, supabase_auth, supabase_admin_auth, ediary
 
-JWT_SECRET = os.environ.get("JWT_SECRET", "dev-jwt-secret-change-this")
+logger = logging.getLogger(__name__)
+
+# Fail loudly if secrets are not configured in production
+_jwt_secret = os.environ.get("JWT_SECRET", "")
+if not _jwt_secret and os.environ.get("DEBUG", "False") != "True":
+    raise RuntimeError("JWT_SECRET environment variable is not set – refusing to start.")
+JWT_SECRET = _jwt_secret or "dev-jwt-secret-change-this"
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 8
 
@@ -131,11 +138,18 @@ def _get_profile(user_id: str) -> tuple:
 # ------------------------------------------------------------------
 # Login – authenticate via Supabase Auth
 # ------------------------------------------------------------------
+from django_ratelimit.decorators import ratelimit
+from django_ratelimit.exceptions import Ratelimited
 
 @csrf_exempt
+@ratelimit(key="ip", rate="5/m", method="POST", block=False)
 def login(request):
     if request.method != "POST":
         return JsonResponse({"message": "Method not allowed"}, status=405)
+
+    # Check rate limit
+    if getattr(request, "limited", False):
+        return JsonResponse({"message": "Too many login attempts. Please try again later."}, status=429)
 
     try:
         data = json.loads(request.body)
@@ -225,8 +239,8 @@ def me(request):
         if new_email:
             updates["email"] = new_email
         if new_password:
-            if len(new_password) < 4:
-                return JsonResponse({"message": "Password must be at least 4 characters"}, status=400)
+            if len(new_password) < 8:
+                return JsonResponse({"message": "Password must be at least 8 characters"}, status=400)
             updates["password"] = new_password
 
         if not updates:
@@ -235,7 +249,8 @@ def me(request):
         try:
             supabase_admin_auth.auth.admin.update_user_by_id(user_id, updates)
         except Exception as exc:
-            return JsonResponse({"message": f"Failed to update: {str(exc)}"}, status=400)
+            logger.exception("Profile update failed")
+            return JsonResponse({"message": "Failed to update profile"}, status=400)
 
         return JsonResponse({"message": "Updated successfully"})
 
@@ -981,7 +996,8 @@ def teacher_add_grade(request):
     try:
         r = ediary().table("grades").insert(row).execute()
     except Exception as exc:
-        return JsonResponse({"message": str(exc)}, status=500)
+        logger.exception("teacher_add_grade failed")
+        return JsonResponse({"message": "Failed to add grade"}, status=500)
 
     return JsonResponse({"grade": r.data[0] if r.data else {}}, status=201)
 
@@ -1029,9 +1045,15 @@ def teacher_edit_grade(request):
         return JsonResponse({"message": "Nothing to update"}, status=400)
 
     try:
-        r = ediary().table("grades").update(updates).eq("id", grade_id).execute()
+        r = (ediary().table("grades").update(updates)
+             .eq("id", grade_id)
+             .eq("created_by_teacher_id", payload["sub"])
+             .execute())
+        if not r.data:
+            return JsonResponse({"message": "Grade not found or not yours"}, status=403)
     except Exception as exc:
-        return JsonResponse({"message": str(exc)}, status=500)
+        logger.exception("teacher_edit_grade failed")
+        return JsonResponse({"message": "Failed to update grade"}, status=500)
 
     return JsonResponse({"grade": r.data[0] if r.data else {}})
 
@@ -1054,9 +1076,15 @@ def teacher_delete_grade(request):
         return JsonResponse({"message": "Grade id is required"}, status=400)
 
     try:
-        ediary().table("grades").delete().eq("id", grade_id).execute()
+        r = (ediary().table("grades").delete()
+             .eq("id", grade_id)
+             .eq("created_by_teacher_id", payload["sub"])
+             .execute())
+        if not r.data:
+            return JsonResponse({"message": "Grade not found or not yours"}, status=403)
     except Exception as exc:
-        return JsonResponse({"message": str(exc)}, status=500)
+        logger.exception("teacher_delete_grade failed")
+        return JsonResponse({"message": "Failed to delete grade"}, status=500)
 
     return JsonResponse({"deleted": True})
 
@@ -1736,6 +1764,12 @@ def teacher_homework_completions(request):
             return JsonResponse({"message": "homework_id and records required"}, status=400)
 
         db = ediary()
+
+        # Verify requesting teacher owns this homework
+        hw_check = db.table("homework").select("id").eq("id", homework_id).eq("teacher_id", payload["sub"]).execute()
+        if not hw_check.data:
+            return JsonResponse({"message": "Homework not found or not yours"}, status=403)
+
         # Delete existing completions for this homework
         db.table("homework_completions") \
             .delete() \
@@ -2266,9 +2300,9 @@ def teacher_reports(request):
             else:
                 result = ediary().table("teacher_reports").insert(row).execute()
         except Exception as exc:
+            logger.exception("Failed to save report")
             return JsonResponse({
                 "message": "Failed to save report",
-                "details": str(exc),
             }, status=500)
 
         return JsonResponse({"report": result.data[0] if result.data else {}})
@@ -2298,10 +2332,20 @@ def _admin_level(payload):
 
 
 def _admin_has_perm(payload, perm_key):
-    """Check if admin has a specific permission.  Super/master always have all perms."""
+    """Check if admin has a specific permission.  Super/master always have all perms.
+    Regular admins: re-read permissions from the DB to honour real-time revocations."""
     level = _admin_level(payload)
     if level in ("super", "master"):
         return True
+    # Re-verify from database instead of trusting JWT claims
+    try:
+        admin_row = ediary().table("admins").select("permissions").eq("id", payload["sub"]).limit(1).execute()
+        if admin_row.data:
+            perms = admin_row.data[0].get("permissions") or {}
+            return perms.get(perm_key, False)
+    except Exception:
+        pass
+    # Fallback to JWT claims if DB lookup fails
     perms = payload.get("permissions") or {}
     return perms.get(perm_key, False)
 
@@ -2646,7 +2690,8 @@ def admin_users(request):
             })
             user_id = str(auth_response.user.id)
         except Exception as exc:
-            return JsonResponse({"message": f"Auth creation failed: {exc}"}, status=400)
+            logger.exception("Auth creation failed")
+            return JsonResponse({"message": "Failed to create user account"}, status=400)
 
         # Insert profile row
         try:
@@ -2680,7 +2725,8 @@ def admin_users(request):
                 supabase_admin_auth.auth.admin.delete_user(user_id)
             except Exception:
                 pass
-            return JsonResponse({"message": f"Profile creation failed: {exc}"}, status=500)
+            logger.exception("Profile creation failed")
+            return JsonResponse({"message": "Failed to create user profile"}, status=500)
 
         return JsonResponse({"user_id": user_id, "email": email, "role": role})
 
@@ -2748,7 +2794,8 @@ def admin_user_detail(request):
                 if data.get("password"): auth_updates["password"] = data["password"].strip()
                 supabase_admin_auth.auth.admin.update_user_by_id(uid, auth_updates)
             except Exception as exc:
-                return JsonResponse({"message": f"Auth update failed: {exc}"}, status=400)
+                logger.exception("Auth update failed")
+                return JsonResponse({"message": "Failed to update user credentials"}, status=400)
 
         if updates:
             db.table(table).update(updates).eq("id", uid).execute()
@@ -2828,7 +2875,8 @@ def admin_teacher_assignments(request):
             }).execute()
             return JsonResponse({"assignment": result.data[0] if result.data else {}})
         except Exception as exc:
-            return JsonResponse({"message": f"Failed: {exc}"}, status=400)
+            logger.exception("Operation failed")
+            return JsonResponse({"message": "Operation failed"}, status=400)
     return JsonResponse({"message": "Method not allowed"}, status=405)
 
 
@@ -2892,7 +2940,8 @@ def admin_student_subjects(request):
             result = db.table("student_subjects").insert(row).execute()
             return JsonResponse({"enrollment": result.data[0] if result.data else {}})
         except Exception as exc:
-            return JsonResponse({"message": f"Failed: {exc}"}, status=400)
+            logger.exception("Operation failed")
+            return JsonResponse({"message": "Operation failed"}, status=400)
     return JsonResponse({"message": "Method not allowed"}, status=405)
 
 
@@ -2959,7 +3008,8 @@ def admin_schedule(request):
             result = db.table("schedule").insert(row).execute()
             return JsonResponse({"slot": result.data[0] if result.data else {}})
         except Exception as exc:
-            return JsonResponse({"message": f"Failed: {exc}"}, status=400)
+            logger.exception("Operation failed")
+            return JsonResponse({"message": "Operation failed"}, status=400)
     return JsonResponse({"message": "Method not allowed"}, status=405)
 
 
@@ -3034,7 +3084,7 @@ def admin_csv_import(request):
                 }).execute()
                 created += 1
             except Exception as exc:
-                errors.append({"row": i + 1, "error": str(exc)})
+                errors.append({"row": i + 1, "error": "Processing failed"})
 
     elif import_type == "subjects":
         for i, r in enumerate(rows):
@@ -3045,7 +3095,7 @@ def admin_csv_import(request):
                 }).execute()
                 created += 1
             except Exception as exc:
-                errors.append({"row": i + 1, "error": str(exc)})
+                errors.append({"row": i + 1, "error": "Processing failed"})
 
     elif import_type in ("students", "teachers", "admins"):
         # Need to resolve class names to IDs for students
@@ -3068,7 +3118,7 @@ def admin_csv_import(request):
                 })
                 uid = str(auth_response.user.id)
             except Exception as exc:
-                errors.append({"row": i + 1, "error": f"Auth: {exc}"})
+                errors.append({"row": i + 1, "error": "Account creation failed"})
                 continue
             try:
                 if import_type == "students":
@@ -3092,7 +3142,7 @@ def admin_csv_import(request):
                     supabase_admin_auth.auth.admin.delete_user(uid)
                 except Exception:
                     pass
-                errors.append({"row": i + 1, "error": f"Profile: {exc}"})
+                errors.append({"row": i + 1, "error": "Profile creation failed"})
 
     elif import_type == "teacher_assignments":
         # Resolve names to IDs
@@ -3117,7 +3167,7 @@ def admin_csv_import(request):
                 }).execute()
                 created += 1
             except Exception as exc:
-                errors.append({"row": i + 1, "error": str(exc)})
+                errors.append({"row": i + 1, "error": "Processing failed"})
 
     elif import_type == "student_subjects":
         students = db.table("students").select("id, name, surname").execute()
@@ -3141,7 +3191,7 @@ def admin_csv_import(request):
                 db.table("student_subjects").insert(row_data).execute()
                 created += 1
             except Exception as exc:
-                errors.append({"row": i + 1, "error": str(exc)})
+                errors.append({"row": i + 1, "error": "Processing failed"})
 
     elif import_type == "schedule":
         teachers = db.table("teachers").select("id, name, surname").execute()
@@ -3167,7 +3217,7 @@ def admin_csv_import(request):
                 }).execute()
                 created += 1
             except Exception as exc:
-                errors.append({"row": i + 1, "error": str(exc)})
+                errors.append({"row": i + 1, "error": "Processing failed"})
 
     else:
         return JsonResponse({"message": f"Unknown import type: {import_type}"}, status=400)
@@ -3231,7 +3281,8 @@ def admin_events(request):
 
         return JsonResponse({"message": "Method not allowed"}, status=405)
     except Exception as exc:
-        return JsonResponse({"message": f"Server error: {exc}"}, status=500)
+        logger.exception("Server error")
+        return JsonResponse({"message": "Internal server error"}, status=500)
 
 
 @csrf_exempt
@@ -3268,7 +3319,8 @@ def admin_event_detail(request):
 
         return JsonResponse({"message": "Method not allowed"}, status=405)
     except Exception as exc:
-        return JsonResponse({"message": f"Server error: {exc}"}, status=500)
+        logger.exception("Server error")
+        return JsonResponse({"message": "Internal server error"}, status=500)
 
 
 # ------------------------------------------------------------------
@@ -3309,7 +3361,8 @@ def admin_holidays(request):
 
         return JsonResponse({"message": "Method not allowed"}, status=405)
     except Exception as exc:
-        return JsonResponse({"message": f"Server error: {exc}"}, status=500)
+        logger.exception("Server error")
+        return JsonResponse({"message": "Internal server error"}, status=500)
 
 
 @csrf_exempt
@@ -3346,7 +3399,8 @@ def admin_holiday_detail(request):
 
         return JsonResponse({"message": "Method not allowed"}, status=405)
     except Exception as exc:
-        return JsonResponse({"message": f"Server error: {exc}"}, status=500)
+        logger.exception("Server error")
+        return JsonResponse({"message": "Internal server error"}, status=500)
 
 
 # ------------------------------------------------------------------
@@ -3396,7 +3450,8 @@ def public_events(request):
 
         return JsonResponse({"events": visible_events, "holidays": holidays})
     except Exception as exc:
-        return JsonResponse({"message": f"Server error: {exc}"}, status=500)
+        logger.exception("Server error")
+        return JsonResponse({"message": "Internal server error"}, status=500)
 
 
 # ------------------------------------------------------------------
@@ -3463,7 +3518,8 @@ def teacher_study_hall(request):
 
         return JsonResponse({"message": "Method not allowed"}, status=405)
     except Exception as exc:
-        return JsonResponse({"message": f"Server error: {exc}"}, status=500)
+        logger.exception("Server error")
+        return JsonResponse({"message": "Internal server error"}, status=500)
 
 
 @csrf_exempt
@@ -3593,7 +3649,8 @@ def teacher_study_hall_students(request):
             "attendance": existing_att,
         })
     except Exception as exc:
-        return JsonResponse({"message": f"Server error: {exc}"}, status=500)
+        logger.exception("Server error")
+        return JsonResponse({"message": "Internal server error"}, status=500)
 
 
 @csrf_exempt
@@ -3637,4 +3694,5 @@ def teacher_study_hall_attendance(request):
 
         return JsonResponse({"saved": len(rows)}, status=201)
     except Exception as exc:
-        return JsonResponse({"message": f"Server error: {exc}"}, status=500)
+        logger.exception("Server error")
+        return JsonResponse({"message": "Internal server error"}, status=500)

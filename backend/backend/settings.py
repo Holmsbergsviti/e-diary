@@ -18,10 +18,10 @@ load_dotenv(BASE_DIR / ".env")
 # --------------------------------------------------
 # SECURITY
 # --------------------------------------------------
-SECRET_KEY = os.environ.get(
-    "DJANGO_SECRET_KEY",
-    "dev-secret-key-change-this"
-)
+_secret = os.environ.get("DJANGO_SECRET_KEY", "")
+if not _secret and os.environ.get("DEBUG", "False") != "True":
+    raise RuntimeError("DJANGO_SECRET_KEY environment variable is not set.")
+SECRET_KEY = _secret or "dev-secret-key-change-this"
 
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
@@ -85,7 +85,7 @@ if DEBUG:
         "http://127.0.0.1:8080",
     ]
 
-CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_CREDENTIALS = False
 
 # --------------------------------------------------
 # URLS / WSGI
@@ -160,3 +160,29 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # DEFAULTS
 # --------------------------------------------------
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# --------------------------------------------------
+# SECURITY HARDENING
+# --------------------------------------------------
+if not DEBUG:
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_HSTS_SECONDS = 31536000       # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    X_FRAME_OPTIONS = "DENY"
+
+# Limit request body size (2.5 MB)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 2621440
+
+# --------------------------------------------------
+# RATE LIMITING (django-ratelimit uses Django cache)
+# --------------------------------------------------
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    }
+}
