@@ -1,39 +1,389 @@
-// Ensure initialization happens when DOM is ready
+/* ================================================================
+   dashboard.js – Student dashboard with full weekly schedule
+   ================================================================ */
+
+/* ---- Schedule constants ---- */
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+const PERIOD_TIMES = [
+    "08:30–09:10", "09:15–10:00", "10:15–10:55", "11:00–11:45",
+    "11:50–12:30", "13:15–13:55", "14:00–14:45", "14:50–15:30",
+];
+const SCHEDULE_ROWS = [
+    { type: "period", period: 1 },
+    { type: "period", period: 2 },
+    { type: "break",  label: "🥪 Snack Break", time: "10:00–10:10" },
+    { type: "period", period: 3 },
+    { type: "period", period: 4 },
+    { type: "period", period: 5 },
+    { type: "break",  label: "🍽 Lunch Break", time: "12:30–13:10" },
+    { type: "period", period: 6 },
+    { type: "period", period: 7 },
+    { type: "period", period: 8 },
+];
+
+/* ---- Schedule state ---- */
+let dashScheduleSlots = [];
+let dashStudyHall = [];
+let dashWeekOffset = 0;
+let dashAttendance = [];
+let dashHolidays = [];
+let dashEvents = [];
+
+/* ---- Schedule helpers ---- */
+function getMonday(offset) {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = (day === 0 ? -6 : 1 - day) + offset * 7;
+    const mon = new Date(now);
+    mon.setDate(now.getDate() + diff);
+    mon.setHours(0, 0, 0, 0);
+    return mon;
+}
+function shortDate(d) { return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }); }
+function isoDate(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+function parseLocalDate(str) {
+    const [y, m, d] = str.split('-').map(Number);
+    return new Date(y, m - 1, d);
+}
+function getCurrentPeriod() {
+    const now = new Date();
+    const time = now.getHours() * 60 + now.getMinutes();
+    const periods = [
+        { start: 510, end: 550 }, { start: 555, end: 600 },
+        { start: 615, end: 655 }, { start: 660, end: 705 },
+        { start: 710, end: 750 }, { start: 795, end: 835 },
+        { start: 840, end: 885 }, { start: 890, end: 930 },
+    ];
+    for (let i = 0; i < periods.length; i++) {
+        if (time >= periods[i].start && time < periods[i].end) return { type: "period", period: i + 1 };
+    }
+    if (time >= 600 && time < 610) return { type: "snack-break" };
+    if (time >= 750 && time < 790) return { type: "lunch-break" };
+    return null;
+}
+
+/* ---- Bootstrap ---- */
 async function initDashboard() {
     if (!requireAuth()) return;
-
-    // Teachers have their own dashboard
     const user = getUser();
-    if (user && user.role === "teacher") {
-        window.location.href = "teacher.html";
-        return;
-    }
-
-    // Call initNav FIRST to set up navigation, logout, and inject grades/marks tab
+    if (user && user.role === "teacher") { window.location.href = "teacher.html"; return; }
     initNav();
-    
-    // Initialize card collapse functionality
     initCardCollapse();
-    
-    // Load all data - use Promise.all to load in parallel
+
+    // Week navigation
+    document.getElementById("dashWeekPrev").addEventListener("click", () => { dashWeekOffset--; renderDashboardSchedule(); });
+    document.getElementById("dashWeekNext").addEventListener("click", () => { dashWeekOffset++; renderDashboardSchedule(); });
+
     try {
         await Promise.all([
-            loadTodaySchedule(),
-            loadUpcomingEvents(),
+            loadDashboardSchedule(),
             loadAnnouncements(),
             loadRecentGrades(),
             loadAttendance(),
             loadBehavioral()
         ]);
-    } catch (err) {
-        console.error("Error loading dashboard data:", err);
-    }
+    } catch (err) { console.error("Error loading dashboard data:", err); }
 }
 
-// Initialize immediately with slight delay to ensure sidebar is rendered
 document.addEventListener("DOMContentLoaded", () => {
     initDashboard().catch(err => console.error("Dashboard init error:", err));
 });
+
+/* ---- Load schedule data ---- */
+async function loadDashboardSchedule() {
+    const container = document.getElementById("dashScheduleContainer");
+    try {
+        const fetches = [apiFetch("/schedule/"), apiFetch("/events/"), apiFetch("/attendance/")];
+        const results = await Promise.all(fetches);
+        const schedData = await results[0].json();
+        dashScheduleSlots = schedData.schedule || [];
+        dashStudyHall = schedData.study_hall || [];
+        try {
+            if (results[1].ok) {
+                const evData = await results[1].json();
+                dashHolidays = evData.holidays || [];
+                dashEvents = evData.events || [];
+            }
+        } catch (_) { /* ignore */ }
+        if (results[2]) {
+            const attData = await results[2].json();
+            dashAttendance = attData.attendance || [];
+        }
+        renderDashboardSchedule();
+    } catch (err) {
+        container.innerHTML = '<p class="empty-state">Failed to load schedule.</p>';
+    }
+}
+
+/* ---- Render full weekly timetable (same as schedule page) ---- */
+function renderDashboardSchedule() {
+    const container = document.getElementById("dashScheduleContainer");
+    const slots = dashScheduleSlots;
+    const mon = getMonday(dashWeekOffset);
+    const fri = new Date(mon); fri.setDate(mon.getDate() + 4);
+
+    const weekLabel = document.getElementById("dashWeekLabel");
+    weekLabel.textContent = `${shortDate(mon)} – ${shortDate(fri)}`;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const isCurrentWeek = (today >= mon && today <= fri);
+    weekLabel.classList.toggle("week-current", isCurrentWeek);
+
+    if (slots.length === 0) {
+        container.innerHTML = '<p class="empty-state">No schedule available.</p>';
+        return;
+    }
+
+    // Holiday lookup
+    function getHoliday(dateStr) {
+        for (const h of dashHolidays) {
+            if (dateStr >= h.start_date && dateStr <= (h.end_date || h.start_date)) return h;
+        }
+        return null;
+    }
+
+    // Events by date
+    const eventsByDate = {};
+    for (const ev of dashEvents) {
+        const start = ev.event_date;
+        const end = ev.event_end_date || start;
+        const d = parseLocalDate(start);
+        const dEnd = parseLocalDate(end);
+        while (d <= dEnd) {
+            const ds = isoDate(d);
+            if (!eventsByDate[ds]) eventsByDate[ds] = [];
+            eventsByDate[ds].push(ev);
+            d.setDate(d.getDate() + 1);
+        }
+    }
+
+    // Attendance lookup: "YYYY-MM-DD|subject_id" -> status
+    const attLookup = {};
+    for (const a of dashAttendance) {
+        const key = `${a.date_recorded}|${a.subject_id || ''}`;
+        const prev = attLookup[key];
+        if (!prev || a.status === "Absent" || (a.status === "Late" && prev !== "Absent")) {
+            attLookup[key] = a.status;
+        }
+    }
+
+    // Grid: grid[day][period] = slot
+    const grid = {};
+    for (const s of slots) {
+        if (!grid[s.day_of_week]) grid[s.day_of_week] = {};
+        grid[s.day_of_week][s.period] = s;
+    }
+
+    // Week events
+    const weekEvents = [];
+    for (let d = 0; d < 5; d++) {
+        const dayDate = new Date(mon); dayDate.setDate(mon.getDate() + d);
+        const ds = isoDate(dayDate);
+        for (const ev of (eventsByDate[ds] || [])) {
+            if (!weekEvents.find(e => e.id === ev.id)) weekEvents.push(ev);
+        }
+    }
+
+    // Table header
+    let html = '<table class="timetable"><thead><tr><th>Period</th>';
+    for (let d = 0; d < 5; d++) {
+        const dayDate = new Date(mon); dayDate.setDate(mon.getDate() + d);
+        const ds = isoDate(dayDate);
+        const holiday = getHoliday(ds);
+        const dayEvs = eventsByDate[ds] || [];
+        let headerExtra = "";
+        if (holiday) {
+            headerExtra += `<br><span class="schedule-holiday-badge" title="${escHtml(holiday.name)}">🏖 ${escHtml(holiday.name)}</span>`;
+        }
+        if (dayEvs.length > 0) {
+            headerExtra += `<br><span class="schedule-event-badge" title="${dayEvs.map(e => e.title).join(', ')}">🎉 ${dayEvs.length === 1 ? escHtml(dayEvs[0].title) : dayEvs.length + " events"}</span>`;
+        }
+        html += `<th${holiday ? ' class="schedule-holiday-col"' : ""}>${DAYS[d]}<br><small class="day-date">${shortDate(dayDate)}</small>${headerExtra}</th>`;
+    }
+    html += "</tr></thead><tbody>";
+
+    // Current period + today's column
+    let currentInfo = null;
+    let todayCol = null;
+    if (isCurrentWeek) {
+        const now = new Date();
+        const dow = now.getDay();
+        if (dow >= 1 && dow <= 5) { currentInfo = getCurrentPeriod(); todayCol = dow; }
+    }
+
+    // Event period overrides: eventPeriodMap[dateStr][period] = event
+    const eventPeriodMap = {};
+    for (const ev of dashEvents) {
+        const periods = ev.affected_periods || [];
+        if (periods.length === 0) continue;
+        const start = ev.event_date;
+        const end = ev.event_end_date || start;
+        const d = parseLocalDate(start);
+        const dEnd = parseLocalDate(end);
+        while (d <= dEnd) {
+            const ds = isoDate(d);
+            if (!eventPeriodMap[ds]) eventPeriodMap[ds] = {};
+            for (const p of periods) eventPeriodMap[ds][p] = ev;
+            d.setDate(d.getDate() + 1);
+        }
+    }
+
+    // Study hall lookup: shMap[dateStr][period] = session
+    const shMap = {};
+    for (const sh of dashStudyHall) {
+        if (!shMap[sh.date]) shMap[sh.date] = {};
+        shMap[sh.date][sh.period] = sh;
+    }
+
+    for (const row of SCHEDULE_ROWS) {
+        if (row.type === "break") {
+            const isSnack = row.label.includes("Snack");
+            const breakType = isSnack ? "snack-break" : "lunch-break";
+            const isNowBreak = currentInfo && currentInfo.type === breakType && todayCol;
+            html += `<tr class="schedule-break-row${isNowBreak ? ' break-current' : ''}">
+                <td colspan="6" class="schedule-break-cell"><span class="break-label">${row.label}</span></td>
+            </tr>`;
+            continue;
+        }
+
+        const p = row.period;
+        const time = PERIOD_TIMES[p - 1] || `Period ${p}`;
+        html += `<tr><td><strong>${p}</strong><br><small style="color:#9ca3af">${time}</small></td>`;
+
+        for (let d = 1; d <= 5; d++) {
+            const slot = (grid[d] || {})[p];
+            const cellDate = new Date(mon); cellDate.setDate(mon.getDate() + d - 1);
+            const cellDateStr = isoDate(cellDate);
+            const holiday = getHoliday(cellDateStr);
+            const isNowCell = (currentInfo && currentInfo.type === "period" && p === currentInfo.period && d === todayCol);
+            const eventOverride = (eventPeriodMap[cellDateStr] || {})[p];
+
+            if (holiday) {
+                html += `<td class="lesson-holiday" title="${escHtml(holiday.name)}"><span class="holiday-label">${p === 1 ? escHtml(holiday.name) : ""}</span></td>`;
+            } else if (eventOverride) {
+                const nowClass = isNowCell ? " cell-current" : "";
+                html += `<td class="lesson-event${nowClass}" title="${escHtml(eventOverride.title)}">
+                    <span class="event-cell-icon">🎉</span> ${escHtml(eventOverride.title)}
+                    ${eventOverride.start_time ? `<br><span class="lesson-room">${eventOverride.start_time}${eventOverride.end_time ? '–' + eventOverride.end_time : ''}</span>` : ""}
+                </td>`;
+            } else if (slot) {
+                const yearLabel = slot.room ? "Room " + escHtml(slot.room) : "";
+                // Attendance highlighting
+                let attClass = "";
+                let attBadge = "";
+                if (cellDate <= today) {
+                    const attKey = `${cellDateStr}|${slot.subject_id || ''}`;
+                    const attStatus = attLookup[attKey];
+                    if (attStatus === "Absent") { attClass = " lesson-absent"; attBadge = '<span class="att-badge att-badge-absent" title="Absent">✗</span>'; }
+                    else if (attStatus === "Late") { attClass = " lesson-late"; attBadge = '<span class="att-badge att-badge-late" title="Late">⏰</span>'; }
+                    else if (attStatus === "Excused") { attClass = " lesson-excused"; attBadge = '<span class="att-badge att-badge-excused" title="Excused">📋</span>'; }
+                    else if (attStatus === "Present") { attClass = " lesson-present"; attBadge = '<span class="att-badge att-badge-present" title="Present">✓</span>'; }
+                }
+                const nowClass = isNowCell ? " cell-current" : "";
+                html += `<td class="lesson${attClass}${nowClass}">
+                    ${escHtml(slot.subject)}${attBadge}<br>
+                    <span class="lesson-room">${yearLabel}</span>
+                </td>`;
+            } else {
+                const shSession = (shMap[cellDateStr] || {})[p];
+                const nowClass = isNowCell ? " cell-current" : "";
+                if (shSession) {
+                    const roomInfo = shSession.room ? `Room ${escHtml(shSession.room)}` : "";
+                    const teacherInfo = shSession.teacher_name ? escHtml(shSession.teacher_name) : "";
+                    html += `<td class="lesson-study-hall${nowClass}" title="Study Hall${shSession.room ? ' – Room ' + shSession.room : ''}">
+                        📖 Study Hall<br>
+                        <span class="lesson-room">${roomInfo}${roomInfo && teacherInfo ? " · " : ""}${teacherInfo}</span>
+                    </td>`;
+                } else {
+                    html += `<td class="${nowClass}">${isNowCell ? '<span style="color:var(--text-lighter)">Free</span>' : "–"}</td>`;
+                }
+            }
+        }
+        html += "</tr>";
+    }
+    html += "</tbody></table>";
+
+    // Week events/holidays below the timetable
+    const weekHolidays = [];
+    for (let d = 0; d < 5; d++) {
+        const dayDate = new Date(mon); dayDate.setDate(mon.getDate() + d);
+        const ds = isoDate(dayDate);
+        const h = getHoliday(ds);
+        if (h && !weekHolidays.find(wh => wh.name === h.name)) weekHolidays.push(h);
+    }
+
+    if (weekEvents.length > 0 || weekHolidays.length > 0) {
+        html += '<div class="schedule-week-events">';
+        if (weekHolidays.length > 0) {
+            html += '<h4>🏖 Holidays This Week</h4>';
+            html += weekHolidays.map(h => {
+                const dateRange = h.end_date && h.end_date !== h.start_date
+                    ? `${h.start_date} – ${h.end_date}` : h.start_date;
+                return `<div class="schedule-event-item schedule-holiday-item">
+                    <strong>${escHtml(h.name)}</strong>
+                    <span class="schedule-event-date">${dateRange}</span>
+                </div>`;
+            }).join("");
+        }
+        if (weekEvents.length > 0) {
+            html += '<h4>🎉 Events This Week</h4>';
+            html += weekEvents.map(ev => {
+                const dateRange = ev.event_end_date && ev.event_end_date !== ev.event_date
+                    ? `${ev.event_date} – ${ev.event_end_date}` : ev.event_date;
+                const timeStr = ev.start_time ? `${ev.start_time}${ev.end_time ? ' – ' + ev.end_time : ''}` : "";
+                const periodsStr = (ev.affected_periods || []).length > 0
+                    ? "Periods " + ev.affected_periods.join(", ") : "";
+                const extra = [timeStr, periodsStr].filter(Boolean).join(" · ");
+                return `<div class="schedule-event-item">
+                    <strong>${escHtml(ev.title)}</strong>
+                    <span class="schedule-event-date">${dateRange}${extra ? ' · ' + extra : ''}</span>
+                    ${ev.description ? `<p>${escHtml(ev.description)}</p>` : ""}
+                </div>`;
+            }).join("");
+        }
+        html += "</div>";
+    }
+
+    // Upcoming events & holidays (beyond this week)
+    const friStr = isoDate(fri);
+    const upcoming = [];
+    for (const ev of dashEvents) {
+        if (ev.event_date > friStr) {
+            upcoming.push({ type: "event", title: ev.title, description: ev.description, start: ev.event_date, end: ev.event_end_date });
+        }
+    }
+    for (const h of dashHolidays) {
+        if (h.start_date > friStr) {
+            upcoming.push({ type: "holiday", title: h.name, start: h.start_date, end: h.end_date });
+        }
+    }
+    upcoming.sort((a, b) => a.start.localeCompare(b.start));
+
+    if (upcoming.length > 0) {
+        html += '<div class="schedule-upcoming-section"><h4>📅 Upcoming Events & Holidays</h4>';
+        html += upcoming.slice(0, 10).map(item => {
+            const icon = item.type === "holiday" ? "🏖" : "🎉";
+            const cls = item.type === "holiday" ? "schedule-holiday-item" : "";
+            const dateRange = item.end && item.end !== item.start
+                ? `${item.start} – ${item.end}` : item.start;
+            return `<div class="schedule-event-item ${cls}">
+                <span class="schedule-event-icon">${icon}</span>
+                <div class="schedule-event-details">
+                    <strong>${escHtml(item.title)}</strong>
+                    <span class="schedule-event-date">${dateRange}</span>
+                    ${item.description ? `<p>${escHtml(item.description)}</p>` : ""}
+                </div>
+            </div>`;
+        }).join("");
+        html += "</div>";
+    }
+
+    container.innerHTML = html;
+}
 
 // ---------- helper: grade code -> CSS class ----------
 function gradeClass(code) {
@@ -47,143 +397,6 @@ function gradeClass(code) {
     return "grade-u";
 }
 
-/* ---------- Today's Schedule ---------- */
-const DASH_PERIOD_TIMES = [
-    "08:30–09:10", "09:15–10:00", "10:15–10:55", "11:00–11:45",
-    "11:50–12:30", "13:15–13:55", "14:00–14:45", "14:50–15:30",
-];
-
-function _dashIsoDate(d) {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-}
-
-async function loadTodaySchedule() {
-    const container = document.getElementById("todayScheduleContainer");
-    if (!container) return;
-    try {
-        const res = await apiFetch("/schedule/");
-        if (!res.ok) { container.innerHTML = '<p class="empty-state">Could not load schedule.</p>'; return; }
-        const data = await res.json();
-        const slots = data.schedule || [];
-
-        if (slots.length === 0) {
-            container.innerHTML = '<p class="empty-state">No schedule available.</p>';
-            return;
-        }
-
-        const now = new Date();
-        let dow = now.getDay(); // 0=Sun, 1=Mon … 6=Sat
-        if (dow === 0 || dow === 6) {
-            container.innerHTML = '<p class="empty-state">No school today – enjoy your weekend! 🎉</p>';
-            return;
-        }
-
-        const todayStr = _dashIsoDate(now);
-
-        // Build today's slots sorted by period
-        const todaySlots = slots.filter(s => s.day_of_week === dow).sort((a, b) => a.period - b.period);
-
-        if (todaySlots.length === 0) {
-            container.innerHTML = '<p class="empty-state">No classes today.</p>';
-            return;
-        }
-
-        // Determine current period for highlighting
-        const hour = now.getHours();
-        const minute = now.getMinutes();
-        const timeMin = hour * 60 + minute;
-        const periodTimesMin = [
-            { start: 8*60+30, end: 9*60+10 },
-            { start: 9*60+15, end: 10*60 },
-            { start: 10*60+15, end: 10*60+55 },
-            { start: 11*60, end: 11*60+45 },
-            { start: 11*60+50, end: 12*60+30 },
-            { start: 13*60+15, end: 13*60+55 },
-            { start: 14*60, end: 14*60+45 },
-            { start: 14*60+50, end: 15*60+30 },
-        ];
-        let currentPeriod = null;
-        for (let i = 0; i < periodTimesMin.length; i++) {
-            if (timeMin >= periodTimesMin[i].start && timeMin < periodTimesMin[i].end) {
-                currentPeriod = i + 1;
-                break;
-            }
-        }
-
-        let html = '<div class="today-schedule-list">';
-        for (const slot of todaySlots) {
-            const time = DASH_PERIOD_TIMES[slot.period - 1] || `Period ${slot.period}`;
-            const isCurrent = currentPeriod === slot.period;
-            const room = slot.room ? `Room ${escHtml(slot.room)}` : "";
-            html += `<div class="today-schedule-item${isCurrent ? ' today-schedule-current' : ''}">
-                <div class="today-schedule-period">${slot.period}</div>
-                <div class="today-schedule-info">
-                    <strong>${escHtml(slot.subject)}</strong>
-                    <span class="today-schedule-meta">${time}${room ? ' · ' + room : ''}</span>
-                </div>
-                ${isCurrent ? '<span class="today-schedule-now">NOW</span>' : ''}
-            </div>`;
-        }
-        html += '</div>';
-        container.innerHTML = html;
-    } catch (err) {
-        container.innerHTML = '<p class="empty-state">Could not load schedule.</p>';
-    }
-}
-
-async function loadUpcomingEvents() {
-    const container = document.getElementById("upcomingEventsContainer");
-    try {
-        const res = await apiFetch("/events/");
-        if (!res.ok) { container.innerHTML = '<p class="empty-state">Could not load events.</p>'; return; }
-        const data = await res.json();
-        const events = data.events || [];
-        const holidays = data.holidays || [];
-        const today = _dashIsoDate(new Date());
-
-        // Combine upcoming events and holidays into one list
-        const items = [];
-        for (const ev of events) {
-            const endDate = ev.event_end_date || ev.event_date;
-            if (endDate >= today) {
-                items.push({ type: "event", title: ev.title, description: ev.description, start: ev.event_date, end: ev.event_end_date });
-            }
-        }
-        for (const h of holidays) {
-            const endDate = h.end_date || h.start_date;
-            if (endDate >= today) {
-                items.push({ type: "holiday", title: h.name, start: h.start_date, end: h.end_date });
-            }
-        }
-        items.sort((a, b) => a.start.localeCompare(b.start));
-
-        if (items.length === 0) {
-            container.innerHTML = '<p class="empty-state">No upcoming events or holidays.</p>';
-            return;
-        }
-
-        container.innerHTML = items.slice(0, 10).map(item => {
-            const icon = item.type === "holiday" ? "🏖" : "🎉";
-            const badgeCls = item.type === "holiday" ? "schedule-holiday-badge" : "schedule-event-badge";
-            const dateRange = item.end && item.end !== item.start
-                ? `${formatDate(item.start)} – ${formatDate(item.end)}` : formatDate(item.start);
-            return `<div class="dashboard-event-item">
-                <span class="dashboard-event-icon">${icon}</span>
-                <div class="dashboard-event-info">
-                    <strong>${escHtml(item.title)}</strong>
-                    <span class="${badgeCls}">${dateRange}</span>
-                    ${item.description ? `<p style="margin:2px 0 0;font-size:0.84rem;color:var(--text-secondary)">${escHtml(item.description)}</p>` : ""}
-                </div>
-            </div>`;
-        }).join("");
-    } catch (err) {
-        container.innerHTML = '<p class="empty-state">Could not load events.</p>';
-    }
-}
-
 async function loadAnnouncements() {
     const container = document.getElementById("announcementsContainer");
     try {
@@ -194,7 +407,7 @@ async function loadAnnouncements() {
             container.innerHTML = '<p class="empty-state">No homework or tasks.</p>';
             return;
         }
-        const today = _dashIsoDate(new Date());
+        const today = isoDate(new Date());
         const COMP_BADGES = {
             completed: '<span class="hw-badge hw-badge-done">✅ Completed</span>',
             partial: '<span class="hw-badge hw-badge-partial">⚠️ Partial</span>',

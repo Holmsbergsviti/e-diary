@@ -11,6 +11,8 @@ const PERIOD_TIMES = [
 let allSlots = [];      // full schedule
 let currentSlot = null; // slot being attended
 let weekOffset = 0;     // 0 = this week, -1 = last week, etc.
+let teacherHolidays = [];  // holidays
+let teacherEvents = [];    // events
 
 /* ---- Bootstrap ------------------------------------------------ */
 async function initTeacher() {
@@ -55,9 +57,22 @@ document.addEventListener("DOMContentLoaded", () => {
 /* ---- Load schedule from API ----------------------------------- */
 async function loadSchedule() {
     try {
-        const res = await apiFetch("/schedule/");
-        const data = await res.json();
+        const [schedRes, eventsRes] = await Promise.all([
+            apiFetch("/schedule/"),
+            apiFetch("/events/")
+        ]);
+        const data = await schedRes.json();
         allSlots = data.schedule || [];
+
+        // Load events/holidays
+        try {
+            if (eventsRes.ok) {
+                const evData = await eventsRes.json();
+                teacherHolidays = evData.holidays || [];
+                teacherEvents = evData.events || [];
+            }
+        } catch (_) { /* ignore */ }
+
         renderTodayClasses();
         renderWeeklySchedule();
 
@@ -140,6 +155,10 @@ function isoDate(d) {
     const day = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
 }
+function parseLocalDate(str) {
+    const [y, m, d] = str.split('-').map(Number);
+    return new Date(y, m - 1, d);
+}
 
 function renderWeeklySchedule() {
     const container = document.getElementById("weeklySchedule");
@@ -150,28 +169,88 @@ function renderWeeklySchedule() {
     const weekLabel = document.getElementById("weekLabel");
     weekLabel.textContent = `${shortDate(mon)} – ${shortDate(fri)}`;
     const today = new Date(); today.setHours(0,0,0,0);
-    weekLabel.classList.toggle("week-current", today >= mon && today <= fri);
+    const isCurrentWeek = (today >= mon && today <= fri);
+    weekLabel.classList.toggle("week-current", isCurrentWeek);
 
     if (allSlots.length === 0) {
         container.innerHTML = '<p class="empty-state">No schedule available.</p>';
         return;
     }
 
+    // Holiday lookup
+    function getHoliday(dateStr) {
+        for (const h of teacherHolidays) {
+            if (dateStr >= h.start_date && dateStr <= (h.end_date || h.start_date)) return h;
+        }
+        return null;
+    }
+
+    // Events by date
+    const eventsByDate = {};
+    for (const ev of teacherEvents) {
+        const start = ev.event_date;
+        const end = ev.event_end_date || start;
+        const d = parseLocalDate(start);
+        const dEnd = parseLocalDate(end);
+        while (d <= dEnd) {
+            const ds = isoDate(d);
+            if (!eventsByDate[ds]) eventsByDate[ds] = [];
+            eventsByDate[ds].push(ev);
+            d.setDate(d.getDate() + 1);
+        }
+    }
+
     // Build grid[day][period] = slot
     const grid = {};
-    let maxPeriod = 0;
     for (const s of allSlots) {
         if (!grid[s.day_of_week]) grid[s.day_of_week] = {};
         grid[s.day_of_week][s.period] = s;
-        if (s.period > maxPeriod) maxPeriod = s.period;
     }
 
+    // Collect week events
+    const weekEvents = [];
+    for (let d = 0; d < 5; d++) {
+        const dayDate = new Date(mon); dayDate.setDate(mon.getDate() + d);
+        const ds = isoDate(dayDate);
+        for (const ev of (eventsByDate[ds] || [])) {
+            if (!weekEvents.find(e => e.id === ev.id)) weekEvents.push(ev);
+        }
+    }
+
+    // Table header with holidays/events badges
     let html = '<table class="timetable"><thead><tr><th>Period</th>';
     for (let d = 0; d < 5; d++) {
         const dayDate = new Date(mon); dayDate.setDate(mon.getDate() + d);
-        html += `<th>${DAYS[d]}<br><small class="day-date">${shortDate(dayDate)}</small></th>`;
+        const ds = isoDate(dayDate);
+        const holiday = getHoliday(ds);
+        const dayEvs = eventsByDate[ds] || [];
+        let headerExtra = "";
+        if (holiday) {
+            headerExtra += `<br><span class="schedule-holiday-badge" title="${escHtml(holiday.name)}">🏖 ${escHtml(holiday.name)}</span>`;
+        }
+        if (dayEvs.length > 0) {
+            headerExtra += `<br><span class="schedule-event-badge" title="${dayEvs.map(e => e.title).join(', ')}">🎉 ${dayEvs.length === 1 ? escHtml(dayEvs[0].title) : dayEvs.length + " events"}</span>`;
+        }
+        html += `<th${holiday ? ' class="schedule-holiday-col"' : ""}>${DAYS[d]}<br><small class="day-date">${shortDate(dayDate)}</small>${headerExtra}</th>`;
     }
     html += "</tr></thead><tbody>";
+
+    // Event period overrides: eventPeriodMap[dateStr][period] = event
+    const eventPeriodMap = {};
+    for (const ev of teacherEvents) {
+        const periods = ev.affected_periods || [];
+        if (periods.length === 0) continue;
+        const start = ev.event_date;
+        const end = ev.event_end_date || start;
+        const d = parseLocalDate(start);
+        const dEnd = parseLocalDate(end);
+        while (d <= dEnd) {
+            const ds = isoDate(d);
+            if (!eventPeriodMap[ds]) eventPeriodMap[ds] = {};
+            for (const p of periods) eventPeriodMap[ds][p] = ev;
+            d.setDate(d.getDate() + 1);
+        }
+    }
 
     const TEACHER_ROWS = [
         { type: "period", period: 1 },
@@ -200,10 +279,21 @@ function renderWeeklySchedule() {
         html += `<tr><td><strong>${p}</strong><br><small style="color:#9ca3af">${time}</small></td>`;
         for (let d = 1; d <= 5; d++) {
             const slot = (grid[d] || {})[p];
-            if (slot) {
+            const cellDate = new Date(mon); cellDate.setDate(mon.getDate() + d - 1);
+            const cellDateStr = isoDate(cellDate);
+            const holiday = getHoliday(cellDateStr);
+            const eventOverride = (eventPeriodMap[cellDateStr] || {})[p];
+
+            if (holiday) {
+                html += `<td class="lesson-holiday" title="${escHtml(holiday.name)}"><span class="holiday-label">${p === 1 ? escHtml(holiday.name) : ""}</span></td>`;
+            } else if (eventOverride) {
+                html += `<td class="lesson-event" title="${escHtml(eventOverride.title)}">
+                    <span class="event-cell-icon">🎉</span> ${escHtml(eventOverride.title)}
+                    ${eventOverride.start_time ? `<br><span class="lesson-room">${eventOverride.start_time}${eventOverride.end_time ? '–' + eventOverride.end_time : ''}</span>` : ""}
+                </td>`;
+            } else if (slot) {
                 const yrLabel = escHtml(slot.class_name || `Year ${slot.grade_level}`);
-                const cellDate = new Date(mon); cellDate.setDate(mon.getDate() + d - 1);
-                const slotWithDate = { ...slot, _date: isoDate(cellDate) };
+                const slotWithDate = { ...slot, _date: cellDateStr };
                 html += `<td class="lesson clickable-lesson" data-slot='${JSON.stringify(slotWithDate)}'>
                     ${escHtml(slot.subject)}<br>
                     <span class="lesson-room">${yrLabel}${slot.room ? " · " + escHtml(slot.room) : ""}</span>
@@ -215,6 +305,47 @@ function renderWeeklySchedule() {
         html += "</tr>";
     }
     html += "</tbody></table>";
+
+    // Week events/holidays summary below table
+    const weekHolidays = [];
+    for (let d = 0; d < 5; d++) {
+        const dayDate = new Date(mon); dayDate.setDate(mon.getDate() + d);
+        const ds = isoDate(dayDate);
+        const h = getHoliday(ds);
+        if (h && !weekHolidays.find(wh => wh.name === h.name)) weekHolidays.push(h);
+    }
+    if (weekEvents.length > 0 || weekHolidays.length > 0) {
+        html += '<div class="schedule-week-events">';
+        if (weekHolidays.length > 0) {
+            html += '<h4>🏖 Holidays This Week</h4>';
+            html += weekHolidays.map(h => {
+                const dateRange = h.end_date && h.end_date !== h.start_date
+                    ? `${h.start_date} – ${h.end_date}` : h.start_date;
+                return `<div class="schedule-event-item schedule-holiday-item">
+                    <strong>${escHtml(h.name)}</strong>
+                    <span class="schedule-event-date">${dateRange}</span>
+                </div>`;
+            }).join("");
+        }
+        if (weekEvents.length > 0) {
+            html += '<h4>🎉 Events This Week</h4>';
+            html += weekEvents.map(ev => {
+                const dateRange = ev.event_end_date && ev.event_end_date !== ev.event_date
+                    ? `${ev.event_date} – ${ev.event_end_date}` : ev.event_date;
+                const timeStr = ev.start_time ? `${ev.start_time}${ev.end_time ? ' – ' + ev.end_time : ''}` : "";
+                const periodsStr = (ev.affected_periods || []).length > 0
+                    ? "Periods " + ev.affected_periods.join(", ") : "";
+                const extra = [timeStr, periodsStr].filter(Boolean).join(" · ");
+                return `<div class="schedule-event-item">
+                    <strong>${escHtml(ev.title)}</strong>
+                    <span class="schedule-event-date">${dateRange}${extra ? ' · ' + extra : ''}</span>
+                    ${ev.description ? `<p>${escHtml(ev.description)}</p>` : ""}
+                </div>`;
+            }).join("");
+        }
+        html += "</div>";
+    }
+
     container.innerHTML = html;
 
     // Clicking a lesson in the weekly grid also opens attendance
