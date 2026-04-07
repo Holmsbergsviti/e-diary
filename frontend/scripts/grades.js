@@ -24,6 +24,7 @@ function catLabel(cat) {
 }
 
 let allGrades = [];
+let enrolledSubjects = [];
 let activeTerm = null;
 
 async function initGrades() {
@@ -56,6 +57,7 @@ async function loadGrades() {
         const res = await apiFetch("/grades/");
         const data = await res.json();
         allGrades = data.grades || [];
+        enrolledSubjects = data.enrolled_subjects || [];
 
         document.querySelectorAll("#termFilter .term-btn").forEach(btn => {
             const t = btn.dataset.term;
@@ -73,49 +75,68 @@ function renderGrades() {
     const container = document.getElementById("gradesContainer");
     const grades = activeTerm ? allGrades.filter(g => g.term === activeTerm) : allGrades;
 
-    if (grades.length === 0) {
-        container.innerHTML = '<p class="empty-state">No grades recorded yet.</p>';
-        document.getElementById("statTotal").textContent = "0";
+    // Group grades by subject
+    const bySubject = {};
+    for (const g of grades) {
+        if (!bySubject[g.subject]) bySubject[g.subject] = { grades: [], color: g.subject_color || "#607D8B" };
+        bySubject[g.subject].grades.push(g);
+    }
+
+    // Also include enrolled subjects with no grades
+    for (const s of enrolledSubjects) {
+        if (!bySubject[s.subject]) {
+            bySubject[s.subject] = { grades: [], color: s.subject_color || "#607D8B" };
+        }
+    }
+
+    const subjectNames = Object.keys(bySubject).sort();
+    const subjectCount = subjectNames.length;
+    document.getElementById("statTotal").textContent = subjectCount;
+
+    if (subjectCount === 0) {
+        container.innerHTML = '<p class="empty-state">No subjects enrolled yet.</p>';
         return;
     }
 
-    // Group by subject
-    const bySubject = {};
-    for (const g of grades) {
-        if (!bySubject[g.subject]) bySubject[g.subject] = [];
-        bySubject[g.subject].push(g);
-    }
-
-    const subjectCount = Object.keys(bySubject).length;
-    document.getElementById("statTotal").textContent = subjectCount;
-
     let html = "";
-    for (const [subject, items] of Object.entries(bySubject)) {
-        html += `
-            <div class="card">
-                <div class="card-title">${escHtml(subject)}</div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Assessment</th>
-                            <th>Grade</th>
-                            <th>%</th>
-                            <th>Date</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${items.map(g => `
+    for (const subject of subjectNames) {
+        const { grades: items, color } = bySubject[subject];
+        const colorDot = `<span class="subject-color-dot" style="background:${color};display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:middle;"></span>`;
+
+        if (items.length === 0) {
+            html += `
+                <div class="card">
+                    <div class="card-title">${colorDot}${escHtml(subject)}</div>
+                    <p class="empty-state">No grades recorded yet.</p>
+                </div>
+            `;
+        } else {
+            html += `
+                <div class="card">
+                    <div class="card-title">${colorDot}${escHtml(subject)}</div>
+                    <table>
+                        <thead>
                             <tr>
-                                <td>${escHtml(g.assessment || "\u2013")}</td>
-                                <td><span class="grade-badge ${gradeClass(g.grade_code)}">${escHtml(g.grade_code || "\u2013")}</span></td>
-                                <td>${g.percentage != null ? g.percentage + "%" : "\u2013"}</td>
-                                <td>${formatDate(g.date)}</td>
+                                <th>Assessment</th>
+                                <th>Grade</th>
+                                <th>%</th>
+                                <th>Date</th>
                             </tr>
-                        `).join("")}
-                    </tbody>
-                </table>
-            </div>
-        `;
+                        </thead>
+                        <tbody>
+                            ${items.map(g => `
+                                <tr>
+                                    <td>${escHtml(g.assessment || "\u2013")}</td>
+                                    <td><span class="grade-badge ${gradeClass(g.grade_code)}">${escHtml(g.grade_code || "\u2013")}</span></td>
+                                    <td>${g.percentage != null ? g.percentage + "%" : "\u2013"}</td>
+                                    <td>${formatDate(g.date)}</td>
+                                </tr>
+                            `).join("")}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
     }
     container.innerHTML = html;
 }

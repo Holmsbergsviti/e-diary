@@ -255,6 +255,7 @@ def grades(request):
         rows.append({
             "id": row["id"],
             "subject": subj.get("name", "Unknown"),
+            "subject_id": row.get("subject_id"),
             "subject_color": subj.get("color_code", "#607D8B"),
             "assessment": row.get("assessment_name", ""),
             "percentage": row.get("percentage"),
@@ -265,7 +266,25 @@ def grades(request):
             "term": row.get("term", 1),
         })
 
-    return JsonResponse({"grades": rows})
+    # Get enrolled subjects so the frontend can show them even without grades
+    enrolled_result = (
+        ediary().table("student_subjects")
+        .select("subject_id")
+        .eq("student_id", payload["sub"])
+        .execute()
+    )
+    enrolled = []
+    for e in (enrolled_result.data or []):
+        subj = subj_map.get(e["subject_id"])
+        if subj:
+            enrolled.append({
+                "subject_id": subj["id"],
+                "subject": subj["name"],
+                "subject_color": subj.get("color_code", "#607D8B"),
+            })
+    enrolled.sort(key=lambda x: x["subject"])
+
+    return JsonResponse({"grades": rows, "enrolled_subjects": enrolled})
 
 
 # ------------------------------------------------------------------
