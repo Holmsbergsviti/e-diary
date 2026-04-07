@@ -95,7 +95,16 @@ function shortDate(d) {
 }
 
 function isoDate(d) {
-    return d.toISOString().slice(0, 10);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+/* Parse "YYYY-MM-DD" as local midnight (not UTC) */
+function parseLocalDate(str) {
+    const [y, m, d] = str.split('-').map(Number);
+    return new Date(y, m - 1, d);
 }
 
 function getCurrentPeriod() {
@@ -165,8 +174,8 @@ function renderSchedule() {
         const start = ev.event_date;
         const end = ev.event_end_date || start;
         // Iterate each day in range
-        const d = new Date(start);
-        const dEnd = new Date(end);
+        const d = parseLocalDate(start);
+        const dEnd = parseLocalDate(end);
         while (d <= dEnd) {
             const ds = isoDate(d);
             if (!eventsByDate[ds]) eventsByDate[ds] = [];
@@ -246,8 +255,8 @@ function renderSchedule() {
         if (periods.length === 0) continue;
         const start = ev.event_date;
         const end = ev.event_end_date || start;
-        const d = new Date(start);
-        const dEnd = new Date(end);
+        const d = parseLocalDate(start);
+        const dEnd = parseLocalDate(end);
         while (d <= dEnd) {
             const ds = isoDate(d);
             if (!eventPeriodMap[ds]) eventPeriodMap[ds] = {};
@@ -442,14 +451,178 @@ function renderSchedule() {
 
     container.innerHTML = html;
 
-    // For teachers: clicking a lesson opens the attendance modal on teacher.html
+    // For teachers: clicking a lesson opens the attendance modal inline
     if (isTeacher) {
         container.querySelectorAll(".clickable-lesson").forEach(td => {
             td.addEventListener("click", () => {
                 const slot = JSON.parse(td.dataset.slot);
-                sessionStorage.setItem("openAttendance", JSON.stringify(slot));
-                window.location.href = "teacher.html";
+                openScheduleAttendanceModal(slot);
             });
         });
+    }
+}
+
+/* ═══════════════════════════════════════════════════════
+   Inline Attendance Modal (for teachers on schedule page)
+   ═══════════════════════════════════════════════════════ */
+let _schedCurrentSlot = null;
+
+async function openScheduleAttendanceModal(slot) {
+    _schedCurrentSlot = slot;
+    const modal = document.getElementById("attendanceModal");
+    if (!modal) return; // not a teacher or modal not present
+    const title = document.getElementById("modalTitle");
+    const subtitle = document.getElementById("modalSubtitle");
+    const dateInput = document.getElementById("attendanceDate");
+    const studentList = document.getElementById("studentList");
+
+    const yearLabel = slot.class_name || `Year ${slot.grade_level}`;
+    title.textContent = `${slot.subject} – ${yearLabel}`;
+    const time = PERIOD_TIMES[slot.period - 1] || `Period ${slot.period}`;
+    subtitle.textContent = `${DAYS[slot.day_of_week - 1]} · ${time}${slot.room ? " · Room " + slot.room : ""}`;
+
+    dateInput.value = slot._date || isoDate(new Date());
+    modal.style.display = "flex";
+    studentList.innerHTML = '<p class="loading">Loading students…</p>';
+
+    document.getElementById("modalClose").onclick = _schedCloseModal;
+    modal.onclick = (e) => { if (e.target === modal) _schedCloseModal(); };
+
+    document.getElementById("markAllPresent").onclick = _schedMarkAllPresent;
+    document.getElementById("saveAttendance").onclick = _schedSaveAttendance;
+
+    dateInput.onchange = () => _schedLoadStudents(slot, dateInput.value);
+    await _schedLoadStudents(slot, dateInput.value);
+}
+
+function _schedCloseModal() {
+    const modal = document.getElementById("attendanceModal");
+    if (modal) modal.style.display = "none";
+    _schedCurrentSlot = null;
+}
+
+async function _schedLoadStudents(slot, date) {
+    const studentList = document.getElementById("studentList");
+    try {
+        const [studentsRes, attendanceRes] = await Promise.all([
+            apiFetch(`/teacher/class-students/?class_id=${slot.class_id}&subject_id=${slot.subject_id}`),
+            apiFetch(`/teacher/attendance/?class_id=${slot.class_id}&subject_id=${slot.subject_id}&date=${date}`),
+        ]);
+        const studentsData = await studentsRes.json();
+        const attendanceData = await attendanceRes.json();
+        const students = studentsData.students || [];
+        const existing = attendanceData.attendance || [];
+
+        const topicInput = document.getElementById("lessonTopic");
+        if (topicInput && attendanceData.topic) {
+            topicInput.value = attendanceData.topic;
+        } else if (topicInput && existing.length === 0) {
+            topicInput.value = "";
+        }
+
+        const attendanceMap = {};
+        for (const rec of existing) attendanceMap[rec.student_id] = rec;
+
+        if (students.length === 0) {
+            studentList.innerHTML = '<p class="empty-state">No students enrolled in this subject for this class.</p>';
+            return;
+        }
+
+        studentList.innerHTML = `
+            <table class="attendance-table">
+                <thead><tr><th>#</th><th>Student</th><th>Class</th><th>Status</th><th>Comment</th></tr></thead>
+                <tbody>
+                    ${students.map((s, i) => {
+                        const rec = attendanceMap[s.id] || {};
+                        const status = rec.status || "Present";
+                        const comment = rec.comment || "";
+                        return `
+                        <tr data-student-id="${s.id}">
+                            <td>${i + 1}</td>
+                            <td>${escHtml(s.surname)} ${escHtml(s.name)}</td>
+                            <td><span class="class-tag">${escHtml(s.class_name || "")}</span></td>
+                            <td>
+                                <select class="status-select status-${status.toLowerCase()}">
+                                    <option value="Present" ${status === "Present" ? "selected" : ""}>✅ Present</option>
+                                    <option value="Late" ${status === "Late" ? "selected" : ""}>⏰ Late</option>
+                                    <option value="Absent" ${status === "Absent" ? "selected" : ""}>❌ Absent</option>
+                                    <option value="Excused" ${status === "Excused" ? "selected" : ""}>📋 Excused</option>
+                                </select>
+                            </td>
+                            <td><input type="text" class="comment-input" placeholder="Comment…" value="${escHtml(comment)}"></td>
+                        </tr>`;
+                    }).join("")}
+                </tbody>
+            </table>`;
+
+        studentList.querySelectorAll(".status-select").forEach(sel => {
+            _schedUpdateSelectStyle(sel);
+            sel.addEventListener("change", () => _schedUpdateSelectStyle(sel));
+        });
+    } catch (err) {
+        studentList.innerHTML = '<p class="empty-state">Failed to load students.</p>';
+    }
+}
+
+function _schedUpdateSelectStyle(sel) {
+    sel.className = "status-select status-" + sel.value.toLowerCase();
+}
+
+function _schedMarkAllPresent() {
+    document.querySelectorAll("#studentList .status-select").forEach(sel => {
+        sel.value = "Present";
+        _schedUpdateSelectStyle(sel);
+    });
+}
+
+async function _schedSaveAttendance() {
+    const btn = document.getElementById("saveAttendance");
+    const date = document.getElementById("attendanceDate").value;
+    if (!date || !_schedCurrentSlot) return;
+
+    const rows = document.querySelectorAll("#studentList tbody tr");
+    const records = [];
+    rows.forEach(row => {
+        const studentId = row.dataset.studentId;
+        const status = row.querySelector(".status-select").value;
+        const comment = row.querySelector(".comment-input").value.trim();
+        records.push({ student_id: studentId, status, comment });
+    });
+    if (records.length === 0) return;
+
+    btn.disabled = true;
+    btn.textContent = "Saving…";
+
+    const topic = (document.getElementById("lessonTopic")?.value || "").trim();
+
+    try {
+        const res = await apiFetch("/teacher/attendance/", {
+            method: "POST",
+            body: JSON.stringify({
+                class_id: _schedCurrentSlot.class_id,
+                subject_id: _schedCurrentSlot.subject_id,
+                date: date,
+                topic: topic,
+                records: records,
+            }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+            btn.textContent = "✓ Saved!";
+            btn.classList.add("btn-success");
+            setTimeout(() => {
+                btn.textContent = "Save Attendance";
+                btn.classList.remove("btn-success");
+                btn.disabled = false;
+            }, 2000);
+        } else {
+            showToast(data.message || "Failed to save attendance", "error");
+            btn.textContent = "Save Attendance";
+            btn.disabled = false;
+        }
+    } catch (err) {
+        showToast("Error saving attendance", "error");
+        btn.textContent = "Save Attendance";
+        btn.disabled = false;
     }
 }

@@ -27,7 +27,7 @@ MASTER_ADMIN_EMAIL = "bojan.milenkovic@chartwell.edu.rs"
 ALL_ADMIN_PERMISSIONS = {
     "students": True, "teachers": True, "classes": True,
     "subjects": True, "schedule": True, "events": True,
-    "holidays": True, "import": True,
+    "holidays": True, "import": True, "impersonate": True,
 }
 
 
@@ -2446,8 +2446,8 @@ def admin_impersonate(request):
     if request.method != "POST":
         return JsonResponse({"message": "Method not allowed"}, status=405)
     caller_level = _admin_level(payload)
-    if caller_level not in ("super", "master"):
-        return JsonResponse({"message": "Only master+ can impersonate"}, status=403)
+    if caller_level not in ("super", "master") and not _admin_has_perm(payload, "impersonate"):
+        return JsonResponse({"message": "No permission to impersonate"}, status=403)
     data = json.loads(request.body)
     target_id = data.get("user_id", "").strip()
     if not target_id:

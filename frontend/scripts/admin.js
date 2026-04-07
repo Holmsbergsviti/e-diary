@@ -32,6 +32,7 @@ const ALL_PERM_KEYS = [
     { key: "events",     label: "Events" },
     { key: "holidays",   label: "Holidays" },
     { key: "import",     label: "Import / Export" },
+    { key: "impersonate", label: "Impersonate" },
 ];
 
 function _adminLevel() { return (getUser() || {}).admin_level || "regular"; }
@@ -349,7 +350,7 @@ async function loadTeachers(container) {
                     <td>${escHtml(t.surname)} ${escHtml(t.name)}</td>
                     <td>${t.is_class_teacher ? `✓ ${escHtml(t.class_teacher_class_name || "")}` : "—"}</td>
                     <td class="admin-actions">
-                        <button class="btn btn-sm btn-impersonate" onclick="impersonateUser('${t.id}')" title="Login as this teacher">Login as</button>
+                        ${_hasPerm("impersonate") ? `<button class="btn btn-sm btn-impersonate" onclick="impersonateUser('${t.id}')" title="Login as this teacher">Login as</button>` : ""}
                         <button class="btn btn-sm btn-secondary" onclick='editTeacher(${JSON.stringify(t).replace(/'/g, "&#39;")})'>Edit</button>
                         <button class="btn btn-sm btn-danger" onclick="deleteUser('${t.id}','teacher')">Delete</button>
                     </td>
@@ -433,7 +434,7 @@ async function loadStudents(container) {
                     <td>${escHtml(s.surname)} ${escHtml(s.name)}</td>
                     <td>${escHtml(s.class_name || "—")}</td>
                     <td class="admin-actions">
-                        <button class="btn btn-sm btn-impersonate" onclick="impersonateUser('${s.id}')" title="Login as this student">Login as</button>
+                        ${_hasPerm("impersonate") ? `<button class="btn btn-sm btn-impersonate" onclick="impersonateUser('${s.id}')" title="Login as this student">Login as</button>` : ""}
                         <button class="btn btn-sm btn-secondary" onclick='editStudent(${JSON.stringify(s).replace(/'/g, "&#39;")})'>Edit</button>
                         <button class="btn btn-sm btn-danger" onclick="deleteUser('${s.id}','student')">Delete</button>
                     </td>

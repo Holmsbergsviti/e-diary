@@ -18,6 +18,8 @@ async function initDashboard() {
     // Load all data - use Promise.all to load in parallel
     try {
         await Promise.all([
+            loadTodaySchedule(),
+            loadUpcomingEvents(),
             loadAnnouncements(),
             loadRecentGrades(),
             loadAttendance(),
@@ -45,6 +47,93 @@ function gradeClass(code) {
     return "grade-u";
 }
 
+/* ---------- Today's Schedule ---------- */
+const DASH_PERIOD_TIMES = [
+    "08:30–09:10", "09:15–10:00", "10:15–10:55", "11:00–11:45",
+    "11:50–12:30", "13:15–13:55", "14:00–14:45", "14:50–15:30",
+];
+
+function _dashIsoDate(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+async function loadTodaySchedule() {
+    const container = document.getElementById("todayScheduleContainer");
+    if (!container) return;
+    try {
+        const res = await apiFetch("/schedule/");
+        if (!res.ok) { container.innerHTML = '<p class="empty-state">Could not load schedule.</p>'; return; }
+        const data = await res.json();
+        const slots = data.schedule || [];
+
+        if (slots.length === 0) {
+            container.innerHTML = '<p class="empty-state">No schedule available.</p>';
+            return;
+        }
+
+        const now = new Date();
+        let dow = now.getDay(); // 0=Sun, 1=Mon … 6=Sat
+        if (dow === 0 || dow === 6) {
+            container.innerHTML = '<p class="empty-state">No school today – enjoy your weekend! 🎉</p>';
+            return;
+        }
+
+        const todayStr = _dashIsoDate(now);
+
+        // Build today's slots sorted by period
+        const todaySlots = slots.filter(s => s.day_of_week === dow).sort((a, b) => a.period - b.period);
+
+        if (todaySlots.length === 0) {
+            container.innerHTML = '<p class="empty-state">No classes today.</p>';
+            return;
+        }
+
+        // Determine current period for highlighting
+        const hour = now.getHours();
+        const minute = now.getMinutes();
+        const timeMin = hour * 60 + minute;
+        const periodTimesMin = [
+            { start: 8*60+30, end: 9*60+10 },
+            { start: 9*60+15, end: 10*60 },
+            { start: 10*60+15, end: 10*60+55 },
+            { start: 11*60, end: 11*60+45 },
+            { start: 11*60+50, end: 12*60+30 },
+            { start: 13*60+15, end: 13*60+55 },
+            { start: 14*60, end: 14*60+45 },
+            { start: 14*60+50, end: 15*60+30 },
+        ];
+        let currentPeriod = null;
+        for (let i = 0; i < periodTimesMin.length; i++) {
+            if (timeMin >= periodTimesMin[i].start && timeMin < periodTimesMin[i].end) {
+                currentPeriod = i + 1;
+                break;
+            }
+        }
+
+        let html = '<div class="today-schedule-list">';
+        for (const slot of todaySlots) {
+            const time = DASH_PERIOD_TIMES[slot.period - 1] || `Period ${slot.period}`;
+            const isCurrent = currentPeriod === slot.period;
+            const room = slot.room ? `Room ${escHtml(slot.room)}` : "";
+            html += `<div class="today-schedule-item${isCurrent ? ' today-schedule-current' : ''}">
+                <div class="today-schedule-period">${slot.period}</div>
+                <div class="today-schedule-info">
+                    <strong>${escHtml(slot.subject)}</strong>
+                    <span class="today-schedule-meta">${time}${room ? ' · ' + room : ''}</span>
+                </div>
+                ${isCurrent ? '<span class="today-schedule-now">NOW</span>' : ''}
+            </div>`;
+        }
+        html += '</div>';
+        container.innerHTML = html;
+    } catch (err) {
+        container.innerHTML = '<p class="empty-state">Could not load schedule.</p>';
+    }
+}
+
 async function loadUpcomingEvents() {
     const container = document.getElementById("upcomingEventsContainer");
     try {
@@ -53,7 +142,7 @@ async function loadUpcomingEvents() {
         const data = await res.json();
         const events = data.events || [];
         const holidays = data.holidays || [];
-        const today = new Date().toISOString().slice(0, 10);
+        const today = _dashIsoDate(new Date());
 
         // Combine upcoming events and holidays into one list
         const items = [];
@@ -105,7 +194,7 @@ async function loadAnnouncements() {
             container.innerHTML = '<p class="empty-state">No homework or tasks.</p>';
             return;
         }
-        const today = new Date().toISOString().slice(0, 10);
+        const today = _dashIsoDate(new Date());
         const COMP_BADGES = {
             completed: '<span class="hw-badge hw-badge-done">✅ Completed</span>',
             partial: '<span class="hw-badge hw-badge-partial">⚠️ Partial</span>',

@@ -134,7 +134,12 @@ function getMonday(offset) {
     return mon;
 }
 function shortDate(d) { return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }); }
-function isoDate(d) { return d.toISOString().slice(0, 10); }
+function isoDate(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
 
 function renderWeeklySchedule() {
     const container = document.getElementById("weeklySchedule");

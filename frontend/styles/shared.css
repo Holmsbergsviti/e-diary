@@ -2347,22 +2347,15 @@ tr:hover td {
     /* Form inputs: better touch targets */
     .form-input, .status-select, .comment-input { min-height: 44px; padding: 12px 14px; font-size: 16px; }
     .attendance-date-row input[type="date"] { min-height: 44px; padding: 10px 14px; }
-    /* Grades table: shrink to fit screen, horizontal scroll with visual indicator */
-    .grades-page table { font-size: 0.78rem; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .grades-page thead, .grades-page tbody, .grades-page tr, .grades-page th, .grades-page td { display: block; width: 100%; }
-    .grades-page th, .grades-page td { padding: 8px 6px; }
-    .grades-page th:nth-child(1), .grades-page td:nth-child(1) { width: auto; min-width: 80px; }
-    .grades-page th:nth-child(2), .grades-page td:nth-child(2) { width: 50px; min-width: 50px; }
-    .grades-page th:nth-child(3), .grades-page td:nth-child(3) { width: 50px; min-width: 50px; }
-    .grades-page th:nth-child(4), .grades-page td:nth-child(4) { width: 70px; min-width: 70px; }
+    /* Grades table: horizontal scroll on mobile */
+    .grades-page table { font-size: 0.78rem; display: table; overflow-x: visible; }
+    .grades-page .card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .grades-page th, .grades-page td { padding: 8px 6px; white-space: nowrap; }
     .grades-page .grade-badge { width: 32px; height: 32px; line-height: 32px; font-size: 0.78rem; }
     /* Marks table: horizontal scroll on mobile */
-    .marks-page table { font-size: 0.78rem; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .marks-page thead, .marks-page tbody, .marks-page tr { display: block; width: 100%; }
-    .marks-page th, .marks-page td { padding: 8px 10px; min-width: 70px; }
-    .marks-page th:nth-child(1), .marks-page td:nth-child(1) { min-width: 36px; width: 36px; }
-    .marks-page th:nth-child(2), .marks-page td:nth-child(2) { min-width: 120px; }
-    .marks-page th:nth-child(3), .marks-page td:nth-child(3) { min-width: 80px; }
+    .marks-page .card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .marks-page table { font-size: 0.78rem; display: table; min-width: 500px; }
+    .marks-page th, .marks-page td { padding: 8px 10px; white-space: nowrap; }
     .marks-page .grade-badge { width: 28px; height: 28px; line-height: 28px; font-size: 0.72rem; }
     .marks-page .student-name-toggle { font-weight: 600; color: var(--primary-blue); cursor: pointer; }
     .marks-page .add-grade-inline-btn { padding: 4px 6px; width: 22px; height: 22px; font-size: 0.7rem; }
@@ -2418,23 +2411,33 @@ tr:hover td {
     .modal-footer { padding: 12px 16px; }
     .modal-header { padding: 16px 16px 12px; }
     .tab-btn { padding: 12px 14px; font-size: 0.85rem; }
+    /* Profile page mobile */
+    .profile-page .card { max-width: 100% !important; }
+    .palette-grid { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; }
+    .palette-btn { padding: 10px; }
+    .palette-label { font-size: 0.78rem; }
+    /* Dashboard today schedule */
+    .today-schedule-item { padding: 8px 12px; gap: 10px; }
+    .today-schedule-period { width: 30px; height: 30px; font-size: 0.82rem; }
+    .today-schedule-now { font-size: 0.62rem; padding: 2px 6px; }
+    /* Dashboard cards stacking */
+    .dashboard-page .card { margin-bottom: 10px; }
+    /* Term filter buttons */
+    .term-filter { flex-wrap: wrap; gap: 6px; }
+    .term-btn { padding: 8px 14px; font-size: 0.82rem; }
 }
 
 /* ============================================================
    Responsive: scroll indicators for tables on mobile
    ============================================================ */
 @media (max-width: 768px) {
-    .card > table, .card > div > table, .schedule-page .card {
-        display: block;
-        width: 100%;
+    .card {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
-        background: linear-gradient(to right, var(--bg-card) 0%, transparent 100%), 
-                    linear-gradient(to right, transparent 0%, var(--bg-card) 100%);
-        background-attachment: local, local;
-        background-size: 20px 100%, 20px 100%;
-        background-position: 0 0, calc(100% - 0) 0;
-        background-repeat: no-repeat;
+    }
+    .schedule-page .card {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 }
 
@@ -2551,10 +2554,8 @@ tr:hover td {
         font-size: 0.78rem;
     }
     /* Marks table - ultra-compact on small phones */
-    .marks-page table { font-size: 0.7rem; }
-    .marks-page th, .marks-page td { padding: 6px 6px; min-width: 60px; }
-    .marks-page th:nth-child(1), .marks-page td:nth-child(1) { min-width: 32px; width: 32px; }
-    .marks-page th:nth-child(2), .marks-page td:nth-child(2) { min-width: 100px; }
+    .marks-page table { font-size: 0.7rem; min-width: 400px; }
+    .marks-page th, .marks-page td { padding: 6px 6px; }
     .marks-page .grade-badge { width: 24px; height: 24px; line-height: 24px; font-size: 0.65rem; }
     .marks-page .add-grade-inline-btn { display: none; }
     /* Schedule table - very compact with horizontal scroll */
@@ -2737,23 +2738,51 @@ tr:hover td {
         font-size: 0.6rem;
         padding: 2px 4px;
     }
-    /* Scrollable tables with momentum */
-    table {
-        display: block;
-        width: 100%;
+    /* Tables: ensure cards scroll horizontally, keep table structure intact */
+    .card {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
-        border-collapse: collapse;
     }
-    thead, tbody {
-        display: block;
+    /* Profile page */
+    .profile-page .card {
+        max-width: 100% !important;
     }
-    tr {
-        display: flex;
-        width: 100%;
+    .palette-grid {
+        grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+        gap: 8px;
     }
-    th, td {
-        flex: none;
+    .palette-btn {
+        padding: 8px;
+    }
+    .palette-label {
+        font-size: 0.72rem;
+    }
+    /* Today's schedule on dashboard */
+    .today-schedule-item {
+        padding: 8px 10px;
+        gap: 8px;
+    }
+    .today-schedule-period {
+        width: 28px;
+        height: 28px;
+        font-size: 0.78rem;
+    }
+    .today-schedule-info strong {
+        font-size: 0.85rem;
+    }
+    .today-schedule-meta {
+        font-size: 0.72rem;
+    }
+    /* Dashboard event items */
+    .dashboard-event-item {
+        padding: 6px 8px;
+        gap: 8px;
+    }
+    .dashboard-event-icon {
+        font-size: 1.1rem;
+    }
+    .dashboard-event-info strong {
+        font-size: 0.85rem;
     }
 }
 
@@ -3689,3 +3718,73 @@ tr:hover td {
 .dashboard-event-info strong { font-size: 0.92rem; color: var(--text-primary); }
 .dashboard-event-info .schedule-holiday-badge,
 .dashboard-event-info .schedule-event-badge { width: fit-content; }
+
+/* ---------- Today's Schedule (Dashboard) ---------- */
+.today-schedule-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.today-schedule-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: var(--hover-bg, rgba(0,0,0,0.02));
+    transition: background 0.15s;
+}
+.today-schedule-item:hover {
+    background: var(--bg-secondary);
+}
+.today-schedule-current {
+    background: rgba(var(--primary-blue-rgb, 99,102,241), 0.10) !important;
+    border-left: 3px solid var(--primary-blue, #6366f1);
+}
+.today-schedule-period {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--primary-blue, #6366f1);
+    flex-shrink: 0;
+}
+.today-schedule-current .today-schedule-period {
+    background: var(--primary-blue, #6366f1);
+    color: #fff;
+}
+.today-schedule-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+.today-schedule-info strong {
+    font-size: 0.92rem;
+    color: var(--text-primary);
+}
+.today-schedule-meta {
+    font-size: 0.78rem;
+    color: var(--text-lighter);
+}
+.today-schedule-now {
+    background: var(--primary-blue, #6366f1);
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 8px;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+    animation: pulse-badge 2s infinite;
+}
+@keyframes pulse-badge {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
