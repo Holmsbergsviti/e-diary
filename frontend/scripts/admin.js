@@ -496,9 +496,9 @@ async function loadAdmins(container) {
     _registerExport("expAdmins", admins.map(a => {
         const perms = a.permissions || {};
         const permStr = (a.admin_level === "master") ? "All" : ALL_PERM_KEYS.filter(p => perms[p.key]).map(p => p.label).join(", ") || "None";
-        return { surname: a.surname, name: a.name, email: a.email || "", admin_level: a.admin_level || "regular", permissions: permStr };
-    }), ["surname","name","email","admin_level","permissions"],
-    { surname:"Surname", name:"Name", email:"Email", admin_level:"Level", permissions:"Permissions" }, "Admins");
+        return { surname: a.surname, name: a.name, email: a.email || "", permissions: permStr };
+    }), ["surname","name","email","permissions"],
+    { surname:"Surname", name:"Name", email:"Email", permissions:"Permissions" }, "Admins");
     container.innerHTML = `
         <div class="admin-section-header">
             <h3>Admins</h3>
@@ -509,7 +509,7 @@ async function loadAdmins(container) {
         </div>
         ${admins.length === 0 ? '<p class="empty-state">No admins yet.</p>' : `
         <table class="admin-table">
-            <thead><tr><th>Name</th><th>Email</th><th>Level</th><th>Permissions</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Name</th><th>Email</th><th>Permissions</th><th>Actions</th></tr></thead>
             <tbody>${admins.map(a => {
                 const lvl = a.admin_level || "regular";
                 const perms = a.permissions || {};
@@ -518,10 +518,10 @@ async function loadAdmins(container) {
                 const isMaster = lvl === "master";
                 const canEdit = isSuperAdmin || !isMaster;
                 const canDelete = isSuperAdmin || !isMaster;
+                const masterBadge = isMaster && isSuperAdmin ? ' <span class="admin-level-badge level-master">master</span>' : '';
                 return `<tr>
-                    <td>${escHtml(a.surname)} ${escHtml(a.name)}</td>
+                    <td>${escHtml(a.surname)} ${escHtml(a.name)}${masterBadge}</td>
                     <td>${escHtml(a.email || "")}</td>
-                    <td><span class="admin-level-badge level-${lvl}">${lvl}</span></td>
                     <td class="perm-cell">${permTags}</td>
                     <td class="admin-actions">
                         ${canEdit ? `<button class="btn btn-sm btn-secondary" onclick='editAdmin(${JSON.stringify(a).replace(/'/g, "&#39;")})'>Edit</button>` : ""}

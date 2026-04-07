@@ -3097,7 +3097,7 @@ tr:hover td {
     border-radius: 10px;
     font-size: 0.72rem;
     font-weight: 500;
-    background: var(--accent);
+    background: #7c3aed;
     color: #fff;
 }
 .perm-tag.perm-all { background: #7c3aed; }
