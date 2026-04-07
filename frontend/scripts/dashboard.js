@@ -50,6 +50,7 @@ async function loadUpcomingEvents() {
     const container = document.getElementById("upcomingEventsContainer");
     try {
         const res = await apiFetch("/events/");
+        if (!res.ok) { container.innerHTML = '<p class="empty-state">Could not load events.</p>'; return; }
         const data = await res.json();
         const events = data.events || [];
         const holidays = data.holidays || [];

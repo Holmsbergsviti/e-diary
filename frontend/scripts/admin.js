@@ -657,6 +657,10 @@ async function deleteScheduleSlot(id) {
 /* ═══════════════ EVENTS ═══════════════ */
 async function loadEvents(container) {
     const res = await apiFetch("/admin/events/");
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `HTTP ${res.status}`);
+    }
     const d = await res.json();
     const events = d.events || [];
     container.innerHTML = `
@@ -804,6 +808,10 @@ async function deleteEvent(id) {
 /* ═══════════════ HOLIDAYS ═══════════════ */
 async function loadHolidays(container) {
     const res = await apiFetch("/admin/holidays/");
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `HTTP ${res.status}`);
+    }
     const d = await res.json();
     const holidays = d.holidays || [];
     container.innerHTML = `

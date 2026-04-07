@@ -1150,6 +1150,10 @@ async function loadStudyHall() {
     const container = document.getElementById("studyHallList");
     try {
         const res = await apiFetch("/teacher/study-hall/");
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.message || `HTTP ${res.status}`);
+        }
         const data = await res.json();
         const sessions = data.sessions || [];
 
@@ -1175,7 +1179,7 @@ async function loadStudyHall() {
             </table>
         `;
     } catch (err) {
-        container.innerHTML = '<p class="empty-state">Failed to load study hall sessions.</p>';
+        container.innerHTML = `<p class="empty-state">Failed to load study hall sessions: ${escHtml(err.message)}</p>`;
     }
 }
 
@@ -1264,6 +1268,10 @@ async function fetchFreeStudents(date, period) {
 
     try {
         const res = await apiFetch(`/teacher/study-hall/students/?date=${date}&period=${period}`);
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.message || `HTTP ${res.status}`);
+        }
         const data = await res.json();
         const students = data.students || [];
         const existing = data.attendance || [];
@@ -1307,7 +1315,7 @@ async function fetchFreeStudents(date, period) {
         });
 
     } catch (err) {
-        studentList.innerHTML = '<p class="empty-state">Failed to load students.</p>';
+        studentList.innerHTML = `<p class="empty-state">Failed to load students: ${escHtml(err.message)}</p>`;
     }
 }
 

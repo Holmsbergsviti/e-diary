@@ -588,15 +588,27 @@ def teacher_attendance(request):
             return JsonResponse({"message": "class_id, subject_id, and date required"}, status=400)
 
         db = ediary()
-        result = (
-            db.table("attendance")
-            .select("id, student_id, status, comment, topic")
-            .eq("class_id", class_id)
-            .eq("subject_id", subject_id)
-            .eq("date_recorded", date)
-            .eq("recorded_by_teacher_id", teacher_id)
-            .execute()
-        )
+        try:
+            result = (
+                db.table("attendance")
+                .select("id, student_id, status, comment, topic")
+                .eq("class_id", class_id)
+                .eq("subject_id", subject_id)
+                .eq("date_recorded", date)
+                .eq("recorded_by_teacher_id", teacher_id)
+                .execute()
+            )
+        except Exception:
+            # topic column may not exist yet – retry without it
+            result = (
+                db.table("attendance")
+                .select("id, student_id, status, comment")
+                .eq("class_id", class_id)
+                .eq("subject_id", subject_id)
+                .eq("date_recorded", date)
+                .eq("recorded_by_teacher_id", teacher_id)
+                .execute()
+            )
         # Extract topic from any record (same for all in a session)
         att_rows = result.data or []
         topic = att_rows[0].get("topic", "") if att_rows else ""
@@ -641,7 +653,13 @@ def teacher_attendance(request):
             })
 
         db2 = ediary()
-        result = db2.table("attendance").insert(rows).execute()
+        try:
+            result = db2.table("attendance").insert(rows).execute()
+        except Exception:
+            # topic column may not exist – retry without it
+            for r in rows:
+                r.pop("topic", None)
+            result = db2.table("attendance").insert(rows).execute()
 
         # Alert: student marked absent here but present/late/excused in another class/subject same day
         conflicting_students = []
@@ -2844,42 +2862,45 @@ def admin_events(request):
     if not payload or payload.get("role") != "admin":
         return JsonResponse({"message": "Unauthorized"}, status=401)
 
-    db = ediary()
+    try:
+        db = ediary()
 
-    if request.method == "GET":
-        result = db.table("events").select("*").order("event_date", desc=True).execute()
-        return JsonResponse({"events": result.data or []})
+        if request.method == "GET":
+            result = db.table("events").select("*").order("event_date", desc=True).execute()
+            return JsonResponse({"events": result.data or []})
 
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-        except json.JSONDecodeError:
-            return JsonResponse({"message": "Invalid JSON"}, status=400)
+        if request.method == "POST":
+            try:
+                data = json.loads(request.body)
+            except json.JSONDecodeError:
+                return JsonResponse({"message": "Invalid JSON"}, status=400)
 
-        title = data.get("title", "").strip()
-        description = data.get("description", "").strip()
-        event_date = data.get("event_date")
-        event_end_date = data.get("event_end_date") or event_date
-        target_type = data.get("target_type", "all")  # all, class, students
-        target_class_ids = data.get("target_class_ids", [])
-        target_student_ids = data.get("target_student_ids", [])
+            title = data.get("title", "").strip()
+            description = data.get("description", "").strip()
+            event_date = data.get("event_date")
+            event_end_date = data.get("event_end_date") or event_date
+            target_type = data.get("target_type", "all")  # all, class, students
+            target_class_ids = data.get("target_class_ids", [])
+            target_student_ids = data.get("target_student_ids", [])
 
-        if not title or not event_date:
-            return JsonResponse({"message": "title and event_date required"}, status=400)
+            if not title or not event_date:
+                return JsonResponse({"message": "title and event_date required"}, status=400)
 
-        row = {
-            "title": title,
-            "description": description,
-            "event_date": event_date,
-            "event_end_date": event_end_date,
-            "target_type": target_type,
-            "target_class_ids": target_class_ids,
-            "target_student_ids": target_student_ids,
-        }
-        result = db.table("events").insert(row).execute()
-        return JsonResponse({"event": (result.data or [None])[0]}, status=201)
+            row = {
+                "title": title,
+                "description": description,
+                "event_date": event_date,
+                "event_end_date": event_end_date,
+                "target_type": target_type,
+                "target_class_ids": target_class_ids,
+                "target_student_ids": target_student_ids,
+            }
+            result = db.table("events").insert(row).execute()
+            return JsonResponse({"event": (result.data or [None])[0]}, status=201)
 
-    return JsonResponse({"message": "Method not allowed"}, status=405)
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+    except Exception as exc:
+        return JsonResponse({"message": f"Server error: {exc}"}, status=500)
 
 
 @csrf_exempt
@@ -2892,26 +2913,29 @@ def admin_event_detail(request):
     if not event_id:
         return JsonResponse({"message": "id required"}, status=400)
 
-    db = ediary()
+    try:
+        db = ediary()
 
-    if request.method == "DELETE":
-        db.table("events").delete().eq("id", event_id).execute()
-        return JsonResponse({"deleted": True})
+        if request.method == "DELETE":
+            db.table("events").delete().eq("id", event_id).execute()
+            return JsonResponse({"deleted": True})
 
-    if request.method == "PATCH":
-        try:
-            data = json.loads(request.body)
-        except json.JSONDecodeError:
-            return JsonResponse({"message": "Invalid JSON"}, status=400)
-        updates = {}
-        for key in ("title", "description", "event_date", "event_end_date", "target_type", "target_class_ids", "target_student_ids"):
-            if key in data:
-                updates[key] = data[key]
-        if updates:
-            db.table("events").update(updates).eq("id", event_id).execute()
-        return JsonResponse({"updated": True})
+        if request.method == "PATCH":
+            try:
+                data = json.loads(request.body)
+            except json.JSONDecodeError:
+                return JsonResponse({"message": "Invalid JSON"}, status=400)
+            updates = {}
+            for key in ("title", "description", "event_date", "event_end_date", "target_type", "target_class_ids", "target_student_ids"):
+                if key in data:
+                    updates[key] = data[key]
+            if updates:
+                db.table("events").update(updates).eq("id", event_id).execute()
+            return JsonResponse({"updated": True})
 
-    return JsonResponse({"message": "Method not allowed"}, status=405)
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+    except Exception as exc:
+        return JsonResponse({"message": f"Server error: {exc}"}, status=500)
 
 
 # ------------------------------------------------------------------
@@ -2924,30 +2948,33 @@ def admin_holidays(request):
     if not payload or payload.get("role") != "admin":
         return JsonResponse({"message": "Unauthorized"}, status=401)
 
-    db = ediary()
+    try:
+        db = ediary()
 
-    if request.method == "GET":
-        result = db.table("holidays").select("*").order("start_date").execute()
-        return JsonResponse({"holidays": result.data or []})
+        if request.method == "GET":
+            result = db.table("holidays").select("*").order("start_date").execute()
+            return JsonResponse({"holidays": result.data or []})
 
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-        except json.JSONDecodeError:
-            return JsonResponse({"message": "Invalid JSON"}, status=400)
+        if request.method == "POST":
+            try:
+                data = json.loads(request.body)
+            except json.JSONDecodeError:
+                return JsonResponse({"message": "Invalid JSON"}, status=400)
 
-        name = data.get("name", "").strip()
-        start_date = data.get("start_date")
-        end_date = data.get("end_date") or start_date
+            name = data.get("name", "").strip()
+            start_date = data.get("start_date")
+            end_date = data.get("end_date") or start_date
 
-        if not name or not start_date:
-            return JsonResponse({"message": "name and start_date required"}, status=400)
+            if not name or not start_date:
+                return JsonResponse({"message": "name and start_date required"}, status=400)
 
-        row = {"name": name, "start_date": start_date, "end_date": end_date}
-        result = db.table("holidays").insert(row).execute()
-        return JsonResponse({"holiday": (result.data or [None])[0]}, status=201)
+            row = {"name": name, "start_date": start_date, "end_date": end_date}
+            result = db.table("holidays").insert(row).execute()
+            return JsonResponse({"holiday": (result.data or [None])[0]}, status=201)
 
-    return JsonResponse({"message": "Method not allowed"}, status=405)
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+    except Exception as exc:
+        return JsonResponse({"message": f"Server error: {exc}"}, status=500)
 
 
 @csrf_exempt
@@ -2960,26 +2987,29 @@ def admin_holiday_detail(request):
     if not holiday_id:
         return JsonResponse({"message": "id required"}, status=400)
 
-    db = ediary()
+    try:
+        db = ediary()
 
-    if request.method == "DELETE":
-        db.table("holidays").delete().eq("id", holiday_id).execute()
-        return JsonResponse({"deleted": True})
+        if request.method == "DELETE":
+            db.table("holidays").delete().eq("id", holiday_id).execute()
+            return JsonResponse({"deleted": True})
 
-    if request.method == "PATCH":
-        try:
-            data = json.loads(request.body)
-        except json.JSONDecodeError:
-            return JsonResponse({"message": "Invalid JSON"}, status=400)
-        updates = {}
-        for key in ("name", "start_date", "end_date"):
-            if key in data:
-                updates[key] = data[key]
-        if updates:
-            db.table("holidays").update(updates).eq("id", holiday_id).execute()
-        return JsonResponse({"updated": True})
+        if request.method == "PATCH":
+            try:
+                data = json.loads(request.body)
+            except json.JSONDecodeError:
+                return JsonResponse({"message": "Invalid JSON"}, status=400)
+            updates = {}
+            for key in ("name", "start_date", "end_date"):
+                if key in data:
+                    updates[key] = data[key]
+            if updates:
+                db.table("holidays").update(updates).eq("id", holiday_id).execute()
+            return JsonResponse({"updated": True})
 
-    return JsonResponse({"message": "Method not allowed"}, status=405)
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+    except Exception as exc:
+        return JsonResponse({"message": f"Server error: {exc}"}, status=500)
 
 
 # ------------------------------------------------------------------
@@ -2993,40 +3023,43 @@ def public_events(request):
     if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
 
-    db = ediary()
-    role = payload.get("role", "student")
-    user_id = payload["sub"]
+    try:
+        db = ediary()
+        role = payload.get("role", "student")
+        user_id = payload["sub"]
 
-    # Holidays (visible to everyone)
-    holidays = (db.table("holidays").select("*").order("start_date").execute()).data or []
+        # Holidays (visible to everyone)
+        holidays = (db.table("holidays").select("*").order("start_date").execute()).data or []
 
-    # Events
-    all_events = (db.table("events").select("*").order("event_date").execute()).data or []
+        # Events
+        all_events = (db.table("events").select("*").order("event_date").execute()).data or []
 
-    # Filter events for this user
-    visible_events = []
-    student_class_id = None
-    if role == "student":
-        stu = db.table("students").select("class_id").eq("id", user_id).limit(1).execute()
-        student_class_id = stu.data[0]["class_id"] if stu.data else None
+        # Filter events for this user
+        visible_events = []
+        student_class_id = None
+        if role == "student":
+            stu = db.table("students").select("class_id").eq("id", user_id).limit(1).execute()
+            student_class_id = stu.data[0]["class_id"] if stu.data else None
 
-    for ev in all_events:
-        tt = ev.get("target_type", "all")
-        if tt == "all":
-            visible_events.append(ev)
-        elif tt == "class" and student_class_id:
-            ids = ev.get("target_class_ids") or []
-            if student_class_id in ids:
+        for ev in all_events:
+            tt = ev.get("target_type", "all")
+            if tt == "all":
                 visible_events.append(ev)
-        elif tt == "students":
-            ids = ev.get("target_student_ids") or []
-            if user_id in ids:
+            elif tt == "class" and student_class_id:
+                ids = ev.get("target_class_ids") or []
+                if student_class_id in ids:
+                    visible_events.append(ev)
+            elif tt == "students":
+                ids = ev.get("target_student_ids") or []
+                if user_id in ids:
+                    visible_events.append(ev)
+            elif role in ("teacher", "admin"):
+                # Teachers and admins see all events
                 visible_events.append(ev)
-        elif role in ("teacher", "admin"):
-            # Teachers and admins see all events
-            visible_events.append(ev)
 
-    return JsonResponse({"events": visible_events, "holidays": holidays})
+        return JsonResponse({"events": visible_events, "holidays": holidays})
+    except Exception as exc:
+        return JsonResponse({"message": f"Server error: {exc}"}, status=500)
 
 
 # ------------------------------------------------------------------
@@ -3039,58 +3072,61 @@ def teacher_study_hall(request):
     if not payload or payload.get("role") != "teacher":
         return JsonResponse({"message": "Unauthorized"}, status=401)
 
-    teacher_id = payload["sub"]
-    db = ediary()
+    try:
+        teacher_id = payload["sub"]
+        db = ediary()
 
-    if request.method == "GET":
-        # Return study hall sessions created by this teacher
-        result = (
-            db.table("study_hall")
-            .select("*")
-            .eq("teacher_id", teacher_id)
-            .order("date", desc=True)
-            .execute()
-        )
-        return JsonResponse({"sessions": result.data or []})
+        if request.method == "GET":
+            # Return study hall sessions created by this teacher
+            result = (
+                db.table("study_hall")
+                .select("*")
+                .eq("teacher_id", teacher_id)
+                .order("date", desc=True)
+                .execute()
+            )
+            return JsonResponse({"sessions": result.data or []})
 
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-        except json.JSONDecodeError:
-            return JsonResponse({"message": "Invalid JSON"}, status=400)
+        if request.method == "POST":
+            try:
+                data = json.loads(request.body)
+            except json.JSONDecodeError:
+                return JsonResponse({"message": "Invalid JSON"}, status=400)
 
-        date = data.get("date")
-        period = data.get("period")
-        room = data.get("room", "").strip()
+            date = data.get("date")
+            period = data.get("period")
+            room = data.get("room", "").strip()
 
-        if not date or not period:
-            return JsonResponse({"message": "date and period required"}, status=400)
+            if not date or not period:
+                return JsonResponse({"message": "date and period required"}, status=400)
 
-        # Create or update study hall session
-        existing = (
-            db.table("study_hall")
-            .select("id")
-            .eq("teacher_id", teacher_id)
-            .eq("date", date)
-            .eq("period", period)
-            .limit(1)
-            .execute()
-        )
-        if existing.data:
-            session_id = existing.data[0]["id"]
-            db.table("study_hall").update({"room": room}).eq("id", session_id).execute()
-        else:
-            ins = db.table("study_hall").insert({
-                "teacher_id": teacher_id,
-                "date": date,
-                "period": int(period),
-                "room": room,
-            }).execute()
-            session_id = ins.data[0]["id"] if ins.data else None
+            # Create or update study hall session
+            existing = (
+                db.table("study_hall")
+                .select("id")
+                .eq("teacher_id", teacher_id)
+                .eq("date", date)
+                .eq("period", period)
+                .limit(1)
+                .execute()
+            )
+            if existing.data:
+                session_id = existing.data[0]["id"]
+                db.table("study_hall").update({"room": room}).eq("id", session_id).execute()
+            else:
+                ins = db.table("study_hall").insert({
+                    "teacher_id": teacher_id,
+                    "date": date,
+                    "period": int(period),
+                    "room": room,
+                }).execute()
+                session_id = ins.data[0]["id"] if ins.data else None
 
-        return JsonResponse({"session_id": session_id}, status=201)
+            return JsonResponse({"session_id": session_id}, status=201)
 
-    return JsonResponse({"message": "Method not allowed"}, status=405)
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+    except Exception as exc:
+        return JsonResponse({"message": f"Server error: {exc}"}, status=500)
 
 
 @csrf_exempt
@@ -3118,105 +3154,108 @@ def teacher_study_hall_students(request):
     if day_of_week > 5:
         return JsonResponse({"students": []})
 
-    db = ediary()
+    try:
+        db = ediary()
 
-    # Get ALL schedule slots for this day+period (tells us which class_ids have class)
-    sched = (
-        db.table("schedule")
-        .select("class_id, subject_id")
-        .eq("day_of_week", day_of_week)
-        .eq("period", period)
-        .execute()
-    ).data or []
-
-    busy_class_ids = {s["class_id"] for s in sched}
-    busy_subject_ids = {s["subject_id"] for s in sched}
-
-    # Get ALL students
-    all_students = (
-        db.table("students")
-        .select("id, name, surname, class_id")
-        .order("surname")
-        .order("name")
-        .execute()
-    ).data or []
-
-    # Get student_subjects with group_class_id for cross-class groups
-    all_ss = (
-        db.table("student_subjects")
-        .select("student_id, subject_id, group_class_id")
-        .execute()
-    ).data or []
-    ss_by_student = {}
-    for ss in all_ss:
-        ss_by_student.setdefault(ss["student_id"], []).append(ss)
-
-    # Class name lookup
-    classes = (db.table("classes").select("id, class_name").execute()).data or []
-    cls_map = {c["id"]: c["class_name"] for c in classes}
-
-    # A student is "free" if they don't have any scheduled class at this period
-    free_students = []
-    for s in all_students:
-        home_class = s["class_id"]
-        has_class = False
-
-        # Check 1: student's home class has a schedule slot at this period
-        if home_class in busy_class_ids:
-            # But only if student is actually enrolled in that subject
-            # We check if there's a slot for their home class
-            for slot in sched:
-                if slot["class_id"] == home_class:
-                    has_class = True
-                    break
-
-        # Check 2: student might be in a group class that has a slot
-        if not has_class:
-            enrollments = ss_by_student.get(s["id"], [])
-            for enr in enrollments:
-                gc = enr.get("group_class_id")
-                if gc and gc in busy_class_ids:
-                    for slot in sched:
-                        if slot["class_id"] == gc and slot["subject_id"] == enr["subject_id"]:
-                            has_class = True
-                            break
-                if has_class:
-                    break
-
-        if not has_class:
-            free_students.append({
-                "id": s["id"],
-                "name": s["name"],
-                "surname": s["surname"],
-                "class_name": cls_map.get(home_class, ""),
-            })
-
-    # Also get existing study hall attendance for this teacher/date/period
-    teacher_id = payload["sub"]
-    sh_session = (
-        db.table("study_hall")
-        .select("id")
-        .eq("teacher_id", teacher_id)
-        .eq("date", date)
-        .eq("period", period)
-        .limit(1)
-        .execute()
-    ).data
-
-    existing_att = []
-    if sh_session:
-        session_id = sh_session[0]["id"]
-        existing_att = (
-            db.table("study_hall_attendance")
-            .select("student_id, status")
-            .eq("study_hall_id", session_id)
+        # Get ALL schedule slots for this day+period (tells us which class_ids have class)
+        sched = (
+            db.table("schedule")
+            .select("class_id, subject_id")
+            .eq("day_of_week", day_of_week)
+            .eq("period", period)
             .execute()
         ).data or []
 
-    return JsonResponse({
-        "students": free_students,
-        "attendance": existing_att,
-    })
+        busy_class_ids = {s["class_id"] for s in sched}
+        busy_subject_ids = {s["subject_id"] for s in sched}
+
+        # Get ALL students
+        all_students = (
+            db.table("students")
+            .select("id, name, surname, class_id")
+            .order("surname")
+            .order("name")
+            .execute()
+        ).data or []
+
+        # Get student_subjects with group_class_id for cross-class groups
+        all_ss = (
+            db.table("student_subjects")
+            .select("student_id, subject_id, group_class_id")
+            .execute()
+        ).data or []
+        ss_by_student = {}
+        for ss in all_ss:
+            ss_by_student.setdefault(ss["student_id"], []).append(ss)
+
+        # Class name lookup
+        classes = (db.table("classes").select("id, class_name").execute()).data or []
+        cls_map = {c["id"]: c["class_name"] for c in classes}
+
+        # A student is "free" if they don't have any scheduled class at this period
+        free_students = []
+        for s in all_students:
+            home_class = s["class_id"]
+            has_class = False
+
+            # Check 1: student's home class has a schedule slot at this period
+            if home_class in busy_class_ids:
+                # But only if student is actually enrolled in that subject
+                # We check if there's a slot for their home class
+                for slot in sched:
+                    if slot["class_id"] == home_class:
+                        has_class = True
+                        break
+
+            # Check 2: student might be in a group class that has a slot
+            if not has_class:
+                enrollments = ss_by_student.get(s["id"], [])
+                for enr in enrollments:
+                    gc = enr.get("group_class_id")
+                    if gc and gc in busy_class_ids:
+                        for slot in sched:
+                            if slot["class_id"] == gc and slot["subject_id"] == enr["subject_id"]:
+                                has_class = True
+                                break
+                    if has_class:
+                        break
+
+            if not has_class:
+                free_students.append({
+                    "id": s["id"],
+                    "name": s["name"],
+                    "surname": s["surname"],
+                    "class_name": cls_map.get(home_class, ""),
+                })
+
+        # Also get existing study hall attendance for this teacher/date/period
+        teacher_id = payload["sub"]
+        sh_session = (
+            db.table("study_hall")
+            .select("id")
+            .eq("teacher_id", teacher_id)
+            .eq("date", date)
+            .eq("period", period)
+            .limit(1)
+            .execute()
+        ).data
+
+        existing_att = []
+        if sh_session:
+            session_id = sh_session[0]["id"]
+            existing_att = (
+                db.table("study_hall_attendance")
+                .select("student_id, status")
+                .eq("study_hall_id", session_id)
+                .execute()
+            ).data or []
+
+        return JsonResponse({
+            "students": free_students,
+            "attendance": existing_att,
+        })
+    except Exception as exc:
+        return JsonResponse({"message": f"Server error: {exc}"}, status=500)
 
 
 @csrf_exempt
@@ -3240,21 +3279,24 @@ def teacher_study_hall_attendance(request):
     if not session_id or not records:
         return JsonResponse({"message": "session_id and records required"}, status=400)
 
-    db = ediary()
+    try:
+        db = ediary()
 
-    # Delete existing attendance for this session
-    db.table("study_hall_attendance").delete().eq("study_hall_id", session_id).execute()
+        # Delete existing attendance for this session
+        db.table("study_hall_attendance").delete().eq("study_hall_id", session_id).execute()
 
-    # Insert new records
-    rows = []
-    for r in records:
-        rows.append({
-            "study_hall_id": session_id,
-            "student_id": r["student_id"],
-            "status": r.get("status", "Present"),
-        })
+        # Insert new records
+        rows = []
+        for r in records:
+            rows.append({
+                "study_hall_id": session_id,
+                "student_id": r["student_id"],
+                "status": r.get("status", "Present"),
+            })
 
-    if rows:
-        db.table("study_hall_attendance").insert(rows).execute()
+        if rows:
+            db.table("study_hall_attendance").insert(rows).execute()
 
-    return JsonResponse({"saved": len(rows)}, status=201)
+        return JsonResponse({"saved": len(rows)}, status=201)
+    except Exception as exc:
+        return JsonResponse({"message": f"Server error: {exc}"}, status=500)

@@ -43,9 +43,14 @@ async function fetchSchedule() {
         const schedData = await results[0].json();
         scheduleSlots = schedData.schedule || [];
 
-        const evData = await results[1].json();
-        scheduleHolidays = evData.holidays || [];
-        scheduleEvents = evData.events || [];
+        // Events/holidays – don't let a failure break the whole schedule
+        try {
+            if (results[1].ok) {
+                const evData = await results[1].json();
+                scheduleHolidays = evData.holidays || [];
+                scheduleEvents = evData.events || [];
+            }
+        } catch (_) { /* ignore events fetch failure */ }
 
         if (results[2]) {
             const attData = await results[2].json();
