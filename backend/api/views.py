@@ -2514,8 +2514,8 @@ def admin_users(request):
                 return JsonResponse({"message": "No permission"}, status=403)
             rows = db.table("admins").select("*").order("surname").order("name").execute()
             admins_list = rows.data or []
-            # Super admin is always hidden from everyone
-            admins_list = [a for a in admins_list if not _is_super_admin_id(a["id"])]
+            # Super admins are always hidden from everyone (including other supers)
+            admins_list = [a for a in admins_list if a.get("admin_level") != "super" and not _is_super_admin_id(a["id"])]
             # Master admin hidden from regular admins (but visible to super)
             if caller_level != "super":
                 admins_list = [a for a in admins_list if not _is_master_admin_id(a["id"])]
