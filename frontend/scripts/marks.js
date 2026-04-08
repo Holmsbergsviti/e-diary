@@ -224,7 +224,8 @@ function buildStatsHtml(stats) {
                 <span class="stat-hw-pill stat-hw-done">${hw.completed || 0} done</span>
                 <span class="stat-hw-pill stat-hw-partial">${hw.partial || 0} partial</span>
                 <span class="stat-hw-pill stat-hw-not">${hw.not_done || 0} missing</span>
-            </div>${buildHwDetailHtml(st.homework_detail)}` : `<div class="student-stat-empty">No records</div>`}
+            </div>
+            ${buildHwDetailHtml(st.homework_detail)}` : `<div class="student-stat-empty">No records</div>`}
         </div>
         <div class="student-stat-card">
             <div class="student-stat-label">⭐ Behavioral</div>

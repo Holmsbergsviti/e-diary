@@ -1343,36 +1343,45 @@ def teacher_marks(request):
         total_comments = att_comment_count + grade_comments_filtered + beh_comments_filtered
         total_comments_all = all_att_comments + grade_comments_all + beh_comments_all
 
-        pcts = [
-            g["percentage"] for g in (grades_result.data or [])
-            if g["student_id"] == sid and g.get("percentage") is not None
+        # Grades: filter by subject when provided
+        student_grades = [
+            g for g in (grades_result.data or [])
+            if g["student_id"] == sid
+            and (not subject_id or g.get("subject_id") == subject_id)
         ]
+        pcts = [g["percentage"] for g in student_grades if g.get("percentage") is not None]
         grade_avg = round(sum(pcts) / len(pcts), 1) if pcts else None
+        grade_count = len(student_grades)
 
+        # Homework: filter by class/subject properly
         hwc_c = {"completed": 0, "partial": 0, "not_done": 0}
         hw_detail = []
         student_hw_status = {}  # homework_id -> status
         for h in hw_comp_data:
             if h["student_id"] == sid:
-                st = h.get("status", "")
-                if st in hwc_c:
-                    hwc_c[st] += 1
-                student_hw_status[h.get("homework_id")] = st
+                student_hw_status[h.get("homework_id")] = h.get("status", "")
 
-        # Build per-homework detail list for this student
+        # Build per-homework detail list and derive counts from it
         student_class_id = student_map.get(sid, {}).get("class_id")
         for hw in hw_all:
             hw_class = hw.get("class_id")
+            hw_subj = hw.get("subject_id")
             if class_id and hw_class != class_id:
                 continue
             if not class_id and student_class_id and hw_class != student_class_id:
                 continue
+            if subject_id and hw_subj != subject_id:
+                continue
             hw_id = hw["id"]
             status = student_hw_status.get(hw_id, "not_done")
+            if status in hwc_c:
+                hwc_c[status] += 1
+            else:
+                hwc_c["not_done"] += 1
             hw_detail.append({
                 "title": hw.get("title", ""),
                 "due_date": hw.get("due_date"),
-                "subject": subj_map.get(hw.get("subject_id"), {}).get("name", ""),
+                "subject": subj_map.get(hw_subj, {}).get("name", ""),
                 "status": status,
             })
         hw_detail.sort(key=lambda x: x.get("due_date") or "", reverse=True)
@@ -1414,7 +1423,7 @@ def teacher_marks(request):
                     "absent": trend["week"]["absent"],
                 },
             },
-            "grades": {"count": len(pcts), "average": grade_avg},
+            "grades": {"count": grade_count, "average": grade_avg},
             "homework": hwc_c,
             "homework_detail": hw_detail,
             "behavioral": beh_c,
@@ -2863,6 +2872,34 @@ def admin_user_detail(request):
             return JsonResponse({"message": "No permission"}, status=403)
 
         table = {"teacher": "teachers", "admin": "admins"}.get(role, "students")
+
+        # Cascade-delete related data for students
+        if role == "student":
+            try:
+                db.table("homework_completions").delete().eq("student_id", uid).execute()
+            except Exception:
+                pass
+            try:
+                db.table("attendance").delete().eq("student_id", uid).execute()
+            except Exception:
+                pass
+            try:
+                db.table("grades").delete().eq("student_id", uid).execute()
+            except Exception:
+                pass
+            try:
+                db.table("behavioral_entries").delete().eq("student_id", uid).execute()
+            except Exception:
+                pass
+            try:
+                db.table("student_subjects").delete().eq("student_id", uid).execute()
+            except Exception:
+                pass
+            try:
+                db.table("teacher_reports").delete().eq("student_id", uid).execute()
+            except Exception:
+                pass
+
         try:
             db.table(table).delete().eq("id", uid).execute()
         except Exception:
