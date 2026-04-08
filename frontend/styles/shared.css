@@ -3466,6 +3466,36 @@ tr:hover td {
     letter-spacing: 0.03em;
 }
 
+/* --- Export grid (Exports tab) --- */
+.export-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 14px;
+}
+.export-card {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 24px 16px;
+    text-align: center;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.export-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    border-color: var(--primary-color);
+}
+.export-card-icon {
+    font-size: 2rem;
+    margin-bottom: 8px;
+}
+.export-card-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
 /* --- Dark mode overrides --- */
 [data-theme="dark"] .admin-modal {
     box-shadow: 0 12px 40px rgba(0,0,0,0.5);
