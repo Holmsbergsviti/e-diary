@@ -3042,6 +3042,43 @@ tr:hover td {
 #adminContent {
     padding: 0 24px 24px;
 }
+
+/* --- Teacher Tabs --- */
+.teacher-tabs {
+    display: flex;
+    gap: 6px;
+    padding: 0 4px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 12px;
+}
+.teacher-tab {
+    padding: 10px 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px 8px 0 0;
+    background: transparent;
+    color: var(--text-lighter);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.teacher-tab:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+.teacher-tab.active {
+    background: var(--primary-color);
+    color: #fff;
+    border-color: var(--primary-color);
+}
+.teacher-tab-content {
+    display: none;
+}
+.teacher-tab-content.active {
+    display: block;
+}
+
 .admin-section-header {
     display: flex;
     justify-content: space-between;
@@ -3535,6 +3572,8 @@ tr:hover td {
     .admin-table { font-size: 0.82rem; }
     .admin-table th, .admin-table td { padding: 8px 10px; }
     .admin-actions { flex-direction: column; gap: 4px; }
+    .teacher-tabs { gap: 4px; }
+    .teacher-tab { padding: 8px 14px; font-size: 0.82rem; }
 }
 
 /* ═══════════ Events / Holidays / Study Hall ═══════════ */

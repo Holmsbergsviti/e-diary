@@ -14,6 +14,9 @@ let weekOffset = 0;     // 0 = this week, -1 = last week, etc.
 let teacherHolidays = [];  // holidays
 let teacherEvents = [];    // events
 let currentTeacherId = null; // current teacher's user ID
+let currentTeacherTab = "dashboard"; // active tab
+let statsLoaded = false;   // lazy flag for statistics tab
+let exportsLoaded = false; // lazy flag for exports tab
 
 /* ---- Bootstrap ------------------------------------------------ */
 async function initTeacher() {
@@ -28,10 +31,13 @@ async function initTeacher() {
     currentTeacherId = user?.id || null;
 
     initNav();
-    await Promise.all([loadSchedule(), loadHomework(), loadBehavioral(), loadClassStats(), loadStudyHall()]);
+    await Promise.all([loadSchedule(), loadHomework(), loadBehavioral(), loadStudyHall()]);
     
     // Initialize card collapse functionality
     initCardCollapse();
+
+    // Tab switching
+    bindTeacherTabs();
 
     // Week navigation arrows
     document.getElementById("weekPrev").addEventListener("click", () => { weekOffset--; renderWeeklySchedule(); });
@@ -55,6 +61,58 @@ async function initTeacher() {
 document.addEventListener("DOMContentLoaded", () => {
     initTeacher().catch(err => console.error("Teacher init error:", err));
 });
+
+/* ---- Teacher tab switching ---- */
+function bindTeacherTabs() {
+    document.querySelectorAll("#teacherTabs .teacher-tab").forEach(btn => {
+        btn.addEventListener("click", () => {
+            switchTeacherTab(btn.dataset.tab);
+        });
+    });
+}
+
+function switchTeacherTab(tab) {
+    currentTeacherTab = tab;
+    // Update tab buttons
+    document.querySelectorAll("#teacherTabs .teacher-tab").forEach(b => {
+        b.classList.toggle("active", b.dataset.tab === tab);
+    });
+    // Show/hide tab content
+    document.querySelectorAll(".teacher-tab-content").forEach(el => {
+        el.classList.toggle("active", el.id === `tab-${tab}`);
+    });
+    // Lazy load stats
+    if (tab === "statistics" && !statsLoaded) {
+        statsLoaded = true;
+        loadClassStats();
+    }
+    // Lazy load exports
+    if (tab === "exports" && !exportsLoaded) {
+        exportsLoaded = true;
+        // Re-register export data from already-loaded sections, then render
+        _reRegisterExports();
+        renderExportCard();
+    }
+}
+
+/** Re-register exports from data already loaded on the dashboard tab */
+function _reRegisterExports() {
+    // Schedule is always loaded
+    if (allSlots.length > 0) {
+        const scheduleRows = allSlots.map(s => ({
+            day: DAYS[s.day_of_week - 1] || String(s.day_of_week),
+            period: s.period,
+            time: PERIOD_TIMES[s.period - 1] || "",
+            subject: s.subject || "",
+            class_name: s.class_name || "",
+            room: s.room || "",
+        }));
+        _registerExport("expSchedule", scheduleRows,
+            ["day","period","time","subject","class_name","room"],
+            {day:"Day",period:"Period",time:"Time",subject:"Subject",class_name:"Class",room:"Room"},
+            "my_schedule");
+    }
+}
 
 /* ---- Load schedule from API ----------------------------------- */
 async function loadSchedule() {
@@ -615,9 +673,9 @@ async function loadClassStats() {
     }
 }
 
-// Auto-refresh class stats every 30 seconds (paused when tab hidden)
+// Auto-refresh class stats every 30 seconds (only when stats tab is visible)
 let _statsInterval = setInterval(async () => {
-    if (document.hidden) return;
+    if (document.hidden || currentTeacherTab !== "statistics" || !statsLoaded) return;
     try {
         invalidateApiCache("/teacher/class-stats");
         const res = await apiFetch("/teacher/class-stats/");
