@@ -21,7 +21,7 @@ const TAB_PERMS = {
     holidays: "holidays",
     attendance: "students",
     import: "import",
-    statistics: null,        // always visible
+    "student-lookup": "students",
     exports: "import",       // same perm as import/export
 };
 
@@ -39,6 +39,19 @@ const ALL_PERM_KEYS = [
 
 function _adminLevel() { return (getUser() || {}).admin_level || "regular"; }
 function _adminPerms() { return (getUser() || {}).permissions || {}; }
+
+// Grade badge CSS class helper
+function gradeClass(code) {
+    if (!code) return "";
+    const c = code.toUpperCase().replace("*", "").replace("+", "").replace("-", "");
+    if (c === "A") return "grade-a";
+    if (c === "B") return "grade-b";
+    if (c === "C") return "grade-c";
+    if (c === "D") return "grade-d";
+    if (c === "E") return "grade-e";
+    return "grade-u";
+}
+
 function _hasPerm(key) {
     const lvl = _adminLevel();
     if (lvl === "super" || lvl === "master") return true;
@@ -137,7 +150,7 @@ async function loadSection(section) {
     try {
         switch (section) {
             case "overview": await loadOverview(container); break;
-            case "statistics": await loadStatistics(container); break;
+            case "student-lookup": await loadStudentLookup(container); break;
             case "classes": await loadClasses(container); break;
             case "subjects": await loadSubjects(container); break;
             case "teachers": await loadTeachers(container); break;
@@ -185,38 +198,223 @@ async function loadOverview(container) {
     `;
 }
 
-/* ═══════════════ STATISTICS ═══════════════ */
-async function loadStatistics(container) {
-    const res = await apiFetch("/admin/stats/");
-    if (!res.ok) {
-        container.innerHTML = '<p class="empty-state">Could not load statistics.</p>';
-        return;
-    }
-    let stats;
-    try { stats = await res.json(); } catch (e) {
-        container.innerHTML = '<p class="empty-state">Could not load statistics.</p>';
-        return;
-    }
+/* ═══════════════ STUDENT LOOKUP ═══════════════ */
+async function loadStudentLookup(container) {
+    await fetchStudents();
     container.innerHTML = `
-        <div class="admin-section-header"><h3>Statistics</h3></div>
-        <div class="stats-grid">
-            <div class="stat-card"><div class="stat-number">${stats.total_classes || 0}</div><div class="stat-label">Classes</div></div>
-            <div class="stat-card"><div class="stat-number">${stats.total_subjects || 0}</div><div class="stat-label">Subjects</div></div>
-            <div class="stat-card"><div class="stat-number">${stats.total_teachers || 0}</div><div class="stat-label">Teachers</div></div>
-            <div class="stat-card"><div class="stat-number">${stats.total_students || 0}</div><div class="stat-label">Students</div></div>
-            <div class="stat-card"><div class="stat-number">${stats.total_admins || 0}</div><div class="stat-label">Admins</div></div>
-            <div class="stat-card"><div class="stat-number">${stats.total_assignments || 0}</div><div class="stat-label">Teacher Assignments</div></div>
-            <div class="stat-card"><div class="stat-number">${stats.total_enrollments || 0}</div><div class="stat-label">Student Enrolments</div></div>
-            <div class="stat-card"><div class="stat-number">${stats.total_schedule_slots || 0}</div><div class="stat-label">Schedule Slots</div></div>
+        <div class="admin-section-header"><h3>Student Lookup</h3></div>
+        <p style="color:var(--text-light);margin-bottom:12px;">Search for a student to view their full profile — grades, attendance, homework, behavioral notes, and enrolled subjects.</p>
+        <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
+            <input type="text" id="studentSearchInput" class="form-control" placeholder="Type student name…" style="max-width:320px;">
+            <select id="studentSearchSelect" class="form-control" style="max-width:360px;"><option value="">— or pick from list —</option>${cachedStudents.sort((a,b)=>(`${a.surname} ${a.name}`).localeCompare(`${b.surname} ${b.name}`)).map(s=>`<option value="${s.id}">${escHtml(s.surname)} ${escHtml(s.name)} (${escHtml(s.class_name||'')})</option>`).join('')}</select>
+            <button class="btn btn-primary btn-sm" id="studentSearchBtn">Search</button>
         </div>
-        ${stats.classes_breakdown && stats.classes_breakdown.length ? `
-        <h4 style="margin:24px 0 12px;color:var(--text-primary)">Students per Class</h4>
-        <table class="admin-table">
-            <thead><tr><th>Class</th><th>Year</th><th>Students</th></tr></thead>
-            <tbody>${stats.classes_breakdown.map(c => `
-                <tr><td>${escHtml(c.class_name)}</td><td>${c.grade_level}</td><td>${c.student_count}</td></tr>
-            `).join("")}</tbody>
-        </table>` : ""}
+        <div id="studentLookupResult"></div>
+    `;
+
+    const input = document.getElementById("studentSearchInput");
+    const select = document.getElementById("studentSearchSelect");
+    const btn = document.getElementById("studentSearchBtn");
+
+    // Auto-filter dropdown as user types
+    input.addEventListener("input", () => {
+        const q = input.value.trim().toLowerCase();
+        const opts = select.querySelectorAll("option");
+        let firstMatch = null;
+        opts.forEach(o => {
+            if (!o.value) return;
+            const vis = o.textContent.toLowerCase().includes(q);
+            o.style.display = vis ? "" : "none";
+            if (vis && !firstMatch) firstMatch = o.value;
+        });
+        if (firstMatch) select.value = firstMatch;
+    });
+
+    const doSearch = async () => {
+        const sid = select.value;
+        if (!sid) { showToast("Please select a student", "error"); return; }
+        const result = document.getElementById("studentLookupResult");
+        result.innerHTML = '<p class="loading">Loading student data…</p>';
+        try {
+            const res = await apiFetch(`/admin/student-lookup/?student_id=${sid}`);
+            if (!res.ok) throw new Error("Failed to load");
+            const data = await res.json();
+            renderStudentProfile(result, data);
+        } catch (err) {
+            result.innerHTML = `<p class="empty-state">Error: ${escHtml(err.message)}</p>`;
+        }
+    };
+    btn.addEventListener("click", doSearch);
+    select.addEventListener("change", doSearch);
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") doSearch(); });
+}
+
+function renderStudentProfile(container, data) {
+    const s = data.student;
+    const att = data.attendance;
+    const hw = data.homework;
+    const beh = data.behavioral;
+
+    // Attendance bar
+    const attTotal = att.total || 0;
+    const attBar = attTotal > 0 ? `
+        <div class="student-stat-bar" style="margin:8px 0;">
+            <div class="stat-bar-seg stat-bar-present" style="width:${((att.summary.Present||0)/attTotal*100).toFixed(1)}%" title="Present: ${att.summary.Present||0}"></div>
+            <div class="stat-bar-seg stat-bar-late" style="width:${((att.summary.Late||0)/attTotal*100).toFixed(1)}%" title="Late: ${att.summary.Late||0}"></div>
+            <div class="stat-bar-seg stat-bar-absent" style="width:${((att.summary.Absent||0)/attTotal*100).toFixed(1)}%" title="Absent: ${att.summary.Absent||0}"></div>
+            <div class="stat-bar-seg stat-bar-excused" style="width:${((att.summary.Excused||0)/attTotal*100).toFixed(1)}%" title="Excused: ${att.summary.Excused||0}"></div>
+        </div>
+        <div class="student-stat-nums">
+            <span class="stat-present">${att.summary.Present||0} present</span>
+            <span class="stat-late">${att.summary.Late||0} late</span>
+            <span class="stat-absent">${att.summary.Absent||0} absent</span>
+            <span class="stat-excused">${att.summary.Excused||0} excused</span>
+        </div>
+        <small style="color:var(--text-light);">T1: ${att.by_term.term_1.rate ?? '–'}% · T2: ${att.by_term.term_2.rate ?? '–'}%</small>
+    ` : '<span style="color:#94a3b8;">No attendance records</span>';
+
+    // Subjects list
+    const subjHtml = data.enrolled_subjects.length > 0
+        ? data.enrolled_subjects.map(es => `<span class="lookup-subj-chip" style="border-left:3px solid ${es.color};">${escHtml(es.subject)}${es.group_class ? ` <small>(${escHtml(es.group_class)})</small>` : ''}</span>`).join('')
+        : '<span style="color:#94a3b8;">No subjects enrolled</span>';
+
+    // Subject grades
+    let gradesHtml = '';
+    if (data.subject_grades.length > 0) {
+        gradesHtml = data.subject_grades.map(sg => {
+            if (sg.grades.length === 0) {
+                return `<div class="lookup-subject-block">
+                    <div class="lookup-subject-header" style="border-left:3px solid ${sg.color};">
+                        <strong>${escHtml(sg.subject)}</strong>
+                        <span style="color:#94a3b8;font-size:0.82rem;">No grades</span>
+                    </div>
+                </div>`;
+            }
+            const avgStr = sg.average != null ? `Avg: ${sg.average}%` : '';
+            const gradeItems = sg.grades.map(g => {
+                const pct = g.percentage != null ? `<small class="grade-pct">${g.percentage}%</small>` : '';
+                const cat = g.category ? `<small class="cat-label cat-${g.category}">${g.category}</small>` : '';
+                const cmt = g.comment ? `<span class="grade-comment-icon" title="${escHtml(g.comment)}">💬</span>` : '';
+                return `<div class="lookup-grade-item">
+                    <span class="grade-badge ${gradeClass(g.grade_code)}">${escHtml(g.grade_code)}</span>
+                    <span>${escHtml(g.assessment || 'Unnamed')} ${cat}</span>
+                    ${pct}
+                    <small style="color:#94a3b8;">T${g.term} · ${g.date || '–'}</small>
+                    <small style="color:#94a3b8;">${escHtml(g.teacher)}</small>
+                    ${cmt}
+                </div>`;
+            }).join('');
+            return `<div class="lookup-subject-block">
+                <div class="lookup-subject-header" style="border-left:3px solid ${sg.color};">
+                    <strong>${escHtml(sg.subject)}</strong>
+                    <span style="font-size:0.82rem;color:var(--text-light);">${sg.grade_count} grade${sg.grade_count!==1?'s':''} ${avgStr}</span>
+                </div>
+                <div class="lookup-grade-list">${gradeItems}</div>
+            </div>`;
+        }).join('');
+    } else {
+        gradesHtml = '<p class="empty-state">No grades recorded.</p>';
+    }
+
+    // Homework
+    const hwTotal = (hw.counts.completed||0) + (hw.counts.partial||0) + (hw.counts.not_done||0);
+    let hwHtml = '';
+    if (hwTotal > 0) {
+        const STATUS_ICON = { completed: '✅', partial: '🔶', not_done: '❌' };
+        const STATUS_LABEL = { completed: 'Done', partial: 'Partial', not_done: 'Missing' };
+        hwHtml = `<div class="student-stat-hw" style="margin-bottom:8px;">
+            <span class="stat-hw-pill stat-hw-done">${hw.counts.completed||0} done</span>
+            <span class="stat-hw-pill stat-hw-partial">${hw.counts.partial||0} partial</span>
+            <span class="stat-hw-pill stat-hw-not">${hw.counts.not_done||0} missing</span>
+        </div>
+        <div class="hw-detail-list" style="max-height:none;">
+            ${hw.items.map(h => `<div class="hw-detail-row hw-detail-${h.status}">
+                <span class="hw-detail-icon">${STATUS_ICON[h.status]||'❌'}</span>
+                <span class="hw-detail-title">${escHtml(h.title)} <span class="hw-detail-subj">${escHtml(h.subject)}</span></span>
+                <span class="hw-detail-due">${h.due_date||'–'}</span>
+                <small style="color:#94a3b8;">${escHtml(h.teacher)}</small>
+                <span class="hw-detail-status">${STATUS_LABEL[h.status]||'Missing'}</span>
+            </div>`).join('')}
+        </div>`;
+    } else {
+        hwHtml = '<span style="color:#94a3b8;">No homework assigned.</span>';
+    }
+
+    // Behavioral
+    const behTotal = (beh.counts.positive||0) + (beh.counts.negative||0) + (beh.counts.note||0);
+    let behHtml = '';
+    if (behTotal > 0) {
+        behHtml = `<div class="student-stat-hw" style="margin-bottom:8px;">
+            <span class="stat-hw-pill" style="background:#d1fae5;color:#065f46;">👍 ${beh.counts.positive||0}</span>
+            <span class="stat-hw-pill" style="background:#fee2e2;color:#991b1b;">👎 ${beh.counts.negative||0}</span>
+            <span class="stat-hw-pill" style="background:#e0e7ff;color:#3730a3;">📝 ${beh.counts.note||0}</span>
+        </div>
+        <div class="lookup-beh-list">
+            ${beh.records.map(b => {
+                const typeIcon = b.type === 'positive' ? '👍' : b.type === 'negative' ? '👎' : '📝';
+                return `<div class="lookup-beh-row">
+                    <span>${typeIcon}</span>
+                    <span style="flex:1;">${escHtml(b.content)}</span>
+                    <small style="color:#94a3b8;">${escHtml(b.subject)}</small>
+                    <small style="color:#94a3b8;">${b.date}</small>
+                    <small style="color:#94a3b8;">${escHtml(b.teacher)}</small>
+                </div>`;
+            }).join('')}
+        </div>`;
+    } else {
+        behHtml = '<span style="color:#94a3b8;">No behavioral entries.</span>';
+    }
+
+    // Recent attendance
+    let attRecHtml = '';
+    if (att.records.length > 0) {
+        attRecHtml = `<details class="lookup-att-details"><summary style="cursor:pointer;font-size:0.82rem;color:var(--primary-blue);font-weight:600;">Recent attendance records (${att.records.length})</summary>
+        <table class="admin-table" style="margin-top:8px;font-size:0.82rem;">
+            <thead><tr><th>Date</th><th>Subject</th><th>Status</th><th>Teacher</th><th>Comment</th></tr></thead>
+            <tbody>${att.records.map(r => `<tr>
+                <td>${r.date}</td>
+                <td>${escHtml(r.subject)}</td>
+                <td><span class="status-${r.status.toLowerCase()}">${r.status}</span></td>
+                <td>${escHtml(r.teacher)}</td>
+                <td>${r.comment ? escHtml(r.comment) : '–'}</td>
+            </tr>`).join('')}</tbody>
+        </table></details>`;
+    }
+
+    container.innerHTML = `
+        <div class="lookup-profile-card">
+            <div class="lookup-header">
+                <h3>${escHtml(s.surname)} ${escHtml(s.name)}</h3>
+                <span class="class-tag">${escHtml(s.class_name)}</span>
+                <span style="color:var(--text-light);font-size:0.85rem;">Year ${s.grade_level}</span>
+            </div>
+
+            <div class="lookup-section">
+                <h4>📚 Enrolled Subjects (${data.enrolled_subjects.length})</h4>
+                <div class="lookup-subj-list">${subjHtml}</div>
+            </div>
+
+            <div class="lookup-section">
+                <h4>📋 Attendance${att.rate != null ? ` — ${att.rate}%` : ''}</h4>
+                ${attBar}
+                ${attRecHtml}
+            </div>
+
+            <div class="lookup-section">
+                <h4>📊 Grades</h4>
+                ${gradesHtml}
+            </div>
+
+            <div class="lookup-section">
+                <h4>📝 Homework</h4>
+                ${hwHtml}
+            </div>
+
+            <div class="lookup-section">
+                <h4>⭐ Behavioral Notes</h4>
+                ${behHtml}
+            </div>
+        </div>
     `;
 }
 

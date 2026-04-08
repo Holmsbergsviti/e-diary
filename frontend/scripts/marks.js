@@ -213,8 +213,8 @@ function buildStatsHtml(stats) {
         </div>
         <div class="student-stat-card">
             <div class="student-stat-label">📊 Grades</div>
-            ${gr.average != null ? `
-            <div class="student-stat-big">${gr.average}%</div>
+            ${gr.count > 0 ? `
+            ${gr.average != null ? `<div class="student-stat-big">${gr.average}%</div>` : ''}
             <div class="student-stat-sub">${gr.count} grade${gr.count !== 1 ? 's' : ''} total</div>` : `<div class="student-stat-empty">No grades</div>`}
         </div>
         <div class="student-stat-card">
@@ -446,7 +446,7 @@ function renderGroup(container, group) {
     }
     const assessments = Array.from(assessmentSet).sort();
 
-    const colCount = 6 + (assessments.length > 0 ? assessments.length : 1) + 1; // #, Student, Class, Att%, Comments, All Comments, assessments, Predicted
+    const colCount = 5 + (assessments.length > 0 ? assessments.length : 1) + 1; // #, Student, Class, Att%, Comments, assessments, Predicted
 
     html += `<table>
         <thead>
@@ -456,7 +456,6 @@ function renderGroup(container, group) {
                 <th>Class</th>
                 <th>Att %</th>
                 <th>Comments</th>
-                <th>All Comments</th>
                 ${assessments.length > 0
                     ? assessments.map(a => {
                         let cat = "";
@@ -518,8 +517,7 @@ function renderGroup(container, group) {
                 </td>
                 <td><span class="class-tag">${escHtml(s.class_name)}</span></td>
                 <td class="att-pct-cell${attPct !== null && attPct < 80 ? ' att-low' : ''}">${attPct !== null ? attPct + '%' : '–'}<br><small class="att-terms" title="T1 / T2">${attByTerm.term_1?.attendance_pct ?? '–'}/${attByTerm.term_2?.attendance_pct ?? '–'}</small></td>
-                <td><button class="btn btn-secondary btn-sm view-comments-btn" data-student-id="${s.student_id}" data-subject-id="${group.subject_id}" data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">Subject (${commentCount})</button></td>
-                <td><button class="btn btn-secondary btn-sm view-comments-btn" data-student-id="${s.student_id}" data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">All (${allCommentCount})</button></td>`;
+                <td><button class="btn btn-secondary btn-sm view-comments-btn" data-student-id="${s.student_id}" data-subject-id="${group.subject_id}" data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">Subject (${commentCount})</button></td>`;
 
             if (assessments.length > 0) {
                 for (const a of assessments) {

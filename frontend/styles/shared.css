@@ -3333,6 +3333,77 @@ tr:hover td {
     accent-color: var(--accent);
 }
 
+/* --- Admin Student Lookup --- */
+.lookup-profile-card {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.lookup-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.lookup-header h3 { margin: 0; }
+.lookup-section h4 {
+    margin: 0 0 8px;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+.lookup-subj-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.lookup-subj-chip {
+    padding: 4px 10px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+.lookup-subject-block {
+    margin-bottom: 12px;
+}
+.lookup-subject-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    margin-bottom: 4px;
+}
+.lookup-grade-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding-left: 14px;
+}
+.lookup-grade-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    padding: 3px 0;
+}
+.lookup-beh-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.lookup-beh-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    background: var(--bg-secondary);
+}
+.lookup-att-details { margin-top: 10px; }
+
 /* --- Admin Modal --- */
 .admin-modal-overlay {
     display: none;

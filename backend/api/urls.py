@@ -18,6 +18,7 @@ from .views import (
     admin_events, admin_event_detail,
     admin_holidays, admin_holiday_detail,
     admin_attendance_flags,
+    admin_student_lookup,
     public_events,
     teacher_study_hall, teacher_study_hall_students, teacher_study_hall_attendance,
 )
@@ -67,6 +68,7 @@ urlpatterns = [
     path("admin/holidays/", admin_holidays),
     path("admin/holidays/detail/", admin_holiday_detail),
     path("admin/attendance-flags/", admin_attendance_flags),
+    path("admin/student-lookup/", admin_student_lookup),
     path("events/", public_events),
     path("teacher/study-hall/", teacher_study_hall),
     path("teacher/study-hall/students/", teacher_study_hall_students),

@@ -3880,3 +3880,185 @@ def admin_attendance_flags(request):
     except Exception as exc:
         logger.exception("admin_attendance_flags error")
         return JsonResponse({"message": "Internal server error"}, status=500)
+
+
+# ---------- Admin: Student Lookup ----------
+
+@csrf_exempt
+def admin_student_lookup(request):
+    """GET ?student_id=<uuid> — return comprehensive data for a single student."""
+    payload = _require_admin(request)
+    if not payload:
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+    if request.method != "GET":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+
+    student_id = request.GET.get("student_id", "").strip()
+    if not student_id:
+        return JsonResponse({"message": "student_id required"}, status=400)
+
+    db = ediary()
+
+    # Student profile
+    stu = db.table("students").select("id, name, surname, class_id").eq("id", student_id).limit(1).execute()
+    if not stu.data:
+        return JsonResponse({"message": "Student not found"}, status=404)
+    student = stu.data[0]
+
+    # Lookups
+    classes = db.table("classes").select("id, class_name, grade_level").execute()
+    cls_map = {c["id"]: c for c in (classes.data or [])}
+    subjects = db.table("subjects").select("id, name, color_code").execute()
+    subj_map = {s["id"]: s for s in (subjects.data or [])}
+    teachers = db.table("teachers").select("id, name, surname").execute()
+    teacher_map = {t["id"]: f"{t['name']} {t['surname']}" for t in (teachers.data or [])}
+
+    cls = cls_map.get(student["class_id"], {})
+
+    # Enrolled subjects
+    enrollments = db.table("student_subjects").select("subject_id, group_class_id").eq("student_id", student_id).execute()
+    enrolled_subjects = []
+    for e in (enrollments.data or []):
+        sid = e["subject_id"]
+        subj = subj_map.get(sid, {})
+        gc = cls_map.get(e.get("group_class_id"), {})
+        enrolled_subjects.append({
+            "subject_id": sid,
+            "subject": subj.get("name", "Unknown"),
+            "color": subj.get("color_code", "#607D8B"),
+            "group_class": gc.get("class_name", ""),
+        })
+    enrolled_subjects.sort(key=lambda x: x["subject"])
+
+    # Grades
+    grades_res = db.table("grades").select(
+        "id, subject_id, assessment_name, grade_code, percentage, date_taken, comment, category, term, created_by_teacher_id"
+    ).eq("student_id", student_id).order("date_taken", desc=True).execute()
+    grades_by_subject = {}
+    for g in (grades_res.data or []):
+        sid = g.get("subject_id")
+        grades_by_subject.setdefault(sid, []).append({
+            "assessment": g.get("assessment_name", ""),
+            "grade_code": g.get("grade_code", ""),
+            "percentage": g.get("percentage"),
+            "date": g.get("date_taken", ""),
+            "category": g.get("category", "other"),
+            "term": g.get("term", 1),
+            "teacher": teacher_map.get(g.get("created_by_teacher_id"), ""),
+            "comment": g.get("comment", ""),
+        })
+
+    # Attendance
+    att_res = db.table("attendance").select(
+        "subject_id, class_id, date_recorded, status, comment, recorded_by_teacher_id"
+    ).eq("student_id", student_id).order("date_recorded", desc=True).execute()
+    att_summary = {"Present": 0, "Late": 0, "Absent": 0, "Excused": 0}
+    att_by_term = {1: {"total": 0, "present_or_late": 0}, 2: {"total": 0, "present_or_late": 0}}
+    att_records = []
+    for a in (att_res.data or []):
+        st = a.get("status", "Present")
+        if st in att_summary:
+            att_summary[st] += 1
+        term = _term_from_iso_date(a.get("date_recorded"))
+        att_by_term[term]["total"] += 1
+        if st in ("Present", "Late"):
+            att_by_term[term]["present_or_late"] += 1
+        att_records.append({
+            "date": a.get("date_recorded", ""),
+            "subject": subj_map.get(a.get("subject_id"), {}).get("name", ""),
+            "status": st,
+            "comment": (a.get("comment") or "").strip() or None,
+            "teacher": teacher_map.get(a.get("recorded_by_teacher_id"), ""),
+        })
+    att_total = sum(att_summary.values())
+    att_rate = round((att_summary["Present"] + att_summary["Late"]) / att_total * 100, 1) if att_total else None
+
+    # Homework
+    student_class_id = student.get("class_id")
+    hw_res = db.table("homework").select("id, subject_id, class_id, title, due_date, teacher_id").execute()
+    hw_for_student = [h for h in (hw_res.data or []) if h.get("class_id") == student_class_id]
+    hw_ids = [h["id"] for h in hw_for_student]
+    hwc_res = db.table("homework_completions").select("homework_id, status").eq("student_id", student_id).execute() if hw_ids else type('', (), {'data': []})()
+    hwc_map = {c["homework_id"]: c["status"] for c in (hwc_res.data or [])}
+    hw_list = []
+    hw_counts = {"completed": 0, "partial": 0, "not_done": 0}
+    for h in hw_for_student:
+        status = hwc_map.get(h["id"], "not_done")
+        if status in hw_counts:
+            hw_counts[status] += 1
+        hw_list.append({
+            "title": h.get("title", ""),
+            "due_date": h.get("due_date"),
+            "subject": subj_map.get(h.get("subject_id"), {}).get("name", ""),
+            "teacher": teacher_map.get(h.get("teacher_id"), ""),
+            "status": status,
+        })
+    hw_list.sort(key=lambda x: x.get("due_date") or "", reverse=True)
+
+    # Behavioral entries
+    beh_res = db.table("behavioral_entries").select(
+        "entry_type, subject_id, class_id, content, created_at, teacher_id"
+    ).eq("student_id", student_id).order("created_at", desc=True).execute()
+    beh_counts = {"positive": 0, "negative": 0, "note": 0}
+    beh_records = []
+    for b in (beh_res.data or []):
+        bt = b.get("entry_type", "note")
+        if bt in beh_counts:
+            beh_counts[bt] += 1
+        beh_records.append({
+            "type": bt,
+            "subject": subj_map.get(b.get("subject_id"), {}).get("name", ""),
+            "content": (b.get("content") or ""),
+            "date": str(b.get("created_at") or "")[:10],
+            "teacher": teacher_map.get(b.get("teacher_id"), ""),
+        })
+
+    # Build subject-level grade summaries
+    subject_grades = []
+    for es in enrolled_subjects:
+        sid = es["subject_id"]
+        sg = grades_by_subject.get(sid, [])
+        pcts = [g["percentage"] for g in sg if g.get("percentage") is not None]
+        subject_grades.append({
+            "subject": es["subject"],
+            "color": es["color"],
+            "grade_count": len(sg),
+            "average": round(sum(pcts) / len(pcts), 1) if pcts else None,
+            "grades": sg,
+        })
+
+    return JsonResponse({
+        "student": {
+            "id": student["id"],
+            "name": student["name"],
+            "surname": student["surname"],
+            "class_name": cls.get("class_name", ""),
+            "grade_level": cls.get("grade_level", ""),
+        },
+        "enrolled_subjects": enrolled_subjects,
+        "subject_grades": subject_grades,
+        "attendance": {
+            "summary": att_summary,
+            "total": att_total,
+            "rate": att_rate,
+            "by_term": {
+                "term_1": {
+                    "total": att_by_term[1]["total"],
+                    "rate": round(att_by_term[1]["present_or_late"] / att_by_term[1]["total"] * 100, 1) if att_by_term[1]["total"] else None,
+                },
+                "term_2": {
+                    "total": att_by_term[2]["total"],
+                    "rate": round(att_by_term[2]["present_or_late"] / att_by_term[2]["total"] * 100, 1) if att_by_term[2]["total"] else None,
+                },
+            },
+            "records": att_records[:50],  # Last 50 records
+        },
+        "homework": {
+            "counts": hw_counts,
+            "items": hw_list,
+        },
+        "behavioral": {
+            "counts": beh_counts,
+            "records": beh_records,
+        },
+    })
