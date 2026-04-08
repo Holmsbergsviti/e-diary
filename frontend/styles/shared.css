@@ -3413,7 +3413,12 @@ tr:hover td {
     font-size: 0.85rem;
     color: var(--text-primary);
     user-select: all;
-    cursor: text;
+    cursor: pointer;
+    transition: filter 0.15s;
+}
+.default-pw.pw-hidden {
+    filter: blur(5px);
+    user-select: none;
 }
 .lookup-pw-badge {
     display: inline-flex;

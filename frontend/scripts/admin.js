@@ -751,7 +751,7 @@ async function loadTeachers(container) {
                 <tr>
                     <td>${escHtml(t.surname)} ${escHtml(t.name)}</td>
                     <td>${t.is_class_teacher ? `✓ ${escHtml(t.class_teacher_class_name || "")}` : "—"}</td>
-                    <td>${t.default_password ? `<code class="default-pw">${escHtml(t.default_password)}</code>` : '<span style="color:#94a3b8;">—</span>'}</td>
+                    <td>${t.default_password ? `<code class="default-pw pw-hidden" onclick="this.classList.toggle('pw-hidden')" title="Click to reveal">${escHtml(t.default_password)}</code>` : '<span style="color:#94a3b8;">—</span>'}</td>
                     <td class="admin-actions">
                         ${_hasPerm("impersonate") ? `<button class="btn btn-sm btn-impersonate" onclick="impersonateUser('${t.id}')" title="Login as this teacher">Login as</button>` : ""}
                         <button class="btn btn-sm btn-secondary" onclick='editTeacher(${JSON.stringify(t).replace(/'/g, "&#39;")})'>Edit</button>
@@ -929,7 +929,7 @@ async function loadStudents(container) {
                 <tr>
                     <td>${escHtml(s.surname)} ${escHtml(s.name)}</td>
                     <td>${escHtml(s.class_name || "—")}</td>
-                    <td>${s.default_password ? `<code class="default-pw">${escHtml(s.default_password)}</code>` : '<span style="color:#94a3b8;">—</span>'}</td>
+                    <td>${s.default_password ? `<code class="default-pw pw-hidden" onclick="this.classList.toggle('pw-hidden')" title="Click to reveal">${escHtml(s.default_password)}</code>` : '<span style="color:#94a3b8;">—</span>'}</td>
                     <td class="admin-actions">
                         ${_hasPerm("impersonate") ? `<button class="btn btn-sm btn-impersonate" onclick="impersonateUser('${s.id}')" title="Login as this student">Login as</button>` : ""}
                         <button class="btn btn-sm btn-secondary" onclick='editStudent(${JSON.stringify(s).replace(/'/g, "&#39;")})'>Edit</button>
