@@ -131,7 +131,6 @@ function renderGrades() {
                                 <th>Grade</th>
                                 <th>%</th>
                                 <th>Date</th>
-                                <th>Teacher</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -141,7 +140,6 @@ function renderGrades() {
                                     <td><span class="grade-badge ${gradeClass(g.grade_code)}">${escHtml(g.grade_code || "\u2013")}</span></td>
                                     <td>${g.percentage != null ? g.percentage + "%" : "\u2013"}</td>
                                     <td>${formatDate(g.date)}</td>
-                                    <td><span class="grade-teacher-cell" data-teacher='${g.teacher ? JSON.stringify(g.teacher).replace(/'/g, "&#39;") : ""}'></span></td>
                                 </tr>
                             `).join("")}
                         </tbody>
@@ -159,15 +157,5 @@ function renderGrades() {
         if (teacher && teacher.full_name) {
             slot.appendChild(createTeacherBadge(teacher));
         }
-    });
-    document.querySelectorAll(".grade-teacher-cell").forEach(cell => {
-        try {
-            const tData = cell.dataset.teacher;
-            if (!tData) return;
-            const teacher = JSON.parse(tData);
-            if (teacher && teacher.full_name) {
-                cell.appendChild(createTeacherBadge(teacher));
-            }
-        } catch (e) { /* ignore */ }
     });
 }
