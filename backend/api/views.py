@@ -2823,7 +2823,7 @@ def admin_users(request):
             except Exception:
                 pass
             logger.exception("Profile creation failed")
-            return JsonResponse({"message": "Failed to create user profile"}, status=500)
+            return JsonResponse({"message": f"Failed to create user profile: {str(exc)[:200]}"}, status=500)
 
         resp = {"user_id": user_id, "email": email, "role": role}
         if generated_password:
@@ -3293,7 +3293,8 @@ def admin_csv_import(request):
                     supabase_admin_auth.auth.admin.delete_user(uid)
                 except Exception:
                     pass
-                errors.append({"row": i + 1, "error": "Profile creation failed"})
+                logger.exception("Student profile insert failed for row %d", i + 1)
+                errors.append({"row": i + 1, "error": f"Profile creation failed: {str(exc)[:120]}"})
 
     elif import_type == "teacher_assignments":
         # Resolve names to IDs
