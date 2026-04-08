@@ -286,6 +286,7 @@ function renderClassOverview(container, group) {
         html += `<div class="overview-student${absentToday ? ' student-absent-today' : ''}" data-idx="${idx}">
             <div class="overview-student-header">
                 <span class="overview-num">${idx + 1}</span>
+                ${studentAvatarHtml(student)}
                 <span class="overview-name">${escHtml(student.surname)} ${escHtml(student.name)}${absentMark}${conflictMark}${allCommentCount > 0 ? ` <span title="${allCommentCount} comments">💬</span>` : ''}${hasNew ? ' <span class="new-comment-dot" title="New comments">●</span>' : ''}</span>
                 <span class="overview-meta">${subjectCount} subj · ${totalGrades} grades${attRate !== null ? ` · ${attRate}% att.` : ''}</span>
                 <button class="btn btn-secondary btn-sm view-comments-btn" data-student-id="${student.student_id}" data-student-name="${escHtml(student.surname)} ${escHtml(student.name)}" style="margin-left:8px;">View Comments (${allCommentCount})</button>
@@ -512,6 +513,7 @@ function renderGroup(container, group) {
             html += `<tr class="student-main-row${absentToday ? ' student-absent-today' : ''}" data-stats-target="stats-row-${i}">
                 <td>${i + 1}</td>
                 <td>
+                    ${studentAvatarHtml(s)}
                     <span class="student-name-toggle" data-student-id="${s.student_id}" data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">${escHtml(s.surname)} ${escHtml(s.name)}${absentMark}${conflictMark}${hasNew ? ' <span class="new-comment-dot" title="New comments">●</span>' : ''}</span>
                     <button class="add-grade-inline-btn" data-student-id="${s.student_id}" title="Add grade">＋</button>
                 </td>

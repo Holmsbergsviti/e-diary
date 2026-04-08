@@ -355,6 +355,7 @@ AVATAR_BUCKET = "avatars"
 AVATAR_MAX_SIZE = 2 * 1024 * 1024  # 2 MB
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+_avatar_bucket_ensured = False
 
 
 @csrf_exempt
@@ -392,11 +393,30 @@ def upload_avatar(request):
     file_bytes = avatar_file.read()
 
     try:
+        # Ensure the storage bucket exists (once per process)
+        global _avatar_bucket_ensured
+        if not _avatar_bucket_ensured:
+            try:
+                supabase.storage.get_bucket(AVATAR_BUCKET)
+                logger.info("Avatar bucket already exists")
+            except Exception as bucket_err:
+                logger.info("Avatar bucket not found, creating: %s", bucket_err)
+                try:
+                    supabase.storage.create_bucket(
+                        AVATAR_BUCKET,
+                        options={"public": True},
+                    )
+                    logger.info("Avatar bucket created successfully")
+                except Exception as create_err:
+                    logger.warning("Bucket creation failed (may already exist): %s", create_err)
+            _avatar_bucket_ensured = True
+
         # Remove previous avatar if it exists (different extension maybe)
-        try:
-            supabase.storage.from_(AVATAR_BUCKET).remove([file_path])
-        except Exception:
-            pass
+        for old_ext in ("jpg", "png", "webp"):
+            try:
+                supabase.storage.from_(AVATAR_BUCKET).remove([f"{role}s/{user_id}.{old_ext}"])
+            except Exception:
+                pass
 
         supabase.storage.from_(AVATAR_BUCKET).upload(
             file_path,
@@ -431,7 +451,7 @@ def grades(request):
     db = ediary()
     result = (
         db.table("grades")
-        .select("id, subject_id, assessment_name, percentage, grade_code, date_taken, comment, category, term")
+        .select("id, subject_id, assessment_name, percentage, grade_code, date_taken, comment, category, term, created_by_teacher_id")
         .eq("student_id", payload["sub"])
         .order("date_taken", desc=True)
         .execute()
@@ -442,9 +462,49 @@ def grades(request):
     subj_result = db2.table("subjects").select("id, name, color_code").execute()
     subj_map = {s["id"]: s for s in (subj_result.data or [])}
 
+    # Build teacher lookup (id → {name, profile_picture_url})
+    db_t = ediary()
+    teachers_result = db_t.table("teachers").select("id, name, surname, profile_picture_url").execute()
+    teacher_map = {}
+    for t in (teachers_result.data or []):
+        teacher_map[t["id"]] = {
+            "id": t["id"],
+            "name": t["name"],
+            "surname": t["surname"],
+            "full_name": f"{t['name']} {t['surname']}",
+            "profile_picture_url": t.get("profile_picture_url") or None,
+        }
+
+    # Collect unique teacher IDs to batch-fetch their emails
+    teacher_ids_set = set()
+    for row in (result.data or []):
+        tid = row.get("created_by_teacher_id")
+        if tid:
+            teacher_ids_set.add(tid)
+
+    # Batch fetch teacher emails from auth
+    teacher_email_map = {}
+    for tid in teacher_ids_set:
+        try:
+            auth_u = supabase_admin_auth.auth.admin.get_user_by_id(tid)
+            teacher_email_map[tid] = auth_u.user.email if auth_u and auth_u.user else ""
+        except Exception:
+            teacher_email_map[tid] = ""
+
+    # Also figure out which subjects each teacher teaches
+    db_ta = ediary()
+    all_assignments = db_ta.table("teacher_assignments").select("teacher_id, subject_id").execute()
+    teacher_subjects = {}  # teacher_id -> set of subject names
+    for a in (all_assignments.data or []):
+        subj = subj_map.get(a["subject_id"])
+        if subj:
+            teacher_subjects.setdefault(a["teacher_id"], set()).add(subj["name"])
+
     rows = []
     for row in (result.data or []):
         subj = subj_map.get(row.get("subject_id"), {})
+        tid = row.get("created_by_teacher_id")
+        t_info = teacher_map.get(tid, {})
         rows.append({
             "id": row["id"],
             "subject": subj.get("name", "Unknown"),
@@ -457,6 +517,13 @@ def grades(request):
             "comment": row.get("comment", ""),
             "category": row.get("category", "other"),
             "term": row.get("term", 1),
+            "teacher": {
+                "id": tid,
+                "full_name": t_info.get("full_name", ""),
+                "profile_picture_url": t_info.get("profile_picture_url"),
+                "email": teacher_email_map.get(tid, ""),
+                "subjects": sorted(teacher_subjects.get(tid, set())) if tid else [],
+            } if tid else None,
         })
 
     # Get enrolled subjects so the frontend can show them even without grades
@@ -1317,7 +1384,7 @@ def teacher_marks(request):
     db4 = ediary()
     students = (
         db4.table("students")
-        .select("id, name, surname, class_id")
+        .select("id, name, surname, class_id, profile_picture_url")
         .in_("class_id", relevant_class_ids)
         .order("surname")
         .order("name")
@@ -1617,6 +1684,7 @@ def teacher_marks(request):
                     "name": s["name"],
                     "surname": s["surname"],
                     "class_name": cls_map.get(s["class_id"], {}).get("class_name", ""),
+                    "profile_picture_url": s.get("profile_picture_url") or None,
                     "subjects": subjects_data,
                     "stats": build_student_stats(s["id"]),
                 })
@@ -1662,6 +1730,7 @@ def teacher_marks(request):
                 "name": s["name"],
                 "surname": s["surname"],
                 "class_name": cls_map.get(s["class_id"], {}).get("class_name", ""),
+                "profile_picture_url": s.get("profile_picture_url") or None,
                 "grades": [
                     {
                         "id": g["id"],

@@ -26,6 +26,7 @@ function catLabel(cat) {
 let allGrades = [];
 let enrolledSubjects = [];
 let activeTerm = null;
+let _teacherCache = {};  // subject -> teacher object (first encountered)
 
 async function initGrades() {
     if (!requireAuth()) return;
@@ -58,6 +59,14 @@ async function loadGrades() {
         const data = await res.json();
         allGrades = data.grades || [];
         enrolledSubjects = data.enrolled_subjects || [];
+
+        // Build teacher cache: per subject, pick the first teacher we see
+        _teacherCache = {};
+        for (const g of allGrades) {
+            if (g.teacher && g.teacher.full_name && g.subject && !_teacherCache[g.subject]) {
+                _teacherCache[g.subject] = g.teacher;
+            }
+        }
 
         document.querySelectorAll("#termFilter .term-btn").forEach(btn => {
             const t = btn.dataset.term;
@@ -102,18 +111,19 @@ function renderGrades() {
     for (const subject of subjectNames) {
         const { grades: items, color } = bySubject[subject];
         const colorDot = `<span class="subject-color-dot" style="background:${color};display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:middle;"></span>`;
+        const teacher = _teacherCache[subject];
 
         if (items.length === 0) {
             html += `
                 <div class="card">
-                    <div class="card-title">${colorDot}${escHtml(subject)}</div>
+                    <div class="card-title grade-card-title">${colorDot}${escHtml(subject)}<span class="grade-teacher-slot" data-subject="${escHtml(subject)}"></span></div>
                     <p class="empty-state">No grades recorded yet.</p>
                 </div>
             `;
         } else {
             html += `
                 <div class="card">
-                    <div class="card-title">${colorDot}${escHtml(subject)}</div>
+                    <div class="card-title grade-card-title">${colorDot}${escHtml(subject)}<span class="grade-teacher-slot" data-subject="${escHtml(subject)}"></span></div>
                     <table>
                         <thead>
                             <tr>
@@ -121,6 +131,7 @@ function renderGrades() {
                                 <th>Grade</th>
                                 <th>%</th>
                                 <th>Date</th>
+                                <th>Teacher</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -130,6 +141,7 @@ function renderGrades() {
                                     <td><span class="grade-badge ${gradeClass(g.grade_code)}">${escHtml(g.grade_code || "\u2013")}</span></td>
                                     <td>${g.percentage != null ? g.percentage + "%" : "\u2013"}</td>
                                     <td>${formatDate(g.date)}</td>
+                                    <td><span class="grade-teacher-cell" data-teacher='${g.teacher ? JSON.stringify(g.teacher).replace(/'/g, "&#39;") : ""}'></span></td>
                                 </tr>
                             `).join("")}
                         </tbody>
@@ -139,4 +151,23 @@ function renderGrades() {
         }
     }
     container.innerHTML = html;
+
+    // Attach teacher badges (must do after innerHTML since they are DOM elements)
+    document.querySelectorAll(".grade-teacher-slot").forEach(slot => {
+        const subj = slot.dataset.subject;
+        const teacher = _teacherCache[subj];
+        if (teacher && teacher.full_name) {
+            slot.appendChild(createTeacherBadge(teacher));
+        }
+    });
+    document.querySelectorAll(".grade-teacher-cell").forEach(cell => {
+        try {
+            const tData = cell.dataset.teacher;
+            if (!tData) return;
+            const teacher = JSON.parse(tData);
+            if (teacher && teacher.full_name) {
+                cell.appendChild(createTeacherBadge(teacher));
+            }
+        } catch (e) { /* ignore */ }
+    });
 }

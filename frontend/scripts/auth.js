@@ -326,3 +326,146 @@ function dismissToast(toast) {
     // Fallback removal if transitionend doesn't fire
     setTimeout(() => toast.remove(), 400);
 }
+
+// ════════════════════════════════════════════════════════════
+// TEACHER POPOVER CARD
+// ════════════════════════════════════════════════════════════
+
+function _teacherInitials(name) {
+    if (!name) return "?";
+    return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+}
+
+/**
+ * Create a small teacher badge (avatar + name) that shows a popover on click.
+ * @param {Object} teacher - {id, full_name, profile_picture_url, email, subjects}
+ * @returns {HTMLElement}
+ */
+function createTeacherBadge(teacher) {
+    if (!teacher || !teacher.full_name) return document.createTextNode("");
+    const badge = document.createElement("span");
+    badge.className = "teacher-badge";
+    badge.title = teacher.full_name;
+
+    if (teacher.profile_picture_url) {
+        badge.innerHTML = `<img class="teacher-badge-avatar" src="${teacher.profile_picture_url}" alt="">`;
+    } else {
+        badge.innerHTML = `<span class="teacher-badge-initials">${_teacherInitials(teacher.full_name)}</span>`;
+    }
+    badge.innerHTML += `<span class="teacher-badge-name">${escHtml(teacher.full_name)}</span>`;
+
+    badge.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showTeacherPopover(teacher, badge);
+    });
+
+    return badge;
+}
+
+let _activePopover = null;
+
+function showTeacherPopover(teacher, anchor) {
+    // Remove any existing popover
+    closeTeacherPopover();
+
+    const pop = document.createElement("div");
+    pop.className = "teacher-popover";
+
+    const avatarHtml = teacher.profile_picture_url
+        ? `<img class="teacher-popover-avatar" src="${teacher.profile_picture_url}" alt="">`
+        : `<div class="teacher-popover-avatar teacher-popover-initials">${_teacherInitials(teacher.full_name)}</div>`;
+
+    const subjectsHtml = teacher.subjects && teacher.subjects.length
+        ? `<div class="teacher-popover-subjects">${teacher.subjects.map(s => `<span class="teacher-popover-subj">${escHtml(s)}</span>`).join(" ")}</div>`
+        : "";
+
+    const emailHtml = teacher.email
+        ? `<div class="teacher-popover-email">
+            <span class="teacher-popover-email-text" title="Click to copy">${escHtml(teacher.email)}</span>
+            <button class="teacher-popover-copy" title="Copy email">📋</button>
+           </div>`
+        : "";
+
+    pop.innerHTML = `
+        <div class="teacher-popover-header">
+            ${avatarHtml}
+            <div class="teacher-popover-info">
+                <div class="teacher-popover-name">${escHtml(teacher.full_name)}</div>
+                ${subjectsHtml}
+            </div>
+        </div>
+        ${emailHtml}
+    `;
+
+    document.body.appendChild(pop);
+
+    // Position near the anchor
+    const rect = anchor.getBoundingClientRect();
+    const popW = 280;
+    let left = rect.left + rect.width / 2 - popW / 2;
+    let top = rect.bottom + 8;
+
+    // Keep within viewport
+    if (left < 8) left = 8;
+    if (left + popW > window.innerWidth - 8) left = window.innerWidth - popW - 8;
+    if (top + 200 > window.innerHeight) top = rect.top - 8;
+
+    pop.style.left = left + "px";
+    pop.style.top = top + "px";
+
+    // Copy email handler
+    const copyBtn = pop.querySelector(".teacher-popover-copy");
+    const emailText = pop.querySelector(".teacher-popover-email-text");
+    if (copyBtn && emailText) {
+        const copyHandler = () => {
+            navigator.clipboard.writeText(teacher.email).then(() => {
+                emailText.textContent = "Copied!";
+                emailText.classList.add("copied");
+                setTimeout(() => {
+                    emailText.textContent = teacher.email;
+                    emailText.classList.remove("copied");
+                }, 1500);
+            });
+        };
+        copyBtn.addEventListener("click", (e) => { e.stopPropagation(); copyHandler(); });
+        emailText.addEventListener("click", (e) => { e.stopPropagation(); copyHandler(); });
+    }
+
+    _activePopover = pop;
+
+    // Close on outside click
+    setTimeout(() => {
+        document.addEventListener("click", _closePopoverHandler);
+    }, 0);
+
+    // Animate in
+    requestAnimationFrame(() => pop.classList.add("teacher-popover-visible"));
+}
+
+function _closePopoverHandler(e) {
+    if (_activePopover && !_activePopover.contains(e.target)) {
+        closeTeacherPopover();
+    }
+}
+
+function closeTeacherPopover() {
+    if (_activePopover) {
+        _activePopover.remove();
+        _activePopover = null;
+    }
+    document.removeEventListener("click", _closePopoverHandler);
+}
+
+/**
+ * Helper to render a small student avatar (img or initials) for use in lists.
+ * @param {Object} student - must have name, surname, profile_picture_url
+ * @returns {string} HTML string
+ */
+function studentAvatarHtml(student) {
+    if (!student) return "";
+    if (student.profile_picture_url) {
+        return `<img class="avatar-sm" src="${student.profile_picture_url}" alt="">`;
+    }
+    const initials = ((student.name || "")[0] || "") + ((student.surname || "")[0] || "");
+    return `<span class="avatar-sm-initials">${initials.toUpperCase()}</span>`;
+}
