@@ -1476,6 +1476,36 @@ tr:hover td {
 .hw-delete-btn { flex-shrink: 0; font-size: 1.1rem; line-height: 1; padding: 4px 8px; cursor: pointer; color: var(--text-lighter); transition: all 0.25s ease; }
 .hw-delete-btn:hover { color: #c98080; transform: scale(1.1); }
 
+/* Past homework collapsible section */
+.hw-past-section {
+    margin-top: 12px;
+    border-top: 1px solid var(--border-color, #e5e7eb);
+    padding-top: 8px;
+}
+.hw-past-toggle {
+    background: none;
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 0.84rem;
+    color: var(--text-lighter);
+    cursor: pointer;
+    width: 100%;
+    text-align: center;
+    transition: background 0.15s, color 0.15s;
+}
+.hw-past-toggle:hover {
+    background: var(--hover-bg, rgba(0,0,0,0.03));
+    color: var(--text-primary);
+}
+.hw-past-list {
+    display: none;
+    margin-top: 8px;
+}
+.hw-past-section.hw-past-open .hw-past-list {
+    display: block;
+}
+
 /* ---- Behavioral entries ---- */
 .beh-item {
     display: flex;
