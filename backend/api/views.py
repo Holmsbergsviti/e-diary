@@ -1215,6 +1215,7 @@ def teacher_marks(request):
     # ── Fetch stats data for ALL students (used by both class_overview and subject_groups) ──
     att_data = []
     hw_comp_data = []
+    hw_all = []
     beh_data = []
     if student_ids:
         att_data = (
@@ -1227,16 +1228,17 @@ def teacher_marks(request):
         # All homework for relevant classes
         hw_all = (
             ediary().table("homework")
-            .select("id, class_id")
+            .select("id, class_id, subject_id, title, due_date")
             .in_("class_id", relevant_class_ids)
             .execute()
         ).data or []
         hw_all_ids = [h["id"] for h in hw_all]
+        hw_by_id = {h["id"]: h for h in hw_all}
 
         if hw_all_ids:
             hw_comp_data = (
                 ediary().table("homework_completions")
-                .select("student_id, status")
+                .select("homework_id, student_id, status")
                 .in_("homework_id", hw_all_ids)
                 .execute()
             ).data or []
@@ -1348,11 +1350,32 @@ def teacher_marks(request):
         grade_avg = round(sum(pcts) / len(pcts), 1) if pcts else None
 
         hwc_c = {"completed": 0, "partial": 0, "not_done": 0}
+        hw_detail = []
+        student_hw_status = {}  # homework_id -> status
         for h in hw_comp_data:
             if h["student_id"] == sid:
                 st = h.get("status", "")
                 if st in hwc_c:
                     hwc_c[st] += 1
+                student_hw_status[h.get("homework_id")] = st
+
+        # Build per-homework detail list for this student
+        student_class_id = student_map.get(sid, {}).get("class_id")
+        for hw in hw_all:
+            hw_class = hw.get("class_id")
+            if class_id and hw_class != class_id:
+                continue
+            if not class_id and student_class_id and hw_class != student_class_id:
+                continue
+            hw_id = hw["id"]
+            status = student_hw_status.get(hw_id, "not_done")
+            hw_detail.append({
+                "title": hw.get("title", ""),
+                "due_date": hw.get("due_date"),
+                "subject": subj_map.get(hw.get("subject_id"), {}).get("name", ""),
+                "status": status,
+            })
+        hw_detail.sort(key=lambda x: x.get("due_date") or "", reverse=True)
 
         beh_c = {"positive": 0, "negative": 0, "note": 0}
         for b in beh_data:
@@ -1393,6 +1416,7 @@ def teacher_marks(request):
             },
             "grades": {"count": len(pcts), "average": grade_avg},
             "homework": hwc_c,
+            "homework_detail": hw_detail,
             "behavioral": beh_c,
         }
 

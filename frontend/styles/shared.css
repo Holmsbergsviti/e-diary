@@ -1978,6 +1978,64 @@ tr:hover td {
     font-weight: 600;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
+
+/* ── Homework detail toggle ── */
+.hw-detail-toggle { margin-top: 8px; }
+.hw-detail-summary {
+    cursor: pointer;
+    font-size: 0.78rem;
+    color: var(--primary-blue);
+    font-weight: 600;
+    user-select: none;
+}
+.hw-detail-summary:hover { text-decoration: underline; }
+.hw-detail-list {
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+.hw-detail-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    background: var(--bg-secondary);
+}
+.hw-detail-row.hw-detail-completed { opacity: 0.75; }
+.hw-detail-row.hw-detail-not_done { background: rgba(239,68,68,0.06); }
+.hw-detail-icon { flex-shrink: 0; font-size: 0.85rem; }
+.hw-detail-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+}
+.hw-detail-subj {
+    margin-left: 6px;
+    font-weight: 400;
+    color: #8b9ab3;
+    font-size: 0.72rem;
+}
+.hw-detail-due {
+    flex-shrink: 0;
+    color: #8b9ab3;
+    font-size: 0.72rem;
+}
+.hw-detail-status {
+    flex-shrink: 0;
+    font-weight: 600;
+    font-size: 0.72rem;
+    width: 52px;
+    text-align: right;
+}
+
 .student-grades-section-label {
     font-size: 0.78rem;
     font-weight: 600;

@@ -156,6 +156,26 @@ function renderActiveGroup(container) {
     }
 }
 
+/* ---- Helper: build collapsible homework detail list ---- */
+function buildHwDetailHtml(hwDetail) {
+    if (!hwDetail || hwDetail.length === 0) return '';
+    const STATUS_ICON = { completed: '✅', partial: '🔶', not_done: '❌' };
+    const STATUS_LABEL = { completed: 'Done', partial: 'Partial', not_done: 'Missing' };
+    const rows = hwDetail.map(h => {
+        const icon = STATUS_ICON[h.status] || '❌';
+        const label = STATUS_LABEL[h.status] || 'Missing';
+        const due = h.due_date || '–';
+        const subj = h.subject ? `<span class="hw-detail-subj">${escHtml(h.subject)}</span>` : '';
+        return `<div class="hw-detail-row hw-detail-${h.status}">
+            <span class="hw-detail-icon">${icon}</span>
+            <span class="hw-detail-title">${escHtml(h.title)}${subj}</span>
+            <span class="hw-detail-due">${due}</span>
+            <span class="hw-detail-status">${label}</span>
+        </div>`;
+    }).join('');
+    return `<details class="hw-detail-toggle"><summary class="hw-detail-summary">View details (${hwDetail.length})</summary><div class="hw-detail-list">${rows}</div></details>`;
+}
+
 /* ---- Shared helper: build stats HTML for one student ---- */
 function buildStatsHtml(stats) {
     const st = stats || {};
@@ -204,7 +224,7 @@ function buildStatsHtml(stats) {
                 <span class="stat-hw-pill stat-hw-done">${hw.completed || 0} done</span>
                 <span class="stat-hw-pill stat-hw-partial">${hw.partial || 0} partial</span>
                 <span class="stat-hw-pill stat-hw-not">${hw.not_done || 0} missing</span>
-            </div>` : `<div class="student-stat-empty">No records</div>`}
+            </div>${buildHwDetailHtml(st.homework_detail)}` : `<div class="student-stat-empty">No records</div>`}
         </div>
         <div class="student-stat-card">
             <div class="student-stat-label">⭐ Behavioral</div>

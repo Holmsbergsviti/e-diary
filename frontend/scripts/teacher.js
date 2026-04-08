@@ -1506,6 +1506,16 @@ async function loadStudyHall() {
 }
 
 function openStudyHallModal() {
+    // Block if today is a holiday
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const hol = teacherHolidays.find(
+        h => todayStr >= h.start_date && todayStr <= (h.end_date || h.start_date)
+    );
+    if (hol) {
+        alert(`Cannot create a study hall session — today is a holiday (${hol.name}).`);
+        return;
+    }
+
     const modal = document.getElementById("studyHallModal");
     const dateInput = document.getElementById("shDate");
     const periodSelect = document.getElementById("shPeriod");
