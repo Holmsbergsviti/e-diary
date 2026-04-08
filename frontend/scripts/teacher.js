@@ -159,6 +159,17 @@ async function loadSchedule() {
 /* ---- Today's classes (clickable cards) ------------------------ */
 function renderTodayClasses() {
     const container = document.getElementById("todayClasses");
+
+    // Check if today is a holiday
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayHoliday = teacherHolidays.find(
+        h => todayStr >= h.start_date && todayStr <= (h.end_date || h.start_date)
+    );
+    if (todayHoliday) {
+        container.innerHTML = `<p class="empty-state">🏖 No school today — ${escHtml(todayHoliday.name)}</p>`;
+        return;
+    }
+
     // JS getDay(): 0=Sun, 1=Mon, …, 5=Fri, 6=Sat → our day_of_week is 1=Mon…5=Fri
     const jsDay = new Date().getDay();          // 0-6
     const todayDow = jsDay === 0 ? 7 : jsDay;   // 1-7 (7=Sun)
