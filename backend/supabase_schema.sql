@@ -64,6 +64,7 @@ CREATE TABLE ediary_schema.students (
   name text NOT NULL,
   surname text NOT NULL,
   class_id uuid,
+  default_password text,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT students_pkey PRIMARY KEY (id),
   CONSTRAINT students_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),

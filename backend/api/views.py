@@ -1,6 +1,8 @@
 import json
 import logging
 import os
+import secrets
+import string
 import jwt
 from jwt.exceptions import PyJWTError
 from datetime import datetime, timedelta, timezone
@@ -13,8 +15,7 @@ logger = logging.getLogger(__name__)
 # Warn loudly if JWT secret is not configured, but don't crash
 _jwt_secret = os.environ.get("JWT_SECRET", "")
 if not _jwt_secret:
-    import secrets as _s
-    _jwt_secret = _s.token_urlsafe(48)
+    _jwt_secret = secrets.token_urlsafe(48)
     logger.warning("JWT_SECRET is not set! Generated a random ephemeral key. Tokens will NOT survive restarts.")
 JWT_SECRET = _jwt_secret
 JWT_ALGORITHM = "HS256"
@@ -29,6 +30,38 @@ ALL_ADMIN_PERMISSIONS = {
     "subjects": True, "schedule": True, "events": True,
     "holidays": True, "import": True, "impersonate": True,
 }
+
+
+# ------------------------------------------------------------------
+# Password / email helpers
+# ------------------------------------------------------------------
+
+def _generate_password(length=10):
+    """Generate a random alphanumeric password (easy to read: no 0/O/l/1)."""
+    alphabet = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+
+def _generate_email(name: str, surname: str, existing_emails: set) -> str:
+    """Generate firstname-surname@chartwell.edu.rs, appending a number for duplicates."""
+    import re
+    base = f"{name.lower().strip()}-{surname.lower().strip()}"
+    # Remove non-ascii, keep letters/hyphens/digits
+    base = re.sub(r'[^a-z0-9\-]', '', base)
+    base = re.sub(r'-+', '-', base).strip('-')
+    if not base:
+        base = 'student'
+    email = f"{base}@chartwell.edu.rs"
+    if email not in existing_emails:
+        existing_emails.add(email)
+        return email
+    counter = 2
+    while True:
+        email = f"{base}{counter}@chartwell.edu.rs"
+        if email not in existing_emails:
+            existing_emails.add(email)
+            return email
+        counter += 1
 
 
 # ------------------------------------------------------------------
@@ -2706,14 +2739,27 @@ def admin_users(request):
 
     if request.method == "POST":
         data = json.loads(request.body)
-        email = data.get("email", "").strip()
-        password = data.get("password", "").strip()
         name = data.get("name", "").strip()
         surname = data.get("surname", "").strip()
         role = data.get("role", "student").strip()
+        email = data.get("email", "").strip()
+        password = data.get("password", "").strip()
 
-        if not email or not password or not name or not surname:
-            return JsonResponse({"message": "email, password, name, surname required"}, status=400)
+        if not name or not surname:
+            return JsonResponse({"message": "name, surname required"}, status=400)
+
+        # For students: auto-generate email and password if not provided
+        generated_password = None
+        if role == "student":
+            if not password:
+                password = _generate_password()
+                generated_password = password
+            if not email:
+                existing = set()
+                email = _generate_email(name, surname, existing)
+        else:
+            if not email or not password:
+                return JsonResponse({"message": "email, password required"}, status=400)
 
         # Permission checks per role
         if role == "admin":
@@ -2766,10 +2812,10 @@ def admin_users(request):
                 }).execute()
             else:
                 class_id = data.get("class_id", "").strip() or None
-                db.table("students").insert({
-                    "id": user_id, "name": name, "surname": surname,
-                    "class_id": class_id,
-                }).execute()
+                row = {"id": user_id, "name": name, "surname": surname, "class_id": class_id}
+                if generated_password:
+                    row["default_password"] = generated_password
+                db.table("students").insert(row).execute()
         except Exception as exc:
             # Try to clean up auth user on profile insert failure
             try:
@@ -2779,7 +2825,10 @@ def admin_users(request):
             logger.exception("Profile creation failed")
             return JsonResponse({"message": "Failed to create user profile"}, status=500)
 
-        return JsonResponse({"user_id": user_id, "email": email, "role": role})
+        resp = {"user_id": user_id, "email": email, "role": role}
+        if generated_password:
+            resp["default_password"] = generated_password
+        return JsonResponse(resp)
 
     return JsonResponse({"message": "Method not allowed"}, status=405)
 
@@ -3179,18 +3228,37 @@ def admin_csv_import(request):
     elif import_type in ("students", "teachers", "admins"):
         # Need to resolve class names to IDs for students
         cls_map = {}
+        existing_emails = set()
         if import_type == "students":
             classes = db.table("classes").select("id, class_name").execute()
             cls_map = {c["class_name"]: c["id"] for c in (classes.data or [])}
 
+        credentials = []  # collect generated credentials for students
+
         for i, r in enumerate(rows):
             email = r.get("email", "").strip()
-            password = r.get("password", "").strip() or "changeme"
+            password = r.get("password", "").strip()
             name = r.get("name", "").strip()
             surname = r.get("surname", "").strip()
-            if not email or not name or not surname:
-                errors.append({"row": i + 1, "error": "email, name, surname required"})
+            if not name or not surname:
+                errors.append({"row": i + 1, "error": "name, surname required"})
                 continue
+
+            # For students: auto-gen email and password when missing
+            generated_password = None
+            if import_type == "students":
+                if not password:
+                    password = _generate_password()
+                    generated_password = password
+                if not email:
+                    email = _generate_email(name, surname, existing_emails)
+            else:
+                if not email:
+                    errors.append({"row": i + 1, "error": "email required"})
+                    continue
+                if not password:
+                    password = "changeme"
+
             try:
                 auth_response = supabase_admin_auth.auth.admin.create_user({
                     "email": email, "password": password, "email_confirm": True,
@@ -3203,10 +3271,14 @@ def admin_csv_import(request):
                 if import_type == "students":
                     class_name = r.get("class_name", "").strip()
                     class_id = cls_map.get(class_name)
-                    db.table("students").insert({
-                        "id": uid, "name": name, "surname": surname,
-                        "class_id": class_id,
-                    }).execute()
+                    row_data = {"id": uid, "name": name, "surname": surname, "class_id": class_id}
+                    if generated_password:
+                        row_data["default_password"] = generated_password
+                    db.table("students").insert(row_data).execute()
+                    credentials.append({
+                        "name": name, "surname": surname, "class_name": class_name,
+                        "email": email, "password": generated_password or password,
+                    })
                 elif import_type == "teachers":
                     db.table("teachers").insert({
                         "id": uid, "name": name, "surname": surname,
@@ -3301,7 +3373,10 @@ def admin_csv_import(request):
     else:
         return JsonResponse({"message": f"Unknown import type: {import_type}"}, status=400)
 
-    return JsonResponse({"created": created, "errors": errors})
+    result = {"created": created, "errors": errors}
+    if import_type == "students" and credentials:
+        result["credentials"] = credentials
+    return JsonResponse(result)
 
 
 # ------------------------------------------------------------------
@@ -3900,7 +3975,7 @@ def admin_student_lookup(request):
     db = ediary()
 
     # Student profile
-    stu = db.table("students").select("id, name, surname, class_id").eq("id", student_id).limit(1).execute()
+    stu = db.table("students").select("id, name, surname, class_id, default_password").eq("id", student_id).limit(1).execute()
     if not stu.data:
         return JsonResponse({"message": "Student not found"}, status=404)
     student = stu.data[0]
@@ -4034,6 +4109,7 @@ def admin_student_lookup(request):
             "surname": student["surname"],
             "class_name": cls.get("class_name", ""),
             "grade_level": cls.get("grade_level", ""),
+            "default_password": student.get("default_password") or None,
         },
         "enrolled_subjects": enrolled_subjects,
         "subject_grades": subject_grades,

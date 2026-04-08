@@ -387,6 +387,7 @@ function renderStudentProfile(container, data) {
                 <h3>${escHtml(s.surname)} ${escHtml(s.name)}</h3>
                 <span class="class-tag">${escHtml(s.class_name)}</span>
                 <span style="color:var(--text-light);font-size:0.85rem;">Year ${s.grade_level}</span>
+                ${s.default_password ? `<span class="lookup-pw-badge" title="Default password"><span style="font-size:0.75rem;color:var(--text-light);">🔑</span> <code class="default-pw">${escHtml(s.default_password)}</code></span>` : ''}
             </div>
 
             <div class="lookup-section">
@@ -818,16 +819,18 @@ async function loadStudents(container) {
         <div class="admin-section-header">
             <h3>Students</h3>
             <div class="section-header-actions">
+                <button class="btn btn-secondary btn-sm" onclick="openBulkImportStudents()">⬆ Bulk Import</button>
                 <button class="btn btn-primary btn-sm" onclick="openAddStudent()">+ Add Student</button>
             </div>
         </div>
         ${students.length === 0 ? '<p class="empty-state">No students yet.</p>' : `
         <table class="admin-table">
-            <thead><tr><th>Name</th><th>Class</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Name</th><th>Class</th><th>Default Password</th><th>Actions</th></tr></thead>
             <tbody>${students.map(s => `
                 <tr>
                     <td>${escHtml(s.surname)} ${escHtml(s.name)}</td>
                     <td>${escHtml(s.class_name || "—")}</td>
+                    <td>${s.default_password ? `<code class="default-pw">${escHtml(s.default_password)}</code>` : '<span style="color:#94a3b8;">—</span>'}</td>
                     <td class="admin-actions">
                         ${_hasPerm("impersonate") ? `<button class="btn btn-sm btn-impersonate" onclick="impersonateUser('${s.id}')" title="Login as this student">Login as</button>` : ""}
                         <button class="btn btn-sm btn-secondary" onclick='editStudent(${JSON.stringify(s).replace(/'/g, "&#39;")})'>Edit</button>
@@ -843,20 +846,27 @@ function openAddStudent() {
     openAdminModal("Add Student", `
         <label>Name <input class="form-input" id="mName" placeholder="First name"></label>
         <label>Surname <input class="form-input" id="mSurname" placeholder="Last name"></label>
-        <label>Email <input class="form-input" id="mEmail" type="email" placeholder="student@school.edu"></label>
-        <label>Password <input class="form-input" id="mPassword" type="text" value="changeme"></label>
+        <label>Email <input class="form-input" id="mEmail" type="email" placeholder="Auto-generated if empty"></label>
+        <label>Password <input class="form-input" id="mPassword" type="text" placeholder="Auto-generated if empty"></label>
         <label>Class <select class="form-input" id="mClassId"><option value="">— Select —</option>${classOptions()}</select></label>
     `, async () => {
         const body = {
             role: "student", name: gv("mName"), surname: gv("mSurname"),
-            email: gv("mEmail"), password: gv("mPassword"), class_id: gv("mClassId"),
+            class_id: gv("mClassId"),
         };
-        if (!body.name || !body.surname || !body.email) { showToast("Name, surname, email required", "warning"); return; }
+        const email = gv("mEmail"); if (email) body.email = email;
+        const pw = gv("mPassword"); if (pw) body.password = pw;
+        if (!body.name || !body.surname) { showToast("Name and surname required", "warning"); return; }
         const res = await apiFetch("/admin/users/", { method: "POST", body: JSON.stringify(body) });
         const d = await res.json();
         if (!res.ok) { showToast(d.message || "Failed", "error"); return; }
         closeAdminModal();
-        showToast("Student created", "success");
+        if (d.default_password) {
+            showToast(`Student created — password: ${d.default_password}`, "success");
+        } else {
+            showToast("Student created", "success");
+        }
+        cachedStudents = null;
         await loadSection("students");
     });
 }
@@ -877,8 +887,129 @@ function editStudent(s) {
         if (!res.ok) { showToast(d.message || "Failed", "error"); return; }
         closeAdminModal();
         showToast("Student updated", "success");
+        cachedStudents = null;
         await loadSection("students");
     });
+}
+
+/* ── Bulk-import students (simplified CSV: name, surname, class_name) ── */
+function openBulkImportStudents() {
+    const overlay = document.getElementById("adminModal");
+    document.getElementById("adminModalTitle").textContent = "Bulk Import Students";
+    document.getElementById("adminModalBody").innerHTML = `
+        <p style="color:var(--text-light);margin-bottom:12px;">Upload a <strong>CSV</strong> or <strong>Excel (.xlsx)</strong> file with columns: <code>name</code>, <code>surname</code>, <code>class_name</code>.<br>
+        Email and password will be <strong>generated automatically</strong>.</p>
+        <input type="file" id="bulkFile" accept=".csv,.xlsx,.xls" class="form-input">
+        <div id="bulkPreview" style="margin-top:12px;"></div>
+        <div id="bulkResult" style="margin-top:12px;"></div>
+    `;
+    overlay.style.display = "flex";
+    overlay.onclick = (e) => { if (e.target === overlay) closeAdminModal(); };
+
+    const saveBtn = document.getElementById("adminModalSave");
+    saveBtn.textContent = "Import";
+    saveBtn.disabled = true;
+
+    let parsedRows = [];
+
+    document.getElementById("bulkFile").addEventListener("change", () => {
+        const file = document.getElementById("bulkFile").files[0];
+        if (!file) return;
+        const ext = file.name.split('.').pop().toLowerCase();
+
+        if (ext === 'csv') {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const lines = e.target.result.split(/\r?\n/).filter(l => l.trim());
+                if (lines.length < 2) { showToast("CSV must have header + data rows", "warning"); return; }
+                const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
+                parsedRows = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const vals = parseCSVLine(lines[i]);
+                    const row = {};
+                    headers.forEach((h, idx) => { row[h] = (vals[idx] || "").trim(); });
+                    if (row.name || row.surname) parsedRows.push(row);
+                }
+                showBulkPreview(parsedRows, headers);
+                saveBtn.disabled = parsedRows.length === 0;
+            };
+            reader.readAsText(file);
+        } else if (ext === 'xlsx' || ext === 'xls') {
+            showToast("Excel support: please save as CSV first", "warning");
+        }
+    });
+
+    modalSaveCallback = async () => {
+        if (parsedRows.length === 0) { showToast("No data to import", "warning"); return; }
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Importing…";
+        try {
+            const res = await apiFetch("/admin/csv-import/", {
+                method: "POST",
+                body: JSON.stringify({ type: "students", rows: parsedRows }),
+            });
+            const d = await res.json();
+            const resultDiv = document.getElementById("bulkResult");
+            let html = `<div class="import-result ${d.errors?.length ? 'import-result-partial' : 'import-result-success'}">
+                <p><strong>${d.created || 0}</strong> students imported.</p>`;
+            if (d.errors?.length) {
+                html += `<p><strong>${d.errors.length}</strong> rows failed:</p>
+                <ul>${d.errors.slice(0, 10).map(e => `<li>Row ${e.row}: ${escHtml(e.error)}</li>`).join("")}</ul>`;
+            }
+            html += '</div>';
+            if (d.credentials && d.credentials.length > 0) {
+                html += `<button class="btn btn-primary" style="margin-top:12px;" onclick="downloadCredentials(window._bulkCredentials)">⬇ Download Credentials CSV</button>`;
+                window._bulkCredentials = d.credentials;
+            }
+            resultDiv.innerHTML = html;
+            if (d.created > 0) {
+                showToast(`${d.created} students imported`, "success");
+                cachedStudents = null;
+            }
+        } catch (err) {
+            showToast("Import failed: " + err.message, "error");
+        } finally {
+            saveBtn.textContent = "Import";
+            saveBtn.disabled = false;
+        }
+    };
+    saveBtn.onclick = async () => {
+        saveBtn.disabled = true;
+        try { await modalSaveCallback(); }
+        catch (err) { showToast(err.message || "Error", "error"); }
+        finally { saveBtn.disabled = false; }
+    };
+}
+
+function showBulkPreview(rows, headers) {
+    const preview = document.getElementById("bulkPreview");
+    if (rows.length === 0) { preview.innerHTML = '<p class="empty-state">No valid rows found.</p>'; return; }
+    const cols = ['name', 'surname', 'class_name'];
+    preview.innerHTML = `
+        <p><strong>${rows.length}</strong> students to import:</p>
+        <table class="admin-table" style="font-size:0.85rem;">
+            <thead><tr>${cols.map(c => `<th>${escHtml(c)}</th>`).join('')}</tr></thead>
+            <tbody>
+                ${rows.slice(0, 8).map(r => `<tr>${cols.map(c => `<td>${escHtml(r[c] || '—')}</td>`).join('')}</tr>`).join('')}
+                ${rows.length > 8 ? `<tr><td colspan="${cols.length}" style="text-align:center;color:var(--text-lighter)">… and ${rows.length - 8} more</td></tr>` : ''}
+            </tbody>
+        </table>
+    `;
+}
+
+function downloadCredentials(creds) {
+    if (!creds || creds.length === 0) return;
+    let csv = 'Name,Surname,Class,Email,Password\n';
+    for (const c of creds) {
+        csv += `"${(c.name||'').replace(/"/g,'""')}","${(c.surname||'').replace(/"/g,'""')}","${(c.class_name||'').replace(/"/g,'""')}","${(c.email||'').replace(/"/g,'""')}","${(c.password||'').replace(/"/g,'""')}"\n`;
+    }
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `student_credentials_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
 }
 
 /* ═══════════════ ADMINS ═══════════════ */
@@ -1611,7 +1742,7 @@ function renderImportSection(container) {
                 <select class="form-input" id="csvType">
                     <option value="classes">Classes (class_name, grade_level)</option>
                     <option value="subjects">Subjects (name, color_code)</option>
-                    <option value="students">Students (email, password, name, surname, class_name)</option>
+                    <option value="students">Students (name, surname, class_name — email &amp; password auto-generated)</option>
                     <option value="teachers">Teachers (email, password, name, surname)</option>
                     <option value="admins">Admins (email, password, name, surname)</option>
                     <option value="teacher_assignments">Teacher Assignments (teacher_name, subject_name, class_name)</option>
@@ -1703,7 +1834,7 @@ async function executeCSVImport() {
         });
         const d = await res.json();
         const resultDiv = document.getElementById("csvResult");
-        resultDiv.innerHTML = `
+        let resultHtml = `
             <div class="import-result ${d.errors && d.errors.length ? "import-result-partial" : "import-result-success"}">
                 <p><strong>${d.created || 0}</strong> rows imported successfully.</p>
                 ${d.errors && d.errors.length ? `
@@ -1713,7 +1844,15 @@ async function executeCSVImport() {
                 </ul>` : ""}
             </div>
         `;
-        if (d.created > 0) showToast(`${d.created} rows imported`, "success");
+        if (d.credentials && d.credentials.length > 0) {
+            resultHtml += `<button class="btn btn-primary" style="margin-top:12px;" onclick="downloadCredentials(window._bulkCredentials)">⬇ Download Credentials CSV</button>`;
+            window._bulkCredentials = d.credentials;
+        }
+        resultDiv.innerHTML = resultHtml;
+        if (d.created > 0) {
+            showToast(`${d.created} rows imported`, "success");
+            if (importType === "students") cachedStudents = null;
+        }
         if (d.errors && d.errors.length) showToast(`${d.errors.length} rows failed`, "warning");
     } catch (err) {
         showToast("Import failed: " + err.message, "error");
