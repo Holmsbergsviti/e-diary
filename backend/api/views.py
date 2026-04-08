@@ -2795,7 +2795,7 @@ def admin_users(request):
             if role == "teacher":
                 is_class_teacher = data.get("is_class_teacher", False)
                 class_teacher_of = data.get("class_teacher_of_class_id", "").strip() or None
-                db.table("teachers").insert({
+                db.table("teachers").upsert({
                     "id": user_id, "name": name, "surname": surname,
                     "is_class_teacher": bool(is_class_teacher),
                     "class_teacher_of_class_id": class_teacher_of,
@@ -3280,7 +3280,7 @@ def admin_csv_import(request):
                         "email": email, "password": generated_password or password,
                     })
                 elif import_type == "teachers":
-                    db.table("teachers").insert({
+                    db.table("teachers").upsert({
                         "id": uid, "name": name, "surname": surname,
                     }).execute()
                 else:
