@@ -2757,6 +2757,13 @@ def admin_users(request):
             if not email:
                 existing = set()
                 email = _generate_email(name, surname, existing)
+        elif role == "teacher":
+            if not password:
+                password = _generate_password()
+                generated_password = password
+            if not email:
+                existing = set()
+                email = _generate_email(name, surname, existing)
         else:
             if not email or not password:
                 return JsonResponse({"message": "email, password required"}, status=400)
@@ -2795,11 +2802,14 @@ def admin_users(request):
             if role == "teacher":
                 is_class_teacher = data.get("is_class_teacher", False)
                 class_teacher_of = data.get("class_teacher_of_class_id", "").strip() or None
-                db.table("teachers").upsert({
+                row = {
                     "id": user_id, "name": name, "surname": surname,
                     "is_class_teacher": bool(is_class_teacher),
                     "class_teacher_of_class_id": class_teacher_of,
-                }).execute()
+                }
+                if generated_password:
+                    row["default_password"] = generated_password
+                db.table("teachers").upsert(row).execute()
             elif role == "admin":
                 admin_permissions = data.get("permissions") or ALL_ADMIN_PERMISSIONS
                 # Super/master always get all permissions
@@ -3252,6 +3262,12 @@ def admin_csv_import(request):
                     generated_password = password
                 if not email:
                     email = _generate_email(name, surname, existing_emails)
+            elif import_type == "teachers":
+                if not password:
+                    password = _generate_password()
+                    generated_password = password
+                if not email:
+                    email = _generate_email(name, surname, existing_emails)
             else:
                 if not email:
                     errors.append({"row": i + 1, "error": "email required"})
@@ -3280,9 +3296,14 @@ def admin_csv_import(request):
                         "email": email, "password": generated_password or password,
                     })
                 elif import_type == "teachers":
-                    db.table("teachers").upsert({
-                        "id": uid, "name": name, "surname": surname,
-                    }).execute()
+                    row_data = {"id": uid, "name": name, "surname": surname}
+                    if generated_password:
+                        row_data["default_password"] = generated_password
+                    db.table("teachers").upsert(row_data).execute()
+                    credentials.append({
+                        "name": name, "surname": surname, "class_name": "",
+                        "email": email, "password": generated_password or password,
+                    })
                 else:
                     db.table("admins").insert({
                         "id": uid, "name": name, "surname": surname,
@@ -3375,7 +3396,7 @@ def admin_csv_import(request):
         return JsonResponse({"message": f"Unknown import type: {import_type}"}, status=400)
 
     result = {"created": created, "errors": errors}
-    if import_type == "students" and credentials:
+    if import_type in ("students", "teachers") and credentials:
         result["credentials"] = credentials
     return JsonResponse(result)
 

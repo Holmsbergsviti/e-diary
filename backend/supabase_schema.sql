@@ -51,6 +51,7 @@ CREATE TABLE ediary_schema.teachers (
   surname text NOT NULL,
   is_class_teacher boolean DEFAULT false,
   class_teacher_of_class_id uuid,
+  default_password text,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT teachers_pkey PRIMARY KEY (id),
   CONSTRAINT teachers_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
