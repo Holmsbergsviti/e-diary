@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    login, me, grades, subjects, diary_entries, attendance, schedule,
+    login, me, upload_avatar, grades, subjects, diary_entries, attendance, schedule,
     announcements, teacher_class_students, teacher_attendance, teacher_marks,
     teacher_add_grade, teacher_edit_grade, teacher_delete_grade,
     teacher_add_homework, teacher_delete_homework, teacher_homework_completions,
@@ -26,6 +26,7 @@ from .views import (
 urlpatterns = [
     path("login/", login),
     path("me/", me),
+    path("me/avatar/", upload_avatar),
     path("grades/", grades),
     path("subjects/", subjects),
     path("diary/", diary_entries),

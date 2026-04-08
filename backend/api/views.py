@@ -1,8 +1,10 @@
 import json
 import logging
 import os
+import re
 import secrets
 import string
+import uuid
 import jwt
 from jwt.exceptions import PyJWTError
 from datetime import datetime, timedelta, timezone
@@ -29,6 +31,7 @@ ALL_ADMIN_PERMISSIONS = {
     "students": True, "teachers": True, "classes": True,
     "subjects": True, "schedule": True, "events": True,
     "holidays": True, "import": True, "impersonate": True,
+    "attendance": True, "exports": True,
 }
 
 
@@ -42,15 +45,12 @@ def _generate_password(length=10):
     return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 
-def _generate_email(name: str, surname: str, existing_emails: set) -> str:
-    """Generate firstname-surname@chartwell.edu.rs, appending a number for duplicates."""
-    import re
-    base = f"{name.lower().strip()}-{surname.lower().strip()}"
-    # Remove non-ascii, keep letters/hyphens/digits
-    base = re.sub(r'[^a-z0-9\-]', '', base)
-    base = re.sub(r'-+', '-', base).strip('-')
-    if not base:
-        base = 'student'
+def _generate_email(name: str, surname: str, existing_emails: set, separator: str = "-") -> str:
+    """Generate firstname{sep}surname@chartwell.edu.rs, appending a number for duplicates.
+    Students use hyphen (-), teachers use dot (.)."""
+    safe_name = re.sub(r'[^a-z0-9]', '', name.lower().strip())
+    safe_surname = re.sub(r'[^a-z0-9]', '', surname.lower().strip())
+    base = f"{safe_name}{separator}{safe_surname}" if safe_name and safe_surname else (safe_name or safe_surname or "user")
     email = f"{base}@chartwell.edu.rs"
     if email not in existing_emails:
         existing_emails.add(email)
@@ -121,6 +121,7 @@ def _get_profile(user_id: str) -> tuple:
             "class_name": "",
             "admin_level": a.get("admin_level", "regular"),
             "permissions": a.get("permissions") or ALL_ADMIN_PERMISSIONS,
+            "profile_picture_url": a.get("profile_picture_url") or None,
         }
 
     # Teacher?
@@ -140,9 +141,18 @@ def _get_profile(user_id: str) -> tuple:
             )
             if cls.data:
                 class_name = cls.data[0]["class_name"]
+        # Get email from auth
+        teacher_email = ""
+        try:
+            auth_u = supabase_admin_auth.auth.admin.get_user_by_id(user_id)
+            teacher_email = auth_u.user.email if auth_u and auth_u.user else ""
+        except Exception:
+            pass
         return "teacher", {
             "full_name": f"{t['name']} {t['surname']}",
             "class_name": class_name,
+            "profile_picture_url": t.get("profile_picture_url") or None,
+            "contact_email": teacher_email,
         }
 
     # Student?
@@ -165,6 +175,7 @@ def _get_profile(user_id: str) -> tuple:
         return "student", {
             "full_name": f"{s['name']} {s['surname']}",
             "class_name": class_name,
+            "profile_picture_url": s.get("profile_picture_url") or None,
         }
 
     return None, None
@@ -249,11 +260,14 @@ def login(request):
             "full_name": profile["full_name"],
             "role": role,
             "class_name": profile.get("class_name", ""),
+            "profile_picture_url": profile.get("profile_picture_url") or None,
         },
     }
     if role == "admin":
         resp["user"]["admin_level"] = admin_level
         resp["user"]["permissions"] = permissions
+    if role == "teacher":
+        resp["user"]["contact_email"] = profile.get("contact_email", "")
 
     return JsonResponse(resp)
 
@@ -314,7 +328,10 @@ def me(request):
         "full_name": profile["full_name"],
         "role": role,
         "class_name": profile.get("class_name", ""),
+        "profile_picture_url": profile.get("profile_picture_url") or None,
     }
+    if role == "teacher":
+        resp["contact_email"] = profile.get("contact_email", "")
     if role == "admin":
         email_lower = payload.get("email", "").lower()
         if email_lower == SUPER_ADMIN_EMAIL:
@@ -328,6 +345,77 @@ def me(request):
             resp["permissions"] = profile.get("permissions") or ALL_ADMIN_PERMISSIONS
 
     return JsonResponse(resp)
+
+
+# ------------------------------------------------------------------
+# Avatar upload
+# ------------------------------------------------------------------
+
+AVATAR_BUCKET = "avatars"
+AVATAR_MAX_SIZE = 2 * 1024 * 1024  # 2 MB
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+
+
+@csrf_exempt
+def upload_avatar(request):
+    """POST multipart/form-data with file field 'avatar'."""
+    if request.method != "POST":
+        return JsonResponse({"message": "Only POST allowed"}, status=405)
+
+    payload = _verify_token(request)
+    if not payload:
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    user_id = payload["sub"]
+    role, profile = _get_profile(user_id)
+    if role not in ("student", "teacher", "admin"):
+        return JsonResponse({"message": "Profile not found"}, status=404)
+
+    avatar_file = request.FILES.get("avatar")
+    if not avatar_file:
+        return JsonResponse({"message": "No file uploaded"}, status=400)
+
+    if avatar_file.content_type not in ALLOWED_IMAGE_TYPES:
+        return JsonResponse({"message": "Only JPEG, PNG, or WebP images are allowed"}, status=400)
+
+    if avatar_file.size > AVATAR_MAX_SIZE:
+        return JsonResponse({"message": "Image must be under 2 MB"}, status=400)
+
+    ext = {
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+    }.get(avatar_file.content_type, "jpg")
+
+    file_path = f"{role}s/{user_id}.{ext}"
+    file_bytes = avatar_file.read()
+
+    try:
+        # Remove previous avatar if it exists (different extension maybe)
+        try:
+            supabase.storage.from_(AVATAR_BUCKET).remove([file_path])
+        except Exception:
+            pass
+
+        supabase.storage.from_(AVATAR_BUCKET).upload(
+            file_path,
+            file_bytes,
+            file_options={"content-type": avatar_file.content_type, "upsert": "true"},
+        )
+    except Exception as exc:
+        logger.exception("Avatar upload failed")
+        return JsonResponse({"message": f"Upload failed: {exc}"}, status=500)
+
+    # Build public URL
+    public_url = f"{SUPABASE_URL}/storage/v1/object/public/{AVATAR_BUCKET}/{file_path}"
+
+    # Update profile_picture_url in the corresponding table
+    db = ediary()
+    table = {"student": "students", "teacher": "teachers", "admin": "admins"}[role]
+    db.table(table).update({"profile_picture_url": public_url}).eq("id", user_id).execute()
+
+    return JsonResponse({"profile_picture_url": public_url})
 
 
 # ------------------------------------------------------------------
@@ -527,7 +615,7 @@ def schedule(request):
         # Teacher sees their own schedule
         result = (
             db.table("schedule")
-            .select("id, subject_id, class_id, day_of_week, period, room")
+            .select("id, subject_id, class_id, teacher_id, day_of_week, period, room")
             .eq("teacher_id", user_id)
             .order("day_of_week")
             .order("period")
@@ -557,7 +645,7 @@ def schedule(request):
         # Fetch schedule for the student's own class
         result = (
             ediary().table("schedule")
-            .select("id, subject_id, class_id, day_of_week, period, room")
+            .select("id, subject_id, class_id, teacher_id, day_of_week, period, room")
             .eq("class_id", class_id)
             .order("day_of_week")
             .order("period")
@@ -568,7 +656,7 @@ def schedule(request):
         if group_class_ids:
             group_result = (
                 ediary().table("schedule")
-                .select("id, subject_id, class_id, day_of_week, period, room")
+                .select("id, subject_id, class_id, teacher_id, day_of_week, period, room")
                 .in_("class_id", group_class_ids)
                 .order("day_of_week")
                 .order("period")
@@ -582,12 +670,28 @@ def schedule(request):
                     result.data.append(slot)
                     existing_slots.add(key)
 
-    # Build subject + class name lookup
+    # Build subject + class name + teacher lookup
     subj_result = ediary().table("subjects").select("id, name, color_code").execute()
     subj_map = {s["id"]: s for s in (subj_result.data or [])}
 
     cls_result = ediary().table("classes").select("id, class_name, grade_level").execute()
     cls_map = {c["id"]: c for c in (cls_result.data or [])}
+
+    # Teacher name lookup
+    tch_result = ediary().table("teachers").select("id, name, surname").execute()
+    teacher_name_map = {t["id"]: f"{t['name']} {t['surname']}" for t in (tch_result.data or [])}
+
+    # Teacher email lookup — single batch call
+    teacher_email_map = {}
+    try:
+        all_auth = supabase_admin_auth.auth.admin.list_users()
+        tch_ids = set(teacher_name_map.keys())
+        for u in (all_auth if isinstance(all_auth, list) else getattr(all_auth, 'users', []) or []):
+            uid = str(getattr(u, 'id', '') or u.get('id', '') if isinstance(u, dict) else u.id)
+            if uid in tch_ids:
+                teacher_email_map[uid] = getattr(u, 'email', '') if not isinstance(u, dict) else u.get('email', '')
+    except Exception:
+        pass
 
     rows = []
     for slot in (result.data or []):
@@ -595,6 +699,7 @@ def schedule(request):
         cls = cls_map.get(slot["class_id"], {})
         gl = cls.get("grade_level", 0)
         cn = cls.get("class_name", "")
+        tid = slot.get("teacher_id")
         rows.append({
             "id": slot["id"],
             "subject": subj.get("name", "Unknown"),
@@ -606,6 +711,8 @@ def schedule(request):
             "day_of_week": slot["day_of_week"],
             "period": slot["period"],
             "room": slot.get("room", ""),
+            "teacher_name": teacher_name_map.get(tid, ""),
+            "teacher_email": teacher_email_map.get(tid, ""),
         })
 
     # Include study hall sessions
@@ -2763,7 +2870,7 @@ def admin_users(request):
                 generated_password = password
             if not email:
                 existing = set()
-                email = _generate_email(name, surname, existing)
+                email = _generate_email(name, surname, existing, separator=".")
         else:
             if not email or not password:
                 return JsonResponse({"message": "email, password required"}, status=400)
@@ -3267,7 +3374,7 @@ def admin_csv_import(request):
                     password = _generate_password()
                     generated_password = password
                 if not email:
-                    email = _generate_email(name, surname, existing_emails)
+                    email = _generate_email(name, surname, existing_emails, separator=".")
             else:
                 if not email:
                     errors.append({"row": i + 1, "error": "email required"})
@@ -3887,7 +3994,7 @@ def admin_attendance_flags(request):
     payload = _require_admin(request)
     if not payload:
         return JsonResponse({"message": "Unauthorized"}, status=401)
-    if not _admin_has_perm(payload, "students"):
+    if not _admin_has_perm(payload, "attendance"):
         return JsonResponse({"message": "No permission"}, status=403)
     if request.method != "GET":
         return JsonResponse({"message": "Method not allowed"}, status=405)
@@ -3997,7 +4104,7 @@ def admin_student_lookup(request):
     db = ediary()
 
     # Student profile
-    stu = db.table("students").select("id, name, surname, class_id, default_password").eq("id", student_id).limit(1).execute()
+    stu = db.table("students").select("id, name, surname, class_id, default_password, profile_picture_url").eq("id", student_id).limit(1).execute()
     if not stu.data:
         return JsonResponse({"message": "Student not found"}, status=404)
     student = stu.data[0]
@@ -4132,6 +4239,7 @@ def admin_student_lookup(request):
             "class_name": cls.get("class_name", ""),
             "grade_level": cls.get("grade_level", ""),
             "default_password": student.get("default_password") or None,
+            "profile_picture_url": student.get("profile_picture_url") or None,
         },
         "enrolled_subjects": enrolled_subjects,
         "subject_grades": subject_grades,

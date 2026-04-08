@@ -114,6 +114,22 @@ function initNav() {
     if (nameEl && user) {
         nameEl.textContent = user.full_name || user.username;
     }
+
+    // Nav avatar
+    const navRight = document.querySelector(".topnav-right");
+    if (navRight && user && !document.getElementById("navAvatar")) {
+        const img = document.createElement("img");
+        img.id = "navAvatar";
+        img.className = "nav-avatar";
+        img.alt = "";
+        if (user.profile_picture_url) {
+            img.src = user.profile_picture_url;
+        } else {
+            img.style.display = "none";
+        }
+        navRight.insertBefore(img, navRight.firstChild);
+    }
+
     const logoutBtn = document.getElementById("logoutBtn");
     if (logoutBtn) {
         logoutBtn.addEventListener("click", logout);

@@ -28,6 +28,14 @@
     <main class="content profile-page">
         <div class="card" style="max-width:520px;">
             <div class="card-title">👤 My Profile</div>
+            <div class="profile-avatar-section">
+                <div class="profile-avatar-wrapper" id="avatarWrapper" title="Click to change photo">
+                    <img id="profileAvatar" class="profile-avatar" src="" alt="Avatar">
+                    <div class="profile-avatar-overlay">📷</div>
+                    <input type="file" id="avatarInput" accept="image/jpeg,image/png,image/webp" hidden>
+                </div>
+                <p id="avatarMsg" class="form-msg" style="text-align:center;margin-top:6px;"></p>
+            </div>
             <div id="profileContainer"><p class="loading">Loading…</p></div>
         </div>
 

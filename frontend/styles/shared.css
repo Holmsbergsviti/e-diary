@@ -3955,4 +3955,139 @@ tr:hover td {
     font-size: 0.95rem;
 }
 
+/* ═══════════════════════════════════════════════════════════
+   AVATAR / PROFILE PICTURE
+   ═══════════════════════════════════════════════════════════ */
+
+.profile-avatar-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 18px;
+}
+
+.profile-avatar-wrapper {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    overflow: hidden;
+    cursor: pointer;
+    background: var(--primary, #2563eb);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    transition: box-shadow 0.2s;
+}
+.profile-avatar-wrapper:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+
+.profile-avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-initials {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: #fff;
+    user-select: none;
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.profile-avatar-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: #fff;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+.profile-avatar-wrapper:hover .profile-avatar-overlay {
+    opacity: 1;
+}
+
+/* Nav avatar (small circle in topnav) */
+.nav-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+/* Avatar in tables / lists */
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    vertical-align: middle;
+    margin-right: 6px;
+    background: var(--primary, #2563eb);
+}
+
+/* Avatar initials (small, for lists) */
+.avatar-sm-initials {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #fff;
+    background: var(--primary, #2563eb);
+    vertical-align: middle;
+    margin-right: 6px;
+    flex-shrink: 0;
+}
+
+/* Lookup profile avatar (larger) */
+.lookup-avatar-wrapper {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--primary, #2563eb);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.lookup-avatar-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.lookup-avatar-initials {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+/* Teacher contact link in schedule cells */
+.lesson-teacher {
+    font-size: 0.7rem;
+    color: var(--text-light, #6b7280);
+    text-decoration: none;
+}
+a.lesson-teacher:hover {
+    color: var(--primary, #2563eb);
+    text-decoration: underline;
+}
+
 

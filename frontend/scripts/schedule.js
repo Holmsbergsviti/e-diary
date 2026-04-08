@@ -340,9 +340,14 @@ function renderSchedule() {
                 }
 
                 const nowClass = isNowCell ? " cell-current" : "";
+                const teacherLine = (!isTeacher && slot.teacher_name)
+                    ? (slot.teacher_email
+                        ? `<a href="mailto:${escHtml(slot.teacher_email)}" class="lesson-teacher" title="${escHtml(slot.teacher_email)}">${escHtml(slot.teacher_name)}</a>`
+                        : `<span class="lesson-teacher">${escHtml(slot.teacher_name)}</span>`)
+                    : "";
                 html += `<td class="${cls}${attClass}${nowClass}" data-slot='${JSON.stringify(slotWithDate)}'>
                     ${escHtml(slot.subject)}${attBadge}<br>
-                    <span class="lesson-room">${yearLabel}${isTeacher && slot.room ? " · " + escHtml(slot.room) : ""}</span>
+                    <span class="lesson-room">${yearLabel}${isTeacher && slot.room ? " · " + escHtml(slot.room) : ""}${teacherLine ? "<br>" + teacherLine : ""}</span>
                 </td>`;
             } else {
                 const shSession = (shMap[cellDateStr] || {})[p];

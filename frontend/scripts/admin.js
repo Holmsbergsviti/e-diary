@@ -19,10 +19,10 @@ const TAB_PERMS = {
     schedule: "schedule",
     events: "events",
     holidays: "holidays",
-    attendance: "students",
+    attendance: "attendance",
     import: "import",
     "student-lookup": "students",
-    exports: "import",       // same perm as import/export
+    exports: "exports",
 };
 
 const ALL_PERM_KEYS = [
@@ -33,7 +33,9 @@ const ALL_PERM_KEYS = [
     { key: "schedule",   label: "Schedule" },
     { key: "events",     label: "Events" },
     { key: "holidays",   label: "Holidays" },
-    { key: "import",     label: "Import / Export" },
+    { key: "attendance", label: "Attendance" },
+    { key: "import",     label: "CSV Import" },
+    { key: "exports",    label: "Exports" },
     { key: "impersonate", label: "Impersonate" },
 ];
 
@@ -384,9 +386,18 @@ function renderStudentProfile(container, data) {
     container.innerHTML = `
         <div class="lookup-profile-card">
             <div class="lookup-header">
-                <h3>${escHtml(s.surname)} ${escHtml(s.name)}</h3>
-                <span class="class-tag">${escHtml(s.class_name)}</span>
-                <span style="color:var(--text-light);font-size:0.85rem;">Year ${s.grade_level}</span>
+                <div style="display:flex;align-items:center;gap:14px;">
+                    <div class="lookup-avatar-wrapper">
+                        ${s.profile_picture_url
+                            ? `<img src="${escHtml(s.profile_picture_url)}" alt="">`
+                            : `<span class="lookup-avatar-initials">${escHtml((s.name||'')[0]||'')}${escHtml((s.surname||'')[0]||'')}</span>`}
+                    </div>
+                    <div>
+                        <h3 style="margin:0">${escHtml(s.surname)} ${escHtml(s.name)}</h3>
+                        <span class="class-tag">${escHtml(s.class_name)}</span>
+                        <span style="color:var(--text-light);font-size:0.85rem;">Year ${s.grade_level}</span>
+                    </div>
+                </div>
                 ${s.default_password ? `<span class="lookup-pw-badge" title="Default password"><span style="font-size:0.75rem;color:var(--text-light);">🔑</span> <code class="default-pw">${escHtml(s.default_password)}</code></span>` : ''}
             </div>
 
@@ -749,7 +760,7 @@ async function loadTeachers(container) {
             <thead><tr><th>Name</th><th>Class Teacher</th><th>Default Password</th><th>Actions</th></tr></thead>
             <tbody>${teachers.map(t => `
                 <tr>
-                    <td>${escHtml(t.surname)} ${escHtml(t.name)}</td>
+                    <td>${t.profile_picture_url ? `<img class="avatar-sm" src="${escHtml(t.profile_picture_url)}" alt="">` : `<span class="avatar-sm-initials">${escHtml((t.name||'')[0]||'')}${escHtml((t.surname||'')[0]||'')}</span>`}${escHtml(t.surname)} ${escHtml(t.name)}</td>
                     <td>${t.is_class_teacher ? `✓ ${escHtml(t.class_teacher_class_name || "")}` : "—"}</td>
                     <td>${t.default_password ? `<code class="default-pw pw-hidden" onclick="this.classList.toggle('pw-hidden')" title="Click to reveal">${escHtml(t.default_password)}</code>` : '<span style="color:#94a3b8;">—</span>'}</td>
                     <td class="admin-actions">
@@ -927,7 +938,7 @@ async function loadStudents(container) {
             <thead><tr><th>Name</th><th>Class</th><th>Default Password</th><th>Actions</th></tr></thead>
             <tbody>${students.map(s => `
                 <tr>
-                    <td>${escHtml(s.surname)} ${escHtml(s.name)}</td>
+                    <td>${s.profile_picture_url ? `<img class="avatar-sm" src="${escHtml(s.profile_picture_url)}" alt="">` : `<span class="avatar-sm-initials">${escHtml((s.name||'')[0]||'')}${escHtml((s.surname||'')[0]||'')}</span>`}${escHtml(s.surname)} ${escHtml(s.name)}</td>
                     <td>${escHtml(s.class_name || "—")}</td>
                     <td>${s.default_password ? `<code class="default-pw pw-hidden" onclick="this.classList.toggle('pw-hidden')" title="Click to reveal">${escHtml(s.default_password)}</code>` : '<span style="color:#94a3b8;">—</span>'}</td>
                     <td class="admin-actions">
