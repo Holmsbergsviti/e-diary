@@ -2815,7 +2815,7 @@ def admin_users(request):
                 row = {"id": user_id, "name": name, "surname": surname, "class_id": class_id}
                 if generated_password:
                     row["default_password"] = generated_password
-                db.table("students").insert(row).execute()
+                db.table("students").upsert(row).execute()
         except Exception as exc:
             # Try to clean up auth user on profile insert failure
             try:
@@ -3274,7 +3274,7 @@ def admin_csv_import(request):
                     row_data = {"id": uid, "name": name, "surname": surname, "class_id": class_id}
                     if generated_password:
                         row_data["default_password"] = generated_password
-                    db.table("students").insert(row_data).execute()
+                    db.table("students").upsert(row_data).execute()
                     credentials.append({
                         "name": name, "surname": surname, "class_name": class_name,
                         "email": email, "password": generated_password or password,
