@@ -13,6 +13,7 @@ let currentSlot = null; // slot being attended
 let weekOffset = 0;     // 0 = this week, -1 = last week, etc.
 let teacherHolidays = [];  // holidays
 let teacherEvents = [];    // events
+let currentTeacherId = null; // current teacher's user ID
 
 /* ---- Bootstrap ------------------------------------------------ */
 async function initTeacher() {
@@ -24,6 +25,7 @@ async function initTeacher() {
         window.location.href = "dashboard.html";
         return;
     }
+    currentTeacherId = user?.id || null;
 
     initNav();
     await Promise.all([loadSchedule(), loadHomework(), loadBehavioral(), loadClassStats(), loadStudyHall()]);
@@ -287,17 +289,41 @@ function renderWeeklySchedule() {
             if (holiday) {
                 html += `<td class="lesson-holiday" title="${escHtml(holiday.name)}"><span class="holiday-label">${p === 1 ? escHtml(holiday.name) : ""}</span></td>`;
             } else if (eventOverride) {
+                // Check if the teacher is assigned to this event
+                const teacherAssigned = (eventOverride.target_teacher_ids || []).includes(currentTeacherId);
                 html += `<td class="lesson-event" title="${escHtml(eventOverride.title)}">
                     <span class="event-cell-icon">🎉</span> ${escHtml(eventOverride.title)}
+                    ${teacherAssigned ? '<br><span class="lesson-room" style="color:#2563eb">🧑‍🏫 Accompanying</span>' : ""}
                     ${eventOverride.start_time ? `<br><span class="lesson-room">${eventOverride.start_time}${eventOverride.end_time ? '–' + eventOverride.end_time : ''}</span>` : ""}
                 </td>`;
             } else if (slot) {
-                const yrLabel = escHtml(slot.class_name || `Year ${slot.grade_level}`);
-                const slotWithDate = { ...slot, _date: cellDateStr };
-                html += `<td class="lesson clickable-lesson" data-slot='${JSON.stringify(slotWithDate)}'>
-                    ${escHtml(slot.subject)}<br>
-                    <span class="lesson-room">${yrLabel}${slot.room ? " · " + escHtml(slot.room) : ""}</span>
-                </td>`;
+                // Check if this class is on an event (class-level or all-school) for this date
+                const dayEvents = eventsByDate[cellDateStr] || [];
+                let classOnTrip = null;
+                for (const ev of dayEvents) {
+                    const tt = ev.target_type || "all";
+                    const periods = ev.affected_periods || [];
+                    const affectsThisPeriod = periods.length === 0 || periods.includes(p);
+                    if (!affectsThisPeriod) continue;
+                    if (tt === "class" && (ev.target_class_ids || []).includes(slot.class_id)) {
+                        classOnTrip = ev;
+                        break;
+                    }
+                }
+                if (classOnTrip) {
+                    const yrLabel = escHtml(slot.class_name || `Year ${slot.grade_level}`);
+                    html += `<td class="lesson-event lesson-class-trip" title="${escHtml(classOnTrip.title)}">
+                        <span class="event-cell-icon">🚌</span> ${yrLabel}<br>
+                        <span class="lesson-room">${escHtml(classOnTrip.title)}</span>
+                    </td>`;
+                } else {
+                    const yrLabel = escHtml(slot.class_name || `Year ${slot.grade_level}`);
+                    const slotWithDate = { ...slot, _date: cellDateStr };
+                    html += `<td class="lesson clickable-lesson" data-slot='${JSON.stringify(slotWithDate)}'>
+                        ${escHtml(slot.subject)}<br>
+                        <span class="lesson-room">${yrLabel}${slot.room ? " · " + escHtml(slot.room) : ""}</span>
+                    </td>`;
+                }
             } else {
                 html += "<td>–</td>";
             }
@@ -405,6 +431,7 @@ async function loadStudentsAndAttendance(slot, date) {
 
         const students = studentsData.students || [];
         const existing = attendanceData.attendance || [];
+        const eventStudentIds = attendanceData.event_student_ids || [];
 
         // Populate topic field from existing data
         const topicInput = document.getElementById("lessonTopic");
@@ -439,12 +466,13 @@ async function loadStudentsAndAttendance(slot, date) {
                 <tbody>
                     ${students.map((s, i) => {
                         const rec = attendanceMap[s.id] || {};
-                        const status = rec.status || "Present";
-                        const comment = rec.comment || "";
+                        const onEvent = eventStudentIds.includes(s.id);
+                        const status = rec.status || (onEvent ? "Excused" : "Present");
+                        const comment = rec.comment || (onEvent && !rec.status ? "On school event" : "");
                         return `
-                        <tr data-student-id="${s.id}">
+                        <tr data-student-id="${s.id}"${onEvent ? ' class="student-on-event"' : ""}>
                             <td>${i + 1}</td>
-                            <td>${escHtml(s.surname)} ${escHtml(s.name)}</td>
+                            <td>${escHtml(s.surname)} ${escHtml(s.name)}${onEvent ? ' <span class="on-event-badge" title="This student is on a school event today">🚌 On Event</span>' : ""}</td>
                             <td><span class="class-tag">${escHtml(s.class_name || "")}</span></td>
                             <td>
                                 <select class="status-select status-${status.toLowerCase()}">

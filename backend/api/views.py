@@ -770,7 +770,34 @@ def teacher_attendance(request):
         # Extract topic from any record (same for all in a session)
         att_rows = result.data or []
         topic = att_rows[0].get("topic", "") if att_rows else ""
-        return JsonResponse({"attendance": att_rows, "topic": topic})
+
+        # ── Check which students are on events this date ──
+        event_student_ids = []
+        try:
+            all_ev = (db.table("events").select("*").lte("event_date", date).gte("event_end_date", date).execute()).data or []
+            # Also grab events where event_end_date is null but event_date matches
+            single_ev = (db.table("events").select("*").eq("event_date", date).is_("event_end_date", "null").execute()).data or []
+            all_ev = {e["id"]: e for e in all_ev + single_ev}.values()
+
+            for ev in all_ev:
+                tt = ev.get("target_type", "all")
+                if tt == "all":
+                    # whole-school event – every student excused (teacher can still
+                    # decide per-student), so we skip auto-marking here
+                    pass
+                elif tt == "class":
+                    if class_id in (ev.get("target_class_ids") or []):
+                        # entire class is on this event – skip auto-marking individuals,
+                        # as the timetable will show "class on trip" overlay
+                        pass
+                elif tt == "students":
+                    ids = ev.get("target_student_ids") or []
+                    event_student_ids.extend(ids)
+            event_student_ids = list(set(event_student_ids))
+        except Exception:
+            pass  # graceful fallback – column may not exist yet
+
+        return JsonResponse({"attendance": att_rows, "topic": topic, "event_student_ids": event_student_ids})
 
     if request.method == "POST":
         try:
@@ -3251,6 +3278,7 @@ def admin_events(request):
             target_type = data.get("target_type", "all")  # all, class, students
             target_class_ids = data.get("target_class_ids", [])
             target_student_ids = data.get("target_student_ids", [])
+            target_teacher_ids = data.get("target_teacher_ids", [])
 
             if not title or not event_date:
                 return JsonResponse({"message": "title and event_date required"}, status=400)
@@ -3266,6 +3294,7 @@ def admin_events(request):
                 "target_type": target_type,
                 "target_class_ids": target_class_ids,
                 "target_student_ids": target_student_ids,
+                "target_teacher_ids": target_teacher_ids,
             }
             result = db.table("events").insert(row).execute()
             return JsonResponse({"event": (result.data or [None])[0]}, status=201)
@@ -3301,7 +3330,7 @@ def admin_event_detail(request):
             except json.JSONDecodeError:
                 return JsonResponse({"message": "Invalid JSON"}, status=400)
             updates = {}
-            for key in ("title", "description", "event_date", "event_end_date", "start_time", "end_time", "affected_periods", "target_type", "target_class_ids", "target_student_ids"):
+            for key in ("title", "description", "event_date", "event_end_date", "start_time", "end_time", "affected_periods", "target_type", "target_class_ids", "target_student_ids", "target_teacher_ids"):
                 if key in data:
                     updates[key] = data[key]
             if updates:
@@ -3425,7 +3454,10 @@ def public_events(request):
 
         for ev in all_events:
             tt = ev.get("target_type", "all")
-            if tt == "all":
+            if role in ("teacher", "admin"):
+                # Teachers and admins see all events
+                visible_events.append(ev)
+            elif tt == "all":
                 visible_events.append(ev)
             elif tt == "class" and student_class_id:
                 ids = ev.get("target_class_ids") or []
@@ -3435,9 +3467,6 @@ def public_events(request):
                 ids = ev.get("target_student_ids") or []
                 if user_id in ids:
                     visible_events.append(ev)
-            elif role in ("teacher", "admin"):
-                # Teachers and admins see all events
-                visible_events.append(ev)
 
         return JsonResponse({"events": visible_events, "holidays": holidays})
     except Exception as exc:

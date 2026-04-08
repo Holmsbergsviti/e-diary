@@ -254,6 +254,7 @@ CREATE TABLE ediary_schema.events (
   target_type text NOT NULL DEFAULT 'all' CHECK (target_type IN ('all', 'class', 'students')),
   target_class_ids jsonb DEFAULT '[]'::jsonb,
   target_student_ids jsonb DEFAULT '[]'::jsonb,
+  target_teacher_ids jsonb DEFAULT '[]'::jsonb,
   created_at timestamptz DEFAULT now(),
   CONSTRAINT events_pkey PRIMARY KEY (id)
 );

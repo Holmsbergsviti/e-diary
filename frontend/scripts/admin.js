@@ -877,7 +877,7 @@ async function loadEvents(container) {
 }
 
 async function openAddEvent() {
-    await Promise.all([fetchClasses(), fetchStudents()]);
+    await Promise.all([fetchClasses(), fetchStudents(), fetchTeachers()]);
     const body = buildEventFormHtml();
     openAdminModal("Add Event", body, async () => {
         const payload = collectEventForm();
@@ -893,7 +893,7 @@ async function openAddEvent() {
 }
 
 async function openEditEvent(ev) {
-    await Promise.all([fetchClasses(), fetchStudents()]);
+    await Promise.all([fetchClasses(), fetchStudents(), fetchTeachers()]);
     const body = buildEventFormHtml(ev);
     openAdminModal("Edit Event", body, async () => {
         const payload = collectEventForm();
@@ -912,6 +912,7 @@ function buildEventFormHtml(ev) {
     const tt = ev ? ev.target_type || "all" : "all";
     const selClassIds = ev ? (ev.target_class_ids || []) : [];
     const selStudentIds = ev ? (ev.target_student_ids || []) : [];
+    const selTeacherIds = ev ? (ev.target_teacher_ids || []) : [];
     const selPeriods = ev ? (ev.affected_periods || []) : [];
     return `
         <div class="event-form">
@@ -963,6 +964,13 @@ function buildEventFormHtml(ev) {
                     ).join("")}</div>
                 </div>
             </div>
+            <div class="event-form-section">
+                <div class="event-form-section-label">🧑‍🏫 Accompanying Teachers <small style="color:var(--text-lighter)">(optional – teachers going on the trip)</small></div>
+                <input class="form-input" id="mEvTeacherSearch" placeholder="🔍 Search teachers…" oninput="filterEventTeachers()">
+                <div class="checkbox-list" id="mEvTeacherList">${cachedTeachers.map(t =>
+                    `<label class="checkbox-item" data-name="${escHtml((t.surname + ' ' + t.name).toLowerCase())}"><input type="checkbox" value="${t.id}" ${selTeacherIds.includes(t.id) ? "checked" : ""}> ${escHtml(t.surname)} ${escHtml(t.name)}</label>`
+                ).join("")}</div>
+            </div>
         </div>
     `;
 }
@@ -1007,6 +1015,13 @@ function filterEventStudents() {
     });
 }
 
+function filterEventTeachers() {
+    const q = (document.getElementById("mEvTeacherSearch")?.value || "").toLowerCase();
+    document.querySelectorAll("#mEvTeacherList .checkbox-item").forEach(lbl => {
+        lbl.style.display = !q || lbl.dataset.name.includes(q) ? "" : "none";
+    });
+}
+
 function collectEventForm() {
     const title = gv("mEvTitle");
     const event_date = gv("mEvDate");
@@ -1024,11 +1039,13 @@ function collectEventForm() {
         target_student_ids = [...document.querySelectorAll("#mEvStudentPicker input[type=checkbox]:checked")].map(cb => cb.value);
         if (target_student_ids.length === 0) { showToast("Select at least one student", "warning"); return null; }
     }
+    const target_teacher_ids = [...document.querySelectorAll("#mEvTeacherList input[type=checkbox]:checked")].map(cb => cb.value);
     return {
         title, description: gv("mEvDesc"), event_date,
         event_end_date: gv("mEvEndDate") || event_date,
         start_time, end_time, affected_periods,
         target_type, target_class_ids, target_student_ids,
+        target_teacher_ids,
     };
 }
 
