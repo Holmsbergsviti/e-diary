@@ -4,15 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="images/icon.png">
-    <link rel="stylesheet" href="styles/themes.css"><link rel="stylesheet" href="styles/shared.css">
-    <title>Teacher Dashboard – Chartwell E-Diary</title>
-<script src="scripts/theme-loader.js"></script></head>
+    <link rel="preconnect" href="https://e-diary-backend-qsly.onrender.com">
+    <link rel="stylesheet" href="styles/themes.css">
+    <link rel="stylesheet" href="styles/shared.css">
+    <title>Teacher Dashboard – E-Diary</title>
+    <script src="scripts/theme-loader.js"></script></head>
 <body>
 
 <nav class="topnav">
     <div class="topnav-left">
         <button id="sidebarToggleBtn" class="sidebar-toggle-btn" title="Toggle sidebar">☰</button>
-        <span class="topnav-brand">Chartwell E-Diary</span>
+        <span class="topnav-brand">E-Diary</span>
     </div>
     <div class="topnav-right">
         <span id="navUserName"></span>
@@ -21,13 +23,18 @@
 </nav>
 
 <div class="page-layout">
-    <aside class="sidebar">
-        <a href="teacher.html" class="active"><span class="icon">🏠</span> Dashboard</a>
-        <a href="schedule.html"><span class="icon">📅</span> Schedule</a>
-        <a href="profile.html"><span class="icon">👤</span> Profile</a>
-    </aside>
+    <aside class="sidebar"></aside>
 
     <main class="content teacher-page">
+        <!-- Teacher tabs -->
+        <div class="teacher-tabs" id="teacherTabs">
+            <button class="teacher-tab active" data-tab="dashboard">Dashboard</button>
+            <button class="teacher-tab" data-tab="statistics">Statistics</button>
+            <button class="teacher-tab" data-tab="exports">Exports</button>
+        </div>
+
+        <!-- ═══════ DASHBOARD TAB ═══════ -->
+        <div class="teacher-tab-content active" id="tab-dashboard">
         <!-- Today's classes -->
         <div class="card" data-card-id="today-classes">
             <div class="card-title">
@@ -35,6 +42,27 @@
                 <button class="card-collapse-btn" title="Hide/Show card">−</button>
             </div>
             <div class="card-content" id="todayClasses"><p class="loading">Loading…</p></div>
+        </div>
+
+        <!-- Study Hall section -->
+        <div class="card" data-card-id="study-hall">
+            <div class="card-title">
+                <span>📖 Study Hall</span>
+                <button id="openStudyHallBtn" class="btn btn-primary btn-sm">+ New Session</button>
+                <button class="card-collapse-btn" title="Hide/Show card">−</button>
+            </div>
+            <div class="card-content" id="studyHallList"><p class="loading">Loading…</p></div>
+        </div>
+
+        <!-- Full week schedule -->
+        <div class="card" data-card-id="weekly-schedule">
+            <div class="card-title week-nav-header">
+                <button id="weekPrev" class="week-arrow" title="Previous week">&#8249;</button>
+                <span>📋 <span id="weekLabel">This Week</span></span>
+                <button id="weekNext" class="week-arrow" title="Next week">&#8250;</button>
+                <button class="card-collapse-btn" title="Hide/Show card">−</button>
+            </div>
+            <div class="card-content" id="weeklySchedule"><p class="loading">Loading schedule…</p></div>
         </div>
 
         <!-- Homework section -->
@@ -56,6 +84,8 @@
             </div>
             <div class="card-content" id="behavioralList"><p class="loading">Loading…</p></div>
         </div>
+
+        </div><!-- /tab-dashboard -->
 
         <!-- Behavioral Modal -->
         <div id="behavioralModal" class="modal-overlay" style="display:none;">
@@ -169,6 +199,10 @@
                         <label for="attendanceDate">Date:</label>
                         <input type="date" id="attendanceDate">
                     </div>
+                    <div class="form-group" style="margin-top:8px;">
+                        <label for="lessonTopic" style="font-weight:600;font-size:0.88rem;">Lesson Topic</label>
+                        <input type="text" id="lessonTopic" class="form-input" placeholder="e.g. Quadratic equations, Chapter 5…">
+                    </div>
                     <div id="studentList"><p class="loading">Loading students…</p></div>
                 </div>
                 <div class="modal-footer">
@@ -178,29 +212,80 @@
             </div>
         </div>
 
+        <!-- ═══════ STATISTICS TAB ═══════ -->
+        <div class="teacher-tab-content" id="tab-statistics">
         <!-- Class Statistics section -->
         <div class="card" data-card-id="class-statistics">
             <div class="card-title">
-                📋 Class Statistics
+                📊 Class Statistics
                 <button class="card-collapse-btn" title="Hide/Show card">−</button>
             </div>
-            <div class="card-content" id="classStatsList"><p class="loading">Loading…</p></div>
+            <div class="card-content" id="classStatsList"><p class="empty-state">Click to load statistics…</p></div>
+        </div>
+        </div><!-- /tab-statistics -->
+
+        <!-- ═══════ EXPORTS TAB ═══════ -->
+        <div class="teacher-tab-content" id="tab-exports">
+        <!-- Export section -->
+        <div class="card" data-card-id="teacher-export">
+            <div class="card-title">
+                📥 Export Data
+                <button class="card-collapse-btn" title="Hide/Show card">−</button>
+            </div>
+            <div class="card-content" id="exportCardContent"><p class="empty-state">Click to load export data…</p></div>
+        </div>
+        </div><!-- /tab-exports -->
+
+        <!-- Study Hall Modal -->
+        <div id="studyHallModal" class="modal-overlay" style="display:none;">
+            <div class="modal">
+                <div class="modal-header">
+                    <div>
+                        <h2 id="shModalTitle">Study Hall Attendance</h2>
+                        <p id="shModalSubtitle" class="modal-subtitle"></p>
+                    </div>
+                    <button id="shModalClose" class="modal-close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-row" style="gap:12px;margin-bottom:12px;">
+                        <div class="form-group" style="flex:1;">
+                            <label for="shDate">Date</label>
+                            <input type="date" id="shDate" class="form-input">
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label for="shPeriod">Period</label>
+                            <select id="shPeriod" class="form-input">
+                                <option value="">Select…</option>
+                                <option value="1">Period 1</option>
+                                <option value="2">Period 2</option>
+                                <option value="3">Period 3</option>
+                                <option value="4">Period 4</option>
+                                <option value="5">Period 5</option>
+                                <option value="6">Period 6</option>
+                                <option value="7">Period 7</option>
+                                <option value="8">Period 8</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label for="shRoom">Room</label>
+                            <input type="text" id="shRoom" class="form-input" placeholder="e.g. Library">
+                        </div>
+                    </div>
+                    <div id="shStudentList"><p class="empty-state">Select a date and period to load free students.</p></div>
+                </div>
+                <div class="modal-footer">
+                    <button id="shMarkAllPresent" class="btn btn-secondary">Mark all present</button>
+                    <button id="shSaveAttendance" class="btn btn-primary">Save Attendance</button>
+                </div>
+            </div>
         </div>
 
-        <!-- Full week schedule -->
-        <div class="card" data-card-id="weekly-schedule">
-            <div class="card-title week-nav-header">
-                <button id="weekPrev" class="week-arrow" title="Previous week">&#8249;</button>
-                <span>📋 <span id="weekLabel">This Week</span></span>
-                <button id="weekNext" class="week-arrow" title="Next week">&#8250;</button>
-                <button class="card-collapse-btn" title="Hide/Show card">−</button>
-            </div>
-            <div class="card-content" id="weeklySchedule"><p class="loading">Loading schedule…</p></div>
-        </div>
     </main>
 </div>
 
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="scripts/auth.js"></script>
+<script src="scripts/export-utils.js"></script>
 <script src="scripts/teacher.js"></script>
 </body>
 </html>

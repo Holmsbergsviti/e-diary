@@ -4,16 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="images/icon.png">
+    <link rel="preconnect" href="https://e-diary-backend-qsly.onrender.com">
     <link rel="stylesheet" href="styles/themes.css">
     <link rel="stylesheet" href="styles/shared.css">
-    <title>Profile – Chartwell E-Diary</title>
-<script src="scripts/theme-loader.js"></script></head>
+    <title>Profile – E-Diary</title>
+    <script src="scripts/theme-loader.js"></script></head>
 <body>
 
 <nav class="topnav">
     <div class="topnav-left">
         <button id="sidebarToggleBtn" class="sidebar-toggle-btn" title="Toggle sidebar">☰</button>
-        <span class="topnav-brand">Chartwell E-Diary</span>
+        <span class="topnav-brand">E-Diary</span>
     </div>
     <div class="topnav-right">
         <span id="navUserName"></span>
@@ -22,15 +23,19 @@
 </nav>
 
 <div class="page-layout">
-    <aside class="sidebar">
-        <a href="dashboard.html"><span class="icon">🏠</span> Dashboard</a>
-        <a href="schedule.html"><span class="icon">📅</span> Schedule</a>
-        <a href="profile.html" class="active"><span class="icon">👤</span> Profile</a>
-    </aside>
+    <aside class="sidebar"></aside>
 
     <main class="content profile-page">
         <div class="card" style="max-width:520px;">
             <div class="card-title">👤 My Profile</div>
+            <div class="profile-avatar-section">
+                <div class="profile-avatar-wrapper" id="avatarWrapper" title="Click to change photo">
+                    <img id="profileAvatar" class="profile-avatar" src="" alt="Avatar">
+                    <div class="profile-avatar-overlay">📷</div>
+                    <input type="file" id="avatarInput" accept="image/jpeg,image/png,image/webp" hidden>
+                </div>
+                <p id="avatarMsg" class="form-msg" style="text-align:center;margin-top:6px;"></p>
+            </div>
             <div id="profileContainer"><p class="loading">Loading…</p></div>
         </div>
 

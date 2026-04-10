@@ -7,6 +7,7 @@ SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 # Lazy-initialised clients so module import never blocks on network I/O.
 _auth_client: Client | None = None
 _data_client: Client | None = None
+_admin_auth_client: Client | None = None
 
 
 def _get_auth_client() -> Client:
@@ -15,6 +16,16 @@ def _get_auth_client() -> Client:
     if _auth_client is None:
         _auth_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
     return _auth_client
+
+
+def _get_admin_auth_client() -> Client:
+    """Separate client for admin auth operations (create/update/delete users).
+    Kept separate from the sign-in client so a user session never pollutes
+    the service-role header."""
+    global _admin_auth_client
+    if _admin_auth_client is None:
+        _admin_auth_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    return _admin_auth_client
 
 
 def _get_data_client() -> Client:
@@ -45,6 +56,7 @@ class _LazyProxy:
 # Module-level names so existing `from .supabase_client import supabase, supabase_auth`
 # imports keep working, but client creation is deferred until first use.
 supabase_auth: Client = _LazyProxy(_get_auth_client)   # type: ignore[assignment]
+supabase_admin_auth: Client = _LazyProxy(_get_admin_auth_client)  # type: ignore[assignment]
 supabase: Client = _LazyProxy(_get_data_client)         # type: ignore[assignment]
 
 

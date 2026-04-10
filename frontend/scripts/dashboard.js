@@ -1,37 +1,34 @@
-// Ensure initialization happens when DOM is ready
+/* ================================================================
+   dashboard.js – Student dashboard
+   ================================================================ */
+
+function isoDate(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+/* ---- Bootstrap ---- */
 async function initDashboard() {
     if (!requireAuth()) return;
-
-    // Teachers have their own dashboard
     const user = getUser();
-    if (user && user.role === "teacher") {
-        window.location.href = "teacher.html";
-        return;
-    }
-
-    // Call initNav FIRST to set up navigation, logout, and inject grades/marks tab
+    if (user && user.role === "teacher") { window.location.href = "teacher.html"; return; }
     initNav();
-    
-    // Initialize card collapse functionality
     initCardCollapse();
-    
-    // Load all data - use Promise.all to load in parallel
+
     try {
         await Promise.all([
             loadAnnouncements(),
             loadRecentGrades(),
-            loadAttendance(),
             loadBehavioral()
         ]);
-    } catch (err) {
-        console.error("Error loading dashboard data:", err);
-    }
+    } catch (err) { console.error("Error loading dashboard data:", err); }
 }
 
-// Initialize immediately with slight delay to ensure sidebar is rendered
-setTimeout(() => {
+document.addEventListener("DOMContentLoaded", () => {
     initDashboard().catch(err => console.error("Dashboard init error:", err));
-}, 100);
+});
 
 // ---------- helper: grade code -> CSS class ----------
 function gradeClass(code) {
@@ -55,13 +52,17 @@ async function loadAnnouncements() {
             container.innerHTML = '<p class="empty-state">No homework or tasks.</p>';
             return;
         }
-        const today = new Date().toISOString().slice(0, 10);
+        const today = isoDate(new Date());
         const COMP_BADGES = {
             completed: '<span class="hw-badge hw-badge-done">✅ Completed</span>',
             partial: '<span class="hw-badge hw-badge-partial">⚠️ Partial</span>',
             not_done: '<span class="hw-badge hw-badge-notdone">❌ Not done</span>',
         };
-        container.innerHTML = items.map(a => {
+
+        const upcoming = items.filter(a => !a.due_date || a.due_date >= today);
+        const past = items.filter(a => a.due_date && a.due_date < today);
+
+        function renderItem(a) {
             const isPast = a.due_date && a.due_date < today;
             const dueLbl = a.due_date ? formatDate(a.due_date) : "";
             const badge = a.completion_status ? COMP_BADGES[a.completion_status] || "" : "";
@@ -73,7 +74,27 @@ async function loadAnnouncements() {
                 </div>
                 ${a.body ? `<div class="announcement-body">${escHtml(a.body)}</div>` : ""}
             </div>`;
-        }).join("");
+        }
+
+        let html = '';
+        if (upcoming.length > 0) {
+            html += upcoming.map(renderItem).join("");
+        } else {
+            html += '<p class="empty-state">No upcoming homework or tasks.</p>';
+        }
+
+        if (past.length > 0) {
+            html += `<div class="hw-past-section">
+                <button class="hw-past-toggle" onclick="this.parentElement.classList.toggle('hw-past-open'); this.textContent = this.parentElement.classList.contains('hw-past-open') ? '▲ Hide past homework (${past.length})' : '▼ Show past homework (${past.length})'">
+                    ▼ Show past homework (${past.length})
+                </button>
+                <div class="hw-past-list">
+                    ${past.map(renderItem).join("")}
+                </div>
+            </div>`;
+        }
+
+        container.innerHTML = html;
     } catch (err) {
         container.innerHTML = '<p class="empty-state">Failed to load announcements.</p>';
     }
@@ -120,48 +141,6 @@ async function loadRecentGrades() {
         `;
     } catch (err) {
         container.innerHTML = '<p class="empty-state">Failed to load grades.</p>';
-    }
-}
-
-/* ---------- Attendance ---------- */
-const ATT_ICONS = { Present: "✅", Late: "⏰", Absent: "❌", Excused: "📋" };
-
-async function loadAttendance() {
-    const container = document.getElementById("attendanceContainer");
-    try {
-        const res = await apiFetch("/attendance/");
-        const data = await res.json();
-        const records = (data.attendance || []).slice(0, 15);
-
-        if (records.length === 0) {
-            container.innerHTML = '<p class="empty-state">No attendance records.</p>';
-            return;
-        }
-
-        container.innerHTML = `
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Subject</th>
-                        <th>Status</th>
-                        <th>Comment</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${records.map(r => `
-                        <tr class="att-row att-${r.status.toLowerCase()}">
-                            <td>${formatDate(r.date_recorded)}</td>
-                            <td>${escHtml(r.subject || "–")}</td>
-                            <td>${ATT_ICONS[r.status] || ""} ${escHtml(r.status)}</td>
-                            <td>${r.comment ? escHtml(r.comment) : '<span style="color:#9ca3af;">—</span>'}</td>
-                        </tr>
-                    `).join("")}
-                </tbody>
-            </table>
-        `;
-    } catch (err) {
-        container.innerHTML = '<p class="empty-state">Failed to load attendance.</p>';
     }
 }
 

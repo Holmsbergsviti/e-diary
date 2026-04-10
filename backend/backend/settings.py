@@ -18,10 +18,13 @@ load_dotenv(BASE_DIR / ".env")
 # --------------------------------------------------
 # SECURITY
 # --------------------------------------------------
-SECRET_KEY = os.environ.get(
-    "DJANGO_SECRET_KEY",
-    "dev-secret-key-change-this"
-)
+_secret = os.environ.get("DJANGO_SECRET_KEY", "")
+if not _secret:
+    import secrets as _s
+    _secret = _s.token_urlsafe(50)
+    import logging as _log
+    _log.getLogger(__name__).warning("DJANGO_SECRET_KEY is not set! Using a random ephemeral key.")
+SECRET_KEY = _secret
 
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
@@ -69,11 +72,9 @@ MIDDLEWARE = [
 # --------------------------------------------------
 CORS_ALLOWED_ORIGINS = [
     "https://chartwell-e-diary.netlify.app",
-    "https://stepan-e-diary.netlify.app"
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://bill-e-diary.netlify.app",
     "https://chartwell-e-diary.netlify.app",
 ]
 
@@ -87,7 +88,7 @@ if DEBUG:
         "http://127.0.0.1:8080",
     ]
 
-CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_CREDENTIALS = False
 
 # --------------------------------------------------
 # URLS / WSGI
@@ -162,3 +163,33 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # DEFAULTS
 # --------------------------------------------------
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# --------------------------------------------------
+# SECURITY HARDENING
+# --------------------------------------------------
+# Trust Render's proxy X-Forwarded-Proto header
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+if not DEBUG:
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_HSTS_SECONDS = 31536000       # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    # SSL redirect handled by Render's proxy – don't do it in Django
+    # SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    X_FRAME_OPTIONS = "DENY"
+
+# Limit request body size (2.5 MB)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 2621440
+
+# --------------------------------------------------
+# RATE LIMITING (django-ratelimit uses Django cache)
+# --------------------------------------------------
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    }
+}

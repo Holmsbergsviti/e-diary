@@ -24,7 +24,9 @@ function catLabel(cat) {
 }
 
 let allGrades = [];
+let enrolledSubjects = [];
 let activeTerm = null;
+let _teacherCache = {};  // subject -> teacher object (first encountered)
 
 async function initGrades() {
     if (!requireAuth()) return;
@@ -45,10 +47,10 @@ async function initGrades() {
     await loadGrades();
 }
 
-// Initialize immediately with slight delay to ensure sidebar is rendered
-setTimeout(() => {
+// Initialize on DOMContentLoaded
+document.addEventListener("DOMContentLoaded", () => {
     initGrades().catch(err => console.error("Grades init error:", err));
-}, 100);
+});
 
 async function loadGrades() {
     const container = document.getElementById("gradesContainer");
@@ -56,6 +58,15 @@ async function loadGrades() {
         const res = await apiFetch("/grades/");
         const data = await res.json();
         allGrades = data.grades || [];
+        enrolledSubjects = data.enrolled_subjects || [];
+
+        // Build teacher cache: per subject, pick the first teacher we see
+        _teacherCache = {};
+        for (const g of allGrades) {
+            if (g.teacher && g.teacher.full_name && g.subject && !_teacherCache[g.subject]) {
+                _teacherCache[g.subject] = g.teacher;
+            }
+        }
 
         document.querySelectorAll("#termFilter .term-btn").forEach(btn => {
             const t = btn.dataset.term;
@@ -73,49 +84,78 @@ function renderGrades() {
     const container = document.getElementById("gradesContainer");
     const grades = activeTerm ? allGrades.filter(g => g.term === activeTerm) : allGrades;
 
-    if (grades.length === 0) {
-        container.innerHTML = '<p class="empty-state">No grades recorded yet.</p>';
-        document.getElementById("statTotal").textContent = "0";
+    // Group grades by subject
+    const bySubject = {};
+    for (const g of grades) {
+        if (!bySubject[g.subject]) bySubject[g.subject] = { grades: [], color: g.subject_color || "#607D8B" };
+        bySubject[g.subject].grades.push(g);
+    }
+
+    // Also include enrolled subjects with no grades
+    for (const s of enrolledSubjects) {
+        if (!bySubject[s.subject]) {
+            bySubject[s.subject] = { grades: [], color: s.subject_color || "#607D8B" };
+        }
+    }
+
+    const subjectNames = Object.keys(bySubject).sort();
+    const subjectCount = subjectNames.length;
+    document.getElementById("statTotal").textContent = subjectCount;
+
+    if (subjectCount === 0) {
+        container.innerHTML = '<p class="empty-state">No subjects enrolled yet.</p>';
         return;
     }
 
-    // Group by subject
-    const bySubject = {};
-    for (const g of grades) {
-        if (!bySubject[g.subject]) bySubject[g.subject] = [];
-        bySubject[g.subject].push(g);
-    }
-
-    const subjectCount = Object.keys(bySubject).length;
-    document.getElementById("statTotal").textContent = subjectCount;
-
     let html = "";
-    for (const [subject, items] of Object.entries(bySubject)) {
-        html += `
-            <div class="card">
-                <div class="card-title">${escHtml(subject)}</div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Assessment</th>
-                            <th>Grade</th>
-                            <th>%</th>
-                            <th>Date</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${items.map(g => `
+    for (const subject of subjectNames) {
+        const { grades: items, color } = bySubject[subject];
+        const colorDot = `<span class="subject-color-dot" style="background:${color};display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:middle;"></span>`;
+        const teacher = _teacherCache[subject];
+
+        if (items.length === 0) {
+            html += `
+                <div class="card">
+                    <div class="card-title grade-card-title">${colorDot}${escHtml(subject)}<span class="grade-teacher-slot" data-subject="${escHtml(subject)}"></span></div>
+                    <p class="empty-state">No grades recorded yet.</p>
+                </div>
+            `;
+        } else {
+            html += `
+                <div class="card">
+                    <div class="card-title grade-card-title">${colorDot}${escHtml(subject)}<span class="grade-teacher-slot" data-subject="${escHtml(subject)}"></span></div>
+                    <table>
+                        <thead>
                             <tr>
-                                <td>${escHtml(g.assessment || "\u2013")}</td>
-                                <td><span class="grade-badge ${gradeClass(g.grade_code)}">${escHtml(g.grade_code || "\u2013")}</span></td>
-                                <td>${g.percentage != null ? g.percentage + "%" : "\u2013"}</td>
-                                <td>${formatDate(g.date)}</td>
+                                <th>Assessment</th>
+                                <th>Grade</th>
+                                <th>%</th>
+                                <th>Date</th>
                             </tr>
-                        `).join("")}
-                    </tbody>
-                </table>
-            </div>
-        `;
+                        </thead>
+                        <tbody>
+                            ${items.map(g => `
+                                <tr>
+                                    <td>${escHtml(g.assessment || "\u2013")}</td>
+                                    <td><span class="grade-badge ${gradeClass(g.grade_code)}">${escHtml(g.grade_code || "\u2013")}</span></td>
+                                    <td>${g.percentage != null ? g.percentage + "%" : "\u2013"}</td>
+                                    <td>${formatDate(g.date)}</td>
+                                </tr>
+                            `).join("")}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
     }
     container.innerHTML = html;
+
+    // Attach teacher badges (must do after innerHTML since they are DOM elements)
+    document.querySelectorAll(".grade-teacher-slot").forEach(slot => {
+        const subj = slot.dataset.subject;
+        const teacher = _teacherCache[subj];
+        if (teacher && teacher.full_name) {
+            slot.appendChild(createTeacherBadge(teacher));
+        }
+    });
 }

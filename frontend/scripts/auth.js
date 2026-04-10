@@ -1,24 +1,5 @@
 // Shared authentication utilities
-const API_BASE = "https://e-diary-1.onrender.com/api";
-
-// Load saved color theme on every page
-(function loadTheme() {
-    const savedTheme = localStorage.getItem("selectedTheme") || "bright-blue";
-    const themeMap = {
-        "bright-blue": "",
-        "ocean": "ocean",
-        "purple": "purple",
-        "emerald": "emerald",
-        "rose": "rose",
-        "amber": "amber",
-        "indigo": "indigo"
-    };
-    
-    const themeAttr = themeMap[savedTheme] || "";
-    if (themeAttr) {
-        document.documentElement.setAttribute("data-theme", themeAttr);
-    }
-})();
+const API_BASE = "https://e-diary-backend-qsly.onrender.com/api";
 
 function getToken() {
     return localStorage.getItem("token");
@@ -35,7 +16,21 @@ function getUser() {
 function logout() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("admin_token");
+    localStorage.removeItem("admin_user");
     window.location.href = "index.html";
+}
+
+function exitImpersonation() {
+    const adminToken = localStorage.getItem("admin_token");
+    const adminUser = localStorage.getItem("admin_user");
+    if (adminToken && adminUser) {
+        localStorage.setItem("token", adminToken);
+        localStorage.setItem("user", adminUser);
+        localStorage.removeItem("admin_token");
+        localStorage.removeItem("admin_user");
+        window.location.href = "admin.html";
+    }
 }
 
 function isTokenExpired() {
@@ -64,8 +59,22 @@ function requireAuth() {
     return true;
 }
 
+const _apiCache = {};
+const API_CACHE_TTL = 30000; // 30 seconds
+
 async function apiFetch(path, options = {}) {
     const token = getToken();
+    const method = (options.method || "GET").toUpperCase();
+
+    // Serve GET requests from short-lived cache
+    if (method === "GET") {
+        const cacheKey = path;
+        const cached = _apiCache[cacheKey];
+        if (cached && Date.now() - cached.ts < API_CACHE_TTL) {
+            return cached.response.clone();
+        }
+    }
+
     const res = await fetch(`${API_BASE}${path}`, {
         ...options,
         headers: {
@@ -78,7 +87,24 @@ async function apiFetch(path, options = {}) {
         logout();
         throw new Error("Session expired");
     }
+
+    // Cache successful GET responses
+    if (method === "GET" && res.ok) {
+        _apiCache[path] = { ts: Date.now(), response: res.clone() };
+    }
+
     return res;
+}
+
+/** Invalidate cached GET responses (call after mutations). */
+function invalidateApiCache(pathPrefix) {
+    if (pathPrefix) {
+        for (const key of Object.keys(_apiCache)) {
+            if (key.startsWith(pathPrefix)) delete _apiCache[key];
+        }
+    } else {
+        for (const key of Object.keys(_apiCache)) delete _apiCache[key];
+    }
 }
 
 // Populate the nav with the logged-in user's name
@@ -88,9 +114,34 @@ function initNav() {
     if (nameEl && user) {
         nameEl.textContent = user.full_name || user.username;
     }
+
+    // Nav avatar
+    const navRight = document.querySelector(".topnav-right");
+    if (navRight && user && !document.getElementById("navAvatar")) {
+        const img = document.createElement("img");
+        img.id = "navAvatar";
+        img.className = "nav-avatar";
+        img.alt = "";
+        if (user.profile_picture_url) {
+            img.src = user.profile_picture_url;
+        } else {
+            img.style.display = "none";
+        }
+        navRight.insertBefore(img, navRight.firstChild);
+    }
+
     const logoutBtn = document.getElementById("logoutBtn");
     if (logoutBtn) {
         logoutBtn.addEventListener("click", logout);
+    }
+
+    // ---------- Impersonation banner ----------
+    if (localStorage.getItem("admin_token")) {
+        const banner = document.createElement("div");
+        banner.className = "impersonation-banner";
+        const targetUser = user ? (user.full_name || user.email) : "user";
+        banner.innerHTML = `<span>👁️ Viewing as <strong>${targetUser}</strong> (${user?.role || ""})</span><button onclick="exitImpersonation()" class="btn btn-sm" style="margin-left:12px;background:#fff;color:#7c3aed;font-weight:600;">Back to Admin</button>`;
+        document.body.prepend(banner);
     }
 
     // ---------- Mobile hamburger menu ----------
@@ -140,52 +191,42 @@ function initNav() {
         });
     }
 
-    // Update sidebar links based on role
+    // ---------- Build sidebar links from role ----------
     const sidebarEl = document.querySelector(".sidebar");
-    console.log("[initNav] Looking for sidebar and profile link...");
-    console.log("[initNav] Sidebar found:", !!sidebarEl);
-    console.log("[initNav] User role:", user?.role);
-    
+
     if (sidebarEl && user) {
-        // Rewrite dashboard link for the correct role
-        sidebarEl.querySelectorAll("a").forEach(a => {
-            const href = a.getAttribute("href");
-            if ((href === "dashboard.html" || href === "/dashboard" || href === "/teacher") && user.role === "teacher") {
-                a.setAttribute("href", "/teacher");
-            } else if ((href === "teacher.html" || href === "/teacher") && user.role !== "teacher") {
-                a.setAttribute("href", "/dashboard");
-            }
-        });
+        // Clear all existing links — we rebuild from scratch per role
+        sidebarEl.querySelectorAll("a").forEach(a => a.remove());
 
-        // Remove any existing grades/marks links first (clean slate)
-        const existingLinks = sidebarEl.querySelectorAll('a[href="/grades"], a[href="/marks"], a[href="grades.html"], a[href="marks.html"]');
-        console.log("[initNav] Removing existing links:", existingLinks.length);
-        existingLinks.forEach(a => a.remove());
+        const path = window.location.pathname;
+        const isPage = (names) => names.some(n => path.endsWith(n) || path.endsWith(n.replace(".html", "")));
 
-        // Inject the correct role-specific link before Profile
-        const pLink = sidebarEl.querySelector('a[href="/profile"], a[href="profile.html"]');
-        console.log("[initNav] Profile link found:", !!pLink);
-        console.log("[initNav] All sidebar links:", Array.from(sidebarEl.querySelectorAll("a")).map(a => a.getAttribute("href")));
-        
-        if (pLink) {
-            const newLink = document.createElement("a");
-            if (user.role === "teacher") {
-                newLink.href = "/marks";
-                if (window.location.pathname.endsWith("marks") || window.location.pathname.endsWith("marks.html")) newLink.classList.add("active");
-                newLink.innerHTML = '<span class="icon">📝</span> Marks';
-                console.log("[initNav] ✅ Injected Marks tab");
-            } else {
-                newLink.href = "/grades";
-                if (window.location.pathname.endsWith("grades") || window.location.pathname.endsWith("grades.html")) newLink.classList.add("active");
-                newLink.innerHTML = '<span class="icon">📊</span> Grades';
-                console.log("[initNav] ✅ Injected Grades tab");
-            }
-            sidebarEl.insertBefore(newLink, pLink);
+        const links = [];
+
+        if (user.role === "admin") {
+            links.push({ href: "admin.html", icon: "⚙️", label: "Admin Panel", active: isPage(["admin.html"]) });
+        } else if (user.role === "teacher") {
+            links.push({ href: "teacher.html", icon: "🏠", label: "Dashboard", active: isPage(["teacher.html"]) });
+            links.push({ href: "marks.html", icon: "📝", label: "Marks", active: isPage(["marks.html"]) });
+            links.push({ href: "report.html", icon: "🧾", label: "Reports", active: isPage(["report.html"]) });
+            links.push({ href: "schedule.html", icon: "📅", label: "Schedule", active: isPage(["schedule.html"]) });
         } else {
-            console.error("[initNav] ❌ Profile link not found! Sidebar HTML:", sidebarEl.innerHTML);
+            // student
+            links.push({ href: "dashboard.html", icon: "🏠", label: "Dashboard", active: isPage(["dashboard.html"]) });
+            links.push({ href: "grades.html", icon: "📊", label: "Grades", active: isPage(["grades.html"]) });
+            links.push({ href: "schedule.html", icon: "📅", label: "Schedule", active: isPage(["schedule.html"]) });
         }
-    } else {
-        console.error("[initNav] ❌ Sidebar or user not found");
+
+        // Profile always last
+        links.push({ href: "profile.html", icon: "👤", label: "Profile", active: isPage(["profile.html"]) });
+
+        links.forEach(l => {
+            const a = document.createElement("a");
+            a.href = l.href;
+            if (l.active) a.classList.add("active");
+            a.innerHTML = `<span class="icon">${l.icon}</span> ${l.label}`;
+            sidebarEl.appendChild(a);
+        });
     }
 
     // Initialize sidebar collapse toggle
@@ -245,3 +286,186 @@ function initGlobalModalEscapeSupport() {
 
 // Initialize on page load
 document.addEventListener("DOMContentLoaded", initGlobalModalEscapeSupport);
+
+/* ───────── Toast notification system ───────── */
+function showToast(message, type = "error", duration = 4000) {
+    let container = document.getElementById("toast-container");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "toast-container";
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement("div");
+    toast.className = `toast toast-${type}`;
+
+    const icons = { error: "✕", success: "✓", warning: "⚠", info: "ℹ" };
+    toast.innerHTML = `
+        <span class="toast-icon">${icons[type] || icons.info}</span>
+        <span class="toast-message">${escHtml(message)}</span>
+        <button class="toast-close" aria-label="Close">×</button>
+    `;
+
+    toast.querySelector(".toast-close").addEventListener("click", () => dismissToast(toast));
+
+    container.appendChild(toast);
+    // Trigger entrance animation
+    requestAnimationFrame(() => toast.classList.add("toast-visible"));
+
+    const timer = setTimeout(() => dismissToast(toast), duration);
+    toast._timer = timer;
+}
+
+function dismissToast(toast) {
+    if (toast._dismissed) return;
+    toast._dismissed = true;
+    clearTimeout(toast._timer);
+    toast.classList.remove("toast-visible");
+    toast.classList.add("toast-exit");
+    toast.addEventListener("transitionend", () => toast.remove(), { once: true });
+    // Fallback removal if transitionend doesn't fire
+    setTimeout(() => toast.remove(), 400);
+}
+
+// ════════════════════════════════════════════════════════════
+// TEACHER POPOVER CARD
+// ════════════════════════════════════════════════════════════
+
+function _teacherInitials(name) {
+    if (!name) return "?";
+    return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+}
+
+/**
+ * Create a small teacher badge (avatar + name) that shows a popover on click.
+ * @param {Object} teacher - {id, full_name, profile_picture_url, email, subjects}
+ * @returns {HTMLElement}
+ */
+function createTeacherBadge(teacher) {
+    if (!teacher || !teacher.full_name) return document.createTextNode("");
+    const badge = document.createElement("span");
+    badge.className = "teacher-badge";
+    badge.title = teacher.full_name;
+
+    if (teacher.profile_picture_url) {
+        badge.innerHTML = `<img class="teacher-badge-avatar" src="${teacher.profile_picture_url}" alt="">`;
+    } else {
+        badge.innerHTML = `<span class="teacher-badge-initials">${_teacherInitials(teacher.full_name)}</span>`;
+    }
+    badge.innerHTML += `<span class="teacher-badge-name">${escHtml(teacher.full_name)}</span>`;
+
+    badge.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showTeacherPopover(teacher, badge);
+    });
+
+    return badge;
+}
+
+let _activePopover = null;
+
+function showTeacherPopover(teacher, anchor) {
+    // Remove any existing popover
+    closeTeacherPopover();
+
+    const pop = document.createElement("div");
+    pop.className = "teacher-popover";
+
+    const avatarHtml = teacher.profile_picture_url
+        ? `<img class="teacher-popover-avatar" src="${teacher.profile_picture_url}" alt="">`
+        : `<div class="teacher-popover-avatar teacher-popover-initials">${_teacherInitials(teacher.full_name)}</div>`;
+
+    const subjectsHtml = teacher.subjects && teacher.subjects.length
+        ? `<div class="teacher-popover-subjects">${teacher.subjects.map(s => `<span class="teacher-popover-subj">${escHtml(s)}</span>`).join(" ")}</div>`
+        : "";
+
+    const emailHtml = teacher.email
+        ? `<div class="teacher-popover-email">
+            <span class="teacher-popover-email-text" title="Click to copy">${escHtml(teacher.email)}</span>
+            <button class="teacher-popover-copy" title="Copy email">📋</button>
+           </div>`
+        : "";
+
+    pop.innerHTML = `
+        <div class="teacher-popover-header">
+            ${avatarHtml}
+            <div class="teacher-popover-info">
+                <div class="teacher-popover-name">${escHtml(teacher.full_name)}</div>
+                ${subjectsHtml}
+            </div>
+        </div>
+        ${emailHtml}
+    `;
+
+    document.body.appendChild(pop);
+
+    // Position near the anchor
+    const rect = anchor.getBoundingClientRect();
+    const popW = 280;
+    let left = rect.left + rect.width / 2 - popW / 2;
+    let top = rect.bottom + 8;
+
+    // Keep within viewport
+    if (left < 8) left = 8;
+    if (left + popW > window.innerWidth - 8) left = window.innerWidth - popW - 8;
+    if (top + 200 > window.innerHeight) top = rect.top - 8;
+
+    pop.style.left = left + "px";
+    pop.style.top = top + "px";
+
+    // Copy email handler
+    const copyBtn = pop.querySelector(".teacher-popover-copy");
+    const emailText = pop.querySelector(".teacher-popover-email-text");
+    if (copyBtn && emailText) {
+        const copyHandler = () => {
+            navigator.clipboard.writeText(teacher.email).then(() => {
+                emailText.textContent = "Copied!";
+                emailText.classList.add("copied");
+                setTimeout(() => {
+                    emailText.textContent = teacher.email;
+                    emailText.classList.remove("copied");
+                }, 1500);
+            });
+        };
+        copyBtn.addEventListener("click", (e) => { e.stopPropagation(); copyHandler(); });
+        emailText.addEventListener("click", (e) => { e.stopPropagation(); copyHandler(); });
+    }
+
+    _activePopover = pop;
+
+    // Close on outside click
+    setTimeout(() => {
+        document.addEventListener("click", _closePopoverHandler);
+    }, 0);
+
+    // Animate in
+    requestAnimationFrame(() => pop.classList.add("teacher-popover-visible"));
+}
+
+function _closePopoverHandler(e) {
+    if (_activePopover && !_activePopover.contains(e.target)) {
+        closeTeacherPopover();
+    }
+}
+
+function closeTeacherPopover() {
+    if (_activePopover) {
+        _activePopover.remove();
+        _activePopover = null;
+    }
+    document.removeEventListener("click", _closePopoverHandler);
+}
+
+/**
+ * Helper to render a small student avatar (img or initials) for use in lists.
+ * @param {Object} student - must have name, surname, profile_picture_url
+ * @returns {string} HTML string
+ */
+function studentAvatarHtml(student) {
+    if (!student) return "";
+    if (student.profile_picture_url) {
+        return `<img class="avatar-sm" src="${student.profile_picture_url}" alt="">`;
+    }
+    const initials = ((student.name || "")[0] || "") + ((student.surname || "")[0] || "");
+    return `<span class="avatar-sm-initials">${initials.toUpperCase()}</span>`;
+}

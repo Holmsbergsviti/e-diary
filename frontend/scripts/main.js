@@ -1,4 +1,4 @@
-const API_BASE = "https://e-diary-1.onrender.com/api";
+const API_BASE = "https://e-diary-backend-qsly.onrender.com/api";
 
 document.getElementById("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -25,7 +25,9 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
             localStorage.setItem("token", data.token);
             localStorage.setItem("user", JSON.stringify(data.user));
             // Redirect based on role
-            if (data.user.role === "teacher") {
+            if (data.user.role === "admin") {
+                window.location.href = "admin.html";
+            } else if (data.user.role === "teacher") {
                 window.location.href = "teacher.html";
             } else {
                 window.location.href = "dashboard.html";

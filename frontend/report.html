@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://e-diary-backend-qsly.onrender.com">
     <link rel="stylesheet" href="styles/themes.css">
     <link rel="stylesheet" href="styles/shared.css">
-    <title>Grades – E-Diary</title>
+    <title>Reports – E-Diary</title>
     <script src="scripts/theme-loader.js"></script></head>
 <body>
 
@@ -25,25 +25,19 @@
 <div class="page-layout">
     <aside class="sidebar"></aside>
 
-    <main class="content grades-page">
-        <div class="stat-row">
-            <div class="stat-card">
-                <div class="stat-value" id="statTotal">–</div>
-                <div class="stat-label">Total subjects</div>
+    <main class="content marks-page">
+        <div class="card">
+            <div class="card-title">🧾 Teacher Reports</div>
+            <div class="term-filter" id="reportTermTabs">
+                <button class="term-btn active" data-term="1">Winter Report</button>
+                <button class="term-btn" data-term="2">End of Year Report</button>
             </div>
+            <div id="reportContainer"><p class="loading">Loading reports…</p></div>
         </div>
-
-        <div class="term-filter" id="termFilter">
-            <button class="term-btn" data-term="">Both Terms</button>
-            <button class="term-btn" data-term="1">Term 1 <small>(Sep–Dec)</small></button>
-            <button class="term-btn" data-term="2">Term 2 <small>(Jan–Jun)</small></button>
-        </div>
-
-        <div id="gradesContainer"><p class="loading">Loading grades…</p></div>
     </main>
 </div>
 
 <script src="scripts/auth.js"></script>
-<script src="scripts/grades.js"></script>
+<script src="scripts/report.js"></script>
 </body>
 </html>

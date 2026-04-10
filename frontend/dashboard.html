@@ -4,15 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="images/icon.png">
-    <link rel="stylesheet" href="styles/themes.css"><link rel="stylesheet" href="styles/shared.css">
-    <title>Dashboard – Chartwell E-Diary</title>
-<script src="scripts/theme-loader.js"></script></head>
+    <link rel="preconnect" href="https://e-diary-backend-qsly.onrender.com">
+    <link rel="stylesheet" href="styles/themes.css">
+    <link rel="stylesheet" href="styles/shared.css">
+    <title>Dashboard – E-Diary</title>
+    <script src="scripts/theme-loader.js"></script></head>
 <body>
 
 <nav class="topnav">
     <div class="topnav-left">
         <button id="sidebarToggleBtn" class="sidebar-toggle-btn" title="Toggle sidebar">☰</button>
-        <span class="topnav-brand">Chartwell E-Diary</span>
+        <span class="topnav-brand">E-Diary</span>
     </div>
     <div class="topnav-right">
         <span id="navUserName"></span>
@@ -21,11 +23,7 @@
 </nav>
 
 <div class="page-layout">
-    <aside class="sidebar">
-        <a href="dashboard.html" class="active"><span class="icon">🏠</span> Dashboard</a>
-        <a href="schedule.html"><span class="icon">📅</span> Schedule</a>
-        <a href="profile.html"><span class="icon">👤</span> Profile</a>
-    </aside>
+    <aside class="sidebar"></aside>
 
     <main class="content dashboard-page">
         <div class="card" data-card-id="homework">
@@ -42,14 +40,6 @@
                 <button class="card-collapse-btn" title="Hide/Show card">−</button>
             </div>
             <div class="card-content" id="recentGradesContainer"><p class="loading">Loading…</p></div>
-        </div>
-
-        <div class="card" data-card-id="attendance">
-            <div class="card-title">
-                📈 Recent Attendance
-                <button class="card-collapse-btn" title="Hide/Show card">−</button>
-            </div>
-            <div class="card-content" id="attendanceContainer"><p class="loading">Loading…</p></div>
         </div>
 
         <div class="card" data-card-id="behavioral">

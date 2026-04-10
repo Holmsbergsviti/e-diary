@@ -3,12 +3,18 @@ async function initProfile() {
     initNav();
     await loadProfile();
     initAccountForm();
+    initAvatarUpload();
 }
 
-// Initialize immediately with slight delay to ensure sidebar is rendered
-setTimeout(() => {
+// Initialize on DOMContentLoaded
+document.addEventListener("DOMContentLoaded", () => {
     initProfile().catch(err => console.error("Profile init error:", err));
-}, 100);
+});
+
+function getInitials(name) {
+    if (!name) return "?";
+    return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+}
 
 async function loadProfile() {
     const container = document.getElementById("profileContainer");
@@ -20,12 +26,41 @@ async function loadProfile() {
         const emailInput = document.getElementById("newEmail");
         if (emailInput) emailInput.placeholder = user.email || "New email";
 
+        // Set avatar
+        const avatarImg = document.getElementById("profileAvatar");
+        if (avatarImg) {
+            if (user.profile_picture_url) {
+                avatarImg.src = user.profile_picture_url;
+                avatarImg.style.display = "";
+            } else {
+                // Show initials placeholder
+                avatarImg.style.display = "none";
+                const wrapper = document.getElementById("avatarWrapper");
+                if (wrapper && !wrapper.querySelector(".avatar-initials")) {
+                    const initEl = document.createElement("div");
+                    initEl.className = "avatar-initials";
+                    initEl.textContent = getInitials(user.full_name);
+                    wrapper.insertBefore(initEl, wrapper.firstChild);
+                }
+            }
+        }
+
+        // Cache avatar URL for nav
+        const u = getUser();
+        if (u) {
+            u.profile_picture_url = user.profile_picture_url || null;
+            localStorage.setItem("user", JSON.stringify(u));
+        }
+
         const rows = [
             ["Full name", user.full_name],
             ["Email", user.email || "—"],
             ["Role", capitalize(user.role || "student")],
             ["Class", user.class_name || "—"],
         ];
+        if (user.contact_email) {
+            rows.push(["Contact Email", user.contact_email]);
+        }
 
         container.innerHTML = `
             <table>
@@ -41,6 +76,82 @@ async function loadProfile() {
         `;
     } catch (err) {
         container.innerHTML = '<p class="empty-state">Failed to load profile.</p>';
+    }
+}
+
+function initAvatarUpload() {
+    const wrapper = document.getElementById("avatarWrapper");
+    const input = document.getElementById("avatarInput");
+    if (!wrapper || !input) return;
+
+    wrapper.addEventListener("click", () => input.click());
+
+    input.addEventListener("change", async () => {
+        const file = input.files[0];
+        if (!file) return;
+
+        if (file.size > 2 * 1024 * 1024) {
+            showAvatarMsg("Image must be under 2 MB", true);
+            return;
+        }
+
+        const msg = document.getElementById("avatarMsg");
+        msg.textContent = "Uploading…";
+        msg.className = "form-msg form-msg-success";
+
+        const formData = new FormData();
+        formData.append("avatar", file);
+
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${API_BASE}/me/avatar/`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData,
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showAvatarMsg("Photo updated!", false);
+                // Update avatar image
+                const avatarImg = document.getElementById("profileAvatar");
+                if (avatarImg) {
+                    avatarImg.src = data.profile_picture_url + "?t=" + Date.now();
+                    avatarImg.style.display = "";
+                }
+                // Remove initials if showing
+                const initEl = document.querySelector(".avatar-initials");
+                if (initEl) initEl.remove();
+                // Update cached user
+                const u = getUser();
+                if (u) {
+                    u.profile_picture_url = data.profile_picture_url;
+                    localStorage.setItem("user", JSON.stringify(u));
+                }
+                // Update nav avatar
+                updateNavAvatar(data.profile_picture_url);
+            } else {
+                showAvatarMsg(data.message || "Upload failed", true);
+            }
+        } catch (err) {
+            showAvatarMsg("Could not reach the server.", true);
+        }
+        input.value = "";
+    });
+}
+
+function showAvatarMsg(text, isError) {
+    const msg = document.getElementById("avatarMsg");
+    if (!msg) return;
+    msg.textContent = text;
+    msg.className = "form-msg " + (isError ? "form-msg-error" : "form-msg-success");
+    if (!isError) setTimeout(() => { msg.textContent = ""; msg.className = "form-msg"; }, 2500);
+}
+
+function updateNavAvatar(url) {
+    const navAvatar = document.getElementById("navAvatar");
+    if (navAvatar && url) {
+        navAvatar.src = url + "?t=" + Date.now();
+        navAvatar.style.display = "";
     }
 }
 

@@ -1,11 +1,26 @@
-# Local Netlify folder
-test.py
-.vscode
-README.md
-createUsers.py
+# Python
+__pycache__/
+*.pyc
+*.pyo
 
 # Environment secrets
 .env
 backend/.env
-.vscode/launch.json__pycache__/
+
+# IDE / Editor
+.vscode/
+
+# Database
+*.sqlite3
+db.sqlite3
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build / Misc
+test.py
 *.pyc
