@@ -398,7 +398,7 @@ function renderGroup(container, group) {
     }
     const assessments = Array.from(assessmentSet).sort();
 
-    const colCount = 3 + (assessments.length > 0 ? assessments.length : 1) + 1; // #, Student, Class, assessments, Predicted
+    const colCount = 4; // #, Student, Class, Grades, Predicted
 
     html += `<table>
         <thead>
@@ -406,18 +406,7 @@ function renderGroup(container, group) {
                 <th>#</th>
                 <th>Student</th>
                 <th>Class</th>
-                ${assessments.length > 0
-                    ? assessments.map(a => {
-                        // Find category of first grade with this assessment
-                        let cat = "";
-                        for (const s of filteredStudents) {
-                            const g = s.grades.find(g => g.assessment === a);
-                            if (g) { cat = g.category || ""; break; }
-                        }
-                        const catLabel = cat ? `<br><small class="cat-label cat-${cat}">${CATEGORY_LABELS[cat] || cat}</small>` : "";
-                        return `<th>${escHtml(a || 'Unnamed')}${catLabel}</th>`;
-                    }).join("")
-                    : '<th>No grades yet</th>'}
+                <th>Grades</th>
                 <th>Predicted</th>
             </tr>
         </thead>
@@ -426,11 +415,6 @@ function renderGroup(container, group) {
     filteredStudents
         .sort((a, b) => a.surname.localeCompare(b.surname))
         .forEach((s, i) => {
-            const gradeMap = {};
-            for (const g of s.grades) {
-                gradeMap[g.assessment] = g;
-            }
-
             // Predicted grade for current term filter
             const pred = predictGrade(s.grades);
 
@@ -442,21 +426,19 @@ function renderGroup(container, group) {
                 </td>
                 <td><span class="class-tag">${escHtml(s.class_name)}</span></td>`;
 
-            if (assessments.length > 0) {
-                for (const a of assessments) {
-                    const g = gradeMap[a];
-                    if (g) {
-                        const pct = g.percentage != null ? `<br><small class="grade-pct">${g.percentage}%</small>` : "";
-                        const commentIcon = g.comment ? ' <span class="grade-comment-icon" title="' + escHtml(g.comment) + '">💬</span>' : "";
-                        html += `<td class="grade-cell grade-clickable" data-grade='${JSON.stringify(g).replace(/'/g, "&#39;")}' data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">
-                            <span class="grade-badge ${gradeClass(g.grade_code)}">${escHtml(g.grade_code)}</span>${pct}${commentIcon}
-                        </td>`;
-                    } else {
-                        html += `<td>–</td>`;
-                    }
-                }
+            // Grades column with assessment names and grades together
+            if (s.grades.length > 0) {
+                const gradesHtml = s.grades.map(g => {
+                    const pct = g.percentage != null ? ` ${g.percentage}%` : "";
+                    const commentIcon = g.comment ? ' 💬' : "";
+                    return `<div class="grade-item-compact grade-clickable" data-grade='${JSON.stringify(g).replace(/'/g, "&#39;")}' data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}" style="cursor:pointer;margin:2px 0;padding:2px 4px;border-radius:3px;background:var(--bg-input);font-size:0.9rem;">
+                        <strong>${escHtml(g.assessment || 'Unnamed')}:</strong>
+                        <span class="grade-badge ${gradeClass(g.grade_code)}" style="margin-left:4px;">${escHtml(g.grade_code)}</span>${pct}${commentIcon}
+                    </div>`;
+                }).join("");
+                html += `<td class="grades-column" style="padding:4px;">${gradesHtml}</td>`;
             } else {
-                html += `<td>–</td>`;
+                html += `<td class="grades-column">–</td>`;
             }
 
             // Predicted grade column

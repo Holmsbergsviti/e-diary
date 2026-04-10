@@ -1,6 +1,9 @@
 /* ============================================================
    Mobile-first improvements
    ============================================================ */
+/* Import Google Fonts for better typography */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 /* Prevent iOS zoom on input focus */
 @media (max-width: 900px) {
     input[type="text"],
@@ -92,6 +95,79 @@
     to { opacity: 1; transform: translateX(0); }
 }
 
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+}
+
+@keyframes rainbowGlow {
+    0% { box-shadow: 0 0 10px rgba(255, 0, 0, 0.5); }
+    16.67% { box-shadow: 0 0 10px rgba(255, 165, 0, 0.5); }
+    33.33% { box-shadow: 0 0 10px rgba(255, 255, 0, 0.5); }
+    50% { box-shadow: 0 0 10px rgba(0, 255, 0, 0.5); }
+    66.67% { box-shadow: 0 0 10px rgba(0, 0, 255, 0.5); }
+    83.33% { box-shadow: 0 0 10px rgba(75, 0, 130, 0.5); }
+    100% { box-shadow: 0 0 10px rgba(238, 130, 238, 0.5); }
+}
+
+@keyframes breathingGlow {
+    0%, 100% { 
+        box-shadow: 0 0 5px rgba(var(--primary-blue-rgb), 0.3),
+                    0 0 10px rgba(var(--primary-blue-rgb), 0.2),
+                    0 0 15px rgba(var(--primary-blue-rgb), 0.1);
+    }
+    50% { 
+        box-shadow: 0 0 15px rgba(var(--primary-blue-rgb), 0.6),
+                    0 0 30px rgba(var(--primary-blue-rgb), 0.4),
+                    0 0 45px rgba(var(--primary-blue-rgb), 0.2);
+    }
+}
+
+@keyframes ripple {
+    0% { 
+        transform: scale(0);
+        opacity: 1;
+    }
+    100% { 
+        transform: scale(4);
+        opacity: 0;
+    }
+}
+
+@keyframes elasticScale {
+    0% { transform: scale(0); }
+    55% { transform: scale(1.15); }
+    65% { transform: scale(0.95); }
+    75% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+@keyframes neonPulse {
+    0%, 100% { 
+        text-shadow: 0 0 5px rgba(var(--primary-blue-rgb), 0.5),
+                     0 0 10px rgba(var(--primary-blue-rgb), 0.5),
+                     0 0 15px rgba(var(--primary-blue-rgb), 0.5);
+    }
+    50% { 
+        text-shadow: 0 0 10px rgba(var(--primary-blue-rgb), 0.8),
+                     0 0 20px rgba(var(--primary-blue-rgb), 0.8),
+                     0 0 30px rgba(var(--primary-blue-rgb), 0.8);
+    }
+}
+
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+@keyframes morph {
+    0%, 100% { border-radius: 50% 50% 50% 50%; }
+    25% { border-radius: 50% 50% 0 50%; }
+    50% { border-radius: 50% 0 50% 50%; }
+    75% { border-radius: 0 50% 50% 50%; }
+}
+
 /* ---- Dashboard: align recent grades table like grades page ---- */
 .dashboard-page table {
     table-layout: fixed;
@@ -160,7 +236,7 @@
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: var(--bg-page);
     color: var(--text-muted-alt);
     min-height: 100vh;
@@ -285,6 +361,9 @@ body {
     background: linear-gradient(90deg, rgba(var(--primary-blue-rgb), 0.08), transparent);
     color: var(--text-muted-alt);
     border-left-color: var(--secondary-light);
+    box-shadow: 0 0 8px rgba(var(--primary-blue-rgb), 0.2);
+    transform: translateX(2px);
+    animation: pulse 1.5s ease-in-out infinite;
 }
 
 .sidebar a.active {
@@ -292,7 +371,9 @@ body {
     color: var(--primary-blue);
     border-left-color: var(--primary-blue);
     font-weight: 700;
-    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.03);
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.03),
+                0 0 12px rgba(var(--primary-blue-rgb), 0.3);
+    animation: neonPulse 2s ease-in-out infinite;
 }
 
 .sidebar a .icon {
@@ -537,6 +618,7 @@ tr:hover td {
 .marks-page td:first-child {
     min-width: 40px;
     width: 40px;
+    flex: 0 0 40px;
 }
 
 .marks-page th:nth-child(2),
@@ -551,9 +633,42 @@ tr:hover td {
     flex: 0 0 100px;
 }
 
+/* Grades column - wider to accommodate stacked items */
+.marks-page th:nth-child(4),
+.marks-page td:nth-child(4) {
+    min-width: 220px;
+    flex: 0 0 220px;
+}
+
+/* Predicted grade column */
+.marks-page th:nth-child(5),
+.marks-page td:nth-child(5) {
+    min-width: 90px;
+    flex: 0 0 90px;
+}
+
 .marks-page td:last-child,
 .marks-page th:last-child {
     border-right: none;
+}
+
+/* Grade items in the grades column */
+.grade-item-compact {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    word-break: break-word;
+    transition: background-color 0.2s ease;
+}
+
+.grade-item-compact:hover {
+    background-color: rgba(var(--primary-blue-rgb), 0.08) !important;
+}
+
+.grades-column {
+    max-height: 300px;
+    overflow-y: auto;
+    word-break: break-word;
 }
 
 /* ---- Grade badge ---- */
@@ -574,7 +689,10 @@ tr:hover td {
 
 .grade-badge:hover {
     transform: scale(1.05);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2), inset 0 1px 2px rgba(255, 255, 255, 0.3);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2), 
+                0 0 12px rgba(255, 255, 255, 0.3),
+                inset 0 1px 2px rgba(255, 255, 255, 0.3);
+    animation: elasticScale 0.4s ease-out, neonPulse 1.5s ease-in-out infinite;
 }
 
 /* Grade badge colours – Cambridge letter grades (neomorphism style) */
@@ -784,7 +902,10 @@ tr:hover td {
 .btn-primary:hover  { 
     background: linear-gradient(145deg, var(--primary-blue-dark), var(--primary-blue));
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(var(--primary-blue-rgb), 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    box-shadow: 0 6px 16px rgba(var(--primary-blue-rgb), 0.3), 
+                0 0 20px rgba(var(--primary-blue-rgb), 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    animation: breathingGlow 2s ease-in-out infinite;
 }
 .btn-secondary { 
     background: var(--bg-button);
@@ -793,8 +914,11 @@ tr:hover td {
 }
 .btn-secondary:hover { 
     background: var(--bg-hover);
-    box-shadow: 0 6px 16px rgba(var(--primary-blue-rgb), 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    box-shadow: 0 6px 16px rgba(var(--primary-blue-rgb), 0.1), 
+                0 0 15px rgba(var(--primary-blue-rgb), 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.4);
     transform: translateY(-2px);
+    animation: pulse 1.5s ease-in-out infinite;
 }
 .btn-success   { 
     background: var(--grade-a); 
@@ -1365,6 +1489,12 @@ tr:hover td {
 
 .stat-ring {
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.08)) drop-shadow(inset 0 1px 2px rgba(255, 255, 255, 0.4));
+    animation: float 3s ease-in-out infinite;
+    transition: all 0.3s ease;
+}
+
+.stat-ring:hover {
+    animation: breathingGlow 2s ease-in-out infinite, float 3s ease-in-out infinite;
 }
 
 .stat-ring-sector-group {
@@ -1372,34 +1502,44 @@ tr:hover td {
 }
 
 .stat-ring-sector {
-    transition: stroke-width 0.2s ease, filter 0.2s ease;
+    transition: stroke-width 0.3s ease, filter 0.3s ease, transform 0.3s ease;
     position: relative;
 }
 
-/* Sector-specific glow colors based on data-color */
+/* Enhanced sector-specific glow colors based on data-color with more dramatic effects */
 .stat-ring-sector-group[data-color="#10b981"]:hover .stat-ring-sector {
-    filter: brightness(1.15) drop-shadow(0 0 6px rgba(16, 185, 129, 0.7));
-    stroke-width: 16;
+    filter: brightness(1.2) drop-shadow(0 0 8px rgba(16, 185, 129, 0.8)) drop-shadow(0 0 16px rgba(16, 185, 129, 0.4));
+    stroke-width: 18;
+    transform: scale(1.05);
+    animation: elasticScale 0.6s ease-out;
 }
 
 .stat-ring-sector-group[data-color="#fcd34d"]:hover .stat-ring-sector {
-    filter: brightness(1.15) drop-shadow(0 0 6px rgba(252, 211, 77, 0.7));
-    stroke-width: 16;
+    filter: brightness(1.2) drop-shadow(0 0 8px rgba(252, 211, 77, 0.8)) drop-shadow(0 0 16px rgba(252, 211, 77, 0.4));
+    stroke-width: 18;
+    transform: scale(1.05);
+    animation: elasticScale 0.6s ease-out;
 }
 
 .stat-ring-sector-group[data-color="#f87171"]:hover .stat-ring-sector {
-    filter: brightness(1.15) drop-shadow(0 0 6px rgba(248, 113, 113, 0.7));
-    stroke-width: 16;
+    filter: brightness(1.2) drop-shadow(0 0 8px rgba(248, 113, 113, 0.8)) drop-shadow(0 0 16px rgba(248, 113, 113, 0.4));
+    stroke-width: 18;
+    transform: scale(1.05);
+    animation: elasticScale 0.6s ease-out;
 }
 
 .stat-ring-sector-group[data-color="#60a5fa"]:hover .stat-ring-sector {
-    filter: brightness(1.15) drop-shadow(0 0 6px rgba(96, 165, 250, 0.7));
-    stroke-width: 16;
+    filter: brightness(1.2) drop-shadow(0 0 8px rgba(96, 165, 250, 0.8)) drop-shadow(0 0 16px rgba(96, 165, 250, 0.4));
+    stroke-width: 18;
+    transform: scale(1.05);
+    animation: elasticScale 0.6s ease-out;
 }
 
 .stat-ring-sector-group[data-color="#fbbf24"]:hover .stat-ring-sector {
-    filter: brightness(1.15) drop-shadow(0 0 6px rgba(251, 191, 36, 0.7));
-    stroke-width: 16;
+    filter: brightness(1.2) drop-shadow(0 0 8px rgba(251, 191, 36, 0.8)) drop-shadow(0 0 16px rgba(251, 191, 36, 0.4));
+    stroke-width: 18;
+    transform: scale(1.05);
+    animation: elasticScale 0.6s ease-out;
 }
 
 .stat-ring-tooltip {
@@ -2073,7 +2213,11 @@ tr:hover td {
     .marks-page th:nth-child(1), .marks-page td:nth-child(1) { min-width: 36px; width: 36px; }
     .marks-page th:nth-child(2), .marks-page td:nth-child(2) { min-width: 120px; }
     .marks-page th:nth-child(3), .marks-page td:nth-child(3) { min-width: 80px; }
+    .marks-page th:nth-child(4), .marks-page td:nth-child(4) { min-width: 180px; }
+    .marks-page th:nth-child(5), .marks-page td:nth-child(5) { min-width: 70px; }
     .marks-page .grade-badge { width: 28px; height: 28px; line-height: 28px; font-size: 0.72rem; }
+    .marks-page .grade-item-compact { gap: 6px; font-size: 0.8rem; margin: 2px 0; }
+    .marks-page .grade-item-compact strong { font-size: 0.75rem; }
     .marks-page .student-name-toggle { font-weight: 600; color: var(--primary-blue); cursor: pointer; }
     .marks-page .add-grade-inline-btn { padding: 4px 6px; width: 22px; height: 22px; font-size: 0.7rem; }
     .marks-page .cat-label { font-size: 0.6rem; }
