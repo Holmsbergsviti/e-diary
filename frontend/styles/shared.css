@@ -174,7 +174,7 @@
     width: 80px;
     height: 80px;
     border-radius: 50%;
-    background: conic-gradient(var(--primary-blue) 0deg, var(--bg-card) 0deg);
+    background: conic-gradient(var(--primary-blue) var(--progress, 0deg), var(--bg-card) var(--progress, 0deg));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -209,7 +209,7 @@
 
 /* Circular progress variants */
 .circular-progress.success {
-    background: conic-gradient(var(--grade-a) 0deg, var(--bg-card) 0deg);
+    background: conic-gradient(var(--grade-a) var(--progress, 0deg), var(--bg-card) var(--progress, 0deg));
 }
 
 .circular-progress.success .progress-text {
@@ -217,7 +217,7 @@
 }
 
 .circular-progress.warning {
-    background: conic-gradient(#f59e0b 0deg, var(--bg-card) 0deg);
+    background: conic-gradient(#f59e0b var(--progress, 0deg), var(--bg-card) var(--progress, 0deg));
 }
 
 .circular-progress.warning .progress-text {
@@ -225,7 +225,7 @@
 }
 
 .circular-progress.danger {
-    background: conic-gradient(#ef4444 0deg, var(--bg-card) 0deg);
+    background: conic-gradient(#ef4444 var(--progress, 0deg), var(--bg-card) var(--progress, 0deg));
 }
 
 .circular-progress.danger .progress-text {

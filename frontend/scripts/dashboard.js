@@ -61,6 +61,14 @@ async function loadAnnouncements() {
 
         const upcoming = items.filter(a => !a.due_date || a.due_date >= today);
         const past = items.filter(a => a.due_date && a.due_date < today);
+        
+        // Calculate completion percentage
+        const totalTasks = items.length;
+        const completedTasks = items.filter(a => a.completion_status === 'completed').length;
+        const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+        
+        const progressClass = completionPercentage >= 80 ? 'success' : 
+                             completionPercentage >= 60 ? 'warning' : 'danger';
 
         function renderItem(a) {
             const isPast = a.due_date && a.due_date < today;
@@ -77,6 +85,19 @@ async function loadAnnouncements() {
         }
 
         let html = '';
+        if (totalTasks > 0) {
+            html += `
+                <div class="homework-progress" style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px; padding: 16px; background: var(--bg-card); border-radius: 12px; border: 1px solid rgba(var(--primary-blue-rgb), 0.1);">
+                    <div class="circular-progress ${progressClass}" style="--progress: ${completionPercentage * 3.6}deg;">
+                        <div class="progress-text">${completionPercentage}%</div>
+                    </div>
+                    <div>
+                        <div style="font-weight: 600; color: var(--text-dark); margin-bottom: 4px;">Homework Completion</div>
+                        <div style="color: var(--text-muted); font-size: 0.9rem;">${completedTasks} of ${totalTasks} tasks completed</div>
+                    </div>
+                </div>
+            `;
+        }
         if (upcoming.length > 0) {
             html += upcoming.map(renderItem).join("");
         } else {
