@@ -1159,6 +1159,36 @@ tr:hover td {
 .sub-badge-in {
     background: #10b981;
 }
+.clickable-sub {
+    cursor: pointer !important;
+    transition: filter 0.15s;
+}
+.clickable-sub:hover {
+    filter: brightness(0.92);
+}
+.sub-detail-info {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.sub-detail-row {
+    font-size: 0.9rem;
+}
+.sub-detail-row strong {
+    min-width: 140px;
+    display: inline-block;
+}
+.status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+.status-badge.status-present { background: #d1fae5; color: #065f46; }
+.status-badge.status-late { background: #fef3c7; color: #92400e; }
+.status-badge.status-absent { background: #fee2e2; color: #991b1b; }
+.status-badge.status-excused { background: #dbeafe; color: #1e40af; }
 
 /* ---- Period toggle buttons in event form ---- */
 .event-period-section { margin-top: 8px; }
@@ -3953,6 +3983,22 @@ tr:hover td {
 }
 [data-theme="dark"] .sub-badge-in {
     background: #059669;
+}
+[data-theme="dark"] .status-badge.status-present {
+    background: rgba(16,185,129,0.2);
+    color: #34d399;
+}
+[data-theme="dark"] .status-badge.status-late {
+    background: rgba(245,158,11,0.2);
+    color: #fbbf24;
+}
+[data-theme="dark"] .status-badge.status-absent {
+    background: rgba(239,68,68,0.2);
+    color: #f87171;
+}
+[data-theme="dark"] .status-badge.status-excused {
+    background: rgba(59,130,246,0.2);
+    color: #60a5fa;
 }
 [data-theme="dark"] .schedule-break-row td {
     background: rgba(255,255,255,0.03) !important;

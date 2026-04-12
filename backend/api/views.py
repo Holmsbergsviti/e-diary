@@ -886,13 +886,17 @@ def _get_substitutes_for_schedule(db, user_id, role, schedule_rows, teacher_name
 
         return [
             {
+                "id": r["id"],
                 "date": r["date"],
                 "period": r["period"],
                 "subject": subj_map.get(r.get("subject_id"), ""),
+                "subject_id": r.get("subject_id"),
                 "class_name": cls_map.get(r.get("class_id"), ""),
                 "class_id": r.get("class_id"),
                 "original_teacher": teacher_name_map.get(r.get("original_teacher_id"), ""),
+                "original_teacher_id": r.get("original_teacher_id"),
                 "substitute_teacher": teacher_name_map.get(r.get("substitute_teacher_id"), ""),
+                "substitute_teacher_id": r.get("substitute_teacher_id"),
                 "room": r.get("room") or "",
                 "note": r.get("note") or "",
                 "topic": r.get("topic") or "",
@@ -4589,3 +4593,89 @@ def teacher_substitute_classes(request):
         })
 
     return JsonResponse({"classes": classes})
+
+
+@csrf_exempt
+def teacher_substitute_detail(request):
+    """GET → view substitute lesson details + attendance (read-only for original teacher)."""
+    payload = _verify_token(request)
+    if not payload or payload.get("role") != "teacher":
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    teacher_id = payload["sub"]
+    sub_id = request.GET.get("id", "").strip()
+    if not sub_id:
+        return JsonResponse({"message": "id required"}, status=400)
+
+    db = ediary()
+    result = db.table("substitutes").select("*").eq("id", sub_id).limit(1).execute()
+    if not result.data:
+        return JsonResponse({"message": "Not found"}, status=404)
+    sub = result.data[0]
+
+    # Only original or substitute teacher can view
+    if sub["original_teacher_id"] != teacher_id and sub["substitute_teacher_id"] != teacher_id:
+        return JsonResponse({"message": "Unauthorized"}, status=403)
+
+    # Lookups
+    subj_map = {s["id"]: s["name"] for s in (ediary().table("subjects").select("id, name").execute().data or [])}
+    cls_map = {c["id"]: c["class_name"] for c in (ediary().table("classes").select("id, class_name").execute().data or [])}
+    tch_rows = ediary().table("teachers").select("id, name, surname").execute().data or []
+    tch_map = {t["id"]: f"{t['name']} {t['surname']}" for t in tch_rows}
+
+    # Fetch attendance recorded by the substitute teacher
+    try:
+        att_result = (
+            ediary().table("attendance")
+            .select("student_id, status, comment, topic")
+            .eq("class_id", sub["class_id"])
+            .eq("subject_id", sub["subject_id"])
+            .eq("date_recorded", sub["date"])
+            .eq("recorded_by_teacher_id", sub["substitute_teacher_id"])
+            .execute()
+        )
+        attendance = att_result.data or []
+    except Exception:
+        attendance = []
+
+    # Get student names
+    student_ids = [a["student_id"] for a in attendance]
+    student_info = {}
+    if student_ids:
+        st_rows = ediary().table("students").select("id, name, surname, class_id").in_("id", student_ids).execute()
+        for s in (st_rows.data or []):
+            student_info[s["id"]] = {
+                "name": s["name"], "surname": s["surname"],
+                "class_name": cls_map.get(s.get("class_id"), ""),
+            }
+
+    topic = attendance[0].get("topic", "") if attendance else (sub.get("topic") or "")
+
+    students = []
+    for a in attendance:
+        si = student_info.get(a["student_id"], {})
+        students.append({
+            "name": si.get("name", ""),
+            "surname": si.get("surname", ""),
+            "class_name": si.get("class_name", ""),
+            "status": a["status"],
+            "comment": a.get("comment", ""),
+        })
+    students.sort(key=lambda s: (s["surname"], s["name"]))
+
+    return JsonResponse({
+        "substitute": {
+            "id": sub["id"],
+            "date": sub["date"],
+            "period": sub["period"],
+            "subject": subj_map.get(sub.get("subject_id"), ""),
+            "class_name": cls_map.get(sub.get("class_id"), ""),
+            "original_teacher": tch_map.get(sub.get("original_teacher_id"), ""),
+            "substitute_teacher": tch_map.get(sub.get("substitute_teacher_id"), ""),
+            "room": sub.get("room") or "",
+            "note": sub.get("note") or "",
+            "topic": topic,
+        },
+        "students": students,
+        "is_read_only": sub["original_teacher_id"] == teacher_id,
+    })

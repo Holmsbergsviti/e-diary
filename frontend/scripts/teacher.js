@@ -381,8 +381,9 @@ function renderWeeklySchedule() {
             } else if (slot) {
                 // Check for substitute override on this slot
                 if (subOverride && subOverride.is_substitute_for_me) {
-                    // Teacher is absent – someone else is covering
-                    html += `<td class="lesson lesson-substitute" title="You're absent – ${escHtml(subOverride.substitute_teacher || 'substitute')} is covering">
+                    // Teacher is absent – someone else is covering – clickable to view details
+                    const subJson = JSON.stringify(subOverride).replace(/'/g, "&#39;");
+                    html += `<td class="lesson lesson-substitute clickable-sub" data-sub='${subJson}' title="You're absent – ${escHtml(subOverride.substitute_teacher || 'substitute')} is covering. Click to view.">
                         ${escHtml(subOverride.subject || slot.subject)} <small class="sub-badge sub-badge-out">Absent</small><br>
                         <span class="lesson-room">${escHtml(slot.class_name || '')}${subOverride.substitute_teacher ? ' · ' + escHtml(subOverride.substitute_teacher) : ''}</span>
                     </td>`;
@@ -418,7 +419,8 @@ function renderWeeklySchedule() {
             } else {
                 // Empty cell – check if teacher is covering for someone
                 if (subOverride && !subOverride.is_substitute_for_me) {
-                    html += `<td class="lesson lesson-substitute" title="Covering for ${escHtml(subOverride.original_teacher || '')}">
+                    const subJson = JSON.stringify(subOverride).replace(/'/g, "&#39;");
+                    html += `<td class="lesson lesson-substitute clickable-sub" data-sub='${subJson}' title="Covering for ${escHtml(subOverride.original_teacher || '')}. Click to view.">
                         ${escHtml(subOverride.subject)} <small class="sub-badge sub-badge-in">Covering</small><br>
                         <span class="lesson-room">${escHtml(subOverride.class_name || '')}${subOverride.room ? ' · Room ' + escHtml(subOverride.room) : ''}</span>
                     </td>`;
@@ -480,6 +482,73 @@ function renderWeeklySchedule() {
             openAttendanceModal(slot);
         });
     });
+
+    // Clicking a substitute cell opens the detail view
+    container.querySelectorAll(".clickable-sub").forEach(td => {
+        td.addEventListener("click", () => {
+            const sub = JSON.parse(td.dataset.sub);
+            viewSubstituteDetail(sub);
+        });
+    });
+}
+
+/* ---- Substitute detail view (read-only for original teacher) ---- */
+async function viewSubstituteDetail(sub) {
+    const modal = document.getElementById("subDetailModal");
+    const title = document.getElementById("subDetailTitle");
+    const subtitle = document.getElementById("subDetailSubtitle");
+    const body = document.getElementById("subDetailBody");
+
+    const time = PERIOD_TIMES[sub.period - 1] || `Period ${sub.period}`;
+    title.textContent = `${sub.subject} – ${sub.class_name}`;
+    subtitle.textContent = `${sub.date} · ${time}${sub.room ? " · Room " + sub.room : ""}`;
+    body.innerHTML = '<p class="loading">Loading details…</p>';
+
+    modal.style.display = "flex";
+    document.getElementById("subDetailClose").onclick = () => { modal.style.display = "none"; };
+    modal.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; };
+
+    try {
+        const res = await apiFetch(`/teacher/substitutes/detail/?id=${sub.id}`);
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || `HTTP ${res.status}`); }
+        const data = await res.json();
+        const info = data.substitute;
+        const students = data.students || [];
+        const readOnly = data.is_read_only;
+
+        let html = '<div class="sub-detail-info">';
+        if (readOnly) {
+            html += `<div class="sub-detail-row"><strong>Substitute Teacher:</strong> ${escHtml(info.substitute_teacher)}</div>`;
+        } else {
+            html += `<div class="sub-detail-row"><strong>Covering for:</strong> ${escHtml(info.original_teacher)}</div>`;
+        }
+        if (info.topic) html += `<div class="sub-detail-row"><strong>Topic:</strong> ${escHtml(info.topic)}</div>`;
+        if (info.note) html += `<div class="sub-detail-row"><strong>Note:</strong> ${escHtml(info.note)}</div>`;
+        html += '</div>';
+
+        if (students.length === 0) {
+            html += '<p class="empty-state" style="margin-top:12px;">No attendance recorded yet.</p>';
+        } else {
+            html += `<table class="attendance-table" style="margin-top:12px;">
+                <thead><tr><th>#</th><th>Student</th><th>Class</th><th>Status</th><th>Comment</th></tr></thead>
+                <tbody>${students.map((s, i) => {
+                    const statusClass = "status-" + s.status.toLowerCase();
+                    const statusIcon = s.status === "Present" ? "✅" : s.status === "Late" ? "⏰" : s.status === "Absent" ? "❌" : "📋";
+                    return `<tr>
+                        <td>${i + 1}</td>
+                        <td>${escHtml(s.surname)} ${escHtml(s.name)}</td>
+                        <td><span class="class-tag">${escHtml(s.class_name || "")}</span></td>
+                        <td><span class="status-badge ${statusClass}">${statusIcon} ${escHtml(s.status)}</span></td>
+                        <td>${escHtml(s.comment || "—")}</td>
+                    </tr>`;
+                }).join("")}</tbody>
+            </table>`;
+        }
+
+        body.innerHTML = html;
+    } catch (err) {
+        body.innerHTML = `<p class="empty-state">Failed to load details: ${escHtml(err.message)}</p>`;
+    }
 }
 
 /* ---- Attendance modal ----------------------------------------- */

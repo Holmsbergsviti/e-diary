@@ -22,6 +22,7 @@ from .views import (
     public_events,
     teacher_study_hall, teacher_study_hall_students, teacher_study_hall_attendance,
     teacher_substitutes, teacher_substitute_classes,
+    teacher_substitute_detail,
 )
 
 urlpatterns = [
@@ -77,4 +78,5 @@ urlpatterns = [
     path("teacher/study-hall/attendance/", teacher_study_hall_attendance),
     path("teacher/substitutes/", teacher_substitutes),
     path("teacher/substitutes/classes/", teacher_substitute_classes),
+    path("teacher/substitutes/detail/", teacher_substitute_detail),
 ]

@@ -384,7 +384,13 @@ function renderSchedule() {
             } else {
                 const shSession = (shMap[cellDateStr] || {})[p];
                 const nowClass = isNowCell ? " cell-current" : "";
-                if (shSession) {
+                if (subOverride && isTeacher && !subOverride.is_substitute_for_me) {
+                    // Teacher is covering for someone – show substitute cell
+                    html += `<td class="lesson lesson-substitute${nowClass}" title="Covering for ${escHtml(subOverride.original_teacher || '')}">
+                        ${escHtml(subOverride.subject)} <small class="sub-badge sub-badge-in">Covering</small><br>
+                        <span class="lesson-room">${escHtml(subOverride.class_name || '')}${subOverride.room ? ' · Room ' + escHtml(subOverride.room) : ''}</span>
+                    </td>`;
+                } else if (shSession) {
                     const roomInfo = shSession.room ? `Room ${escHtml(shSession.room)}` : "";
                     const teacherInfo = shSession.teacher_name ? escHtml(shSession.teacher_name) : "";
                     const detail = isStudent ? teacherInfo : "";
