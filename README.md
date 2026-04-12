@@ -135,14 +135,13 @@ Teacher emails follow the pattern: `firstname.surname@chartwell.edu.rs` (dot sep
 
 ### 📕 Admin Account
 
-Admins manage the entire school structure. The admin system has a 3-tier hierarchy with granular permissions.
+Admins manage the entire school structure. The admin system has a 2-tier hierarchy with granular permissions.
 
 #### Admin Levels
 
 | Level | Description | Can Manage |
 |---|---|---|
-| **Super** | System root account. Hidden from all user lists (including other supers). Cannot be impersonated, edited, or deleted by anyone. | Everything: all admins, all data, all settings. |
-| **Master** | School lead admin. Hidden from regular admin lists. Visible and editable only by super admins. | Everything except super-level admins. Can create/edit/delete regular admins. |
+| **Master** | School lead admin. Has full access to all administrative features. Can create, edit, and delete regular admins. | Everything: all data, all settings, all regular admins. |
 | **Regular** | Standard administrator with granular permissions. Only sees admin tabs matching their assigned permissions. | Only features matching their permission keys. |
 
 #### Permission Keys (Regular Admins)
@@ -159,7 +158,7 @@ Regular admins are assigned a combination of these 11 permission keys. Permissio
 | `events` | View, create, edit, and delete events (with targeting: all-school, per-class, or per-student). |
 | `holidays` | View, create, edit, and delete holidays (date ranges). |
 | `import` | Access the CSV bulk import feature (supports 8 data types). |
-| `impersonate` | Log in as any non-super user to view their experience. Generates a temporary token. |
+| `impersonate` | Log in as any user to view their experience. Generates a temporary token. |
 | `attendance` | View the attendance flags panel (detects suspicious conflicts: student absent in one class but present in another same day). |
 | `exports` | Access data export functionality. |
 
@@ -172,7 +171,7 @@ Regular admins are assigned a combination of these 11 permission keys. Permissio
 | **Subjects** | CRUD for subjects (name + optional color code for UI badges). |
 | **Teachers** | Add teachers with name/surname and optional email/password (auto-generated if omitted: 10-character ambiguity-reduced password, `firstname.surname@chartwell.edu.rs` email). Edit teacher details. Delete with confirmation. View teacher list with avatars. Set class teacher status. |
 | **Students** | Add students with name/surname and optional email/password (auto-generated if omitted). Assign to a class. Edit student details. Delete with confirmation. View student list grouped by class with avatars. |
-| **Admins** | Add regular admins with fine-grained permission assignment. Master+ can create regular admins. Super can create master admins. Edit admin permissions and level. Delete with level-appropriate authorization. |
+| **Admins** | Add regular admins with fine-grained permission assignment. Master admins can create and manage regular admins. Edit admin permissions and level. Delete with level-appropriate authorization. |
 | **Teacher Assignments** | Link teachers to subject+class combinations. This determines which classes a teacher can take attendance for and grade. |
 | **Student Enrollments** | Enroll students in subjects, optionally with a group class override (for when a student in class 12A takes a subject with class 12B). |
 | **Schedule** | Build the master timetable: assign teacher+subject+class to day-of-week + period + room. Unique constraint on (teacher, day, period) to prevent double-booking. |
@@ -181,13 +180,12 @@ Regular admins are assigned a combination of these 11 permission keys. Permissio
 | **Attendance Flags** | Suspicious attendance conflict detector. Configurable date range. Shows students marked absent in one subject but present/late in another on the same date — useful for identifying truancy. |
 | **CSV Bulk Import** | Import data from CSV files for all 8 entity types: classes, subjects, students, teachers, admins, teacher assignments, student enrollments, and schedule slots. Supports name-to-ID resolution (e.g., write "John Smith" in CSV instead of UUIDs). For students and teachers, auto-generates credentials and returns them as downloadable data. |
 | **Student Lookup** | Deep-dive into a single student's complete academic record: all grades by subject, attendance summary, homework status, and behavioral entries. |
-| **Impersonation** | Generate a temporary login session as any user (except super admin) to see exactly what they see. An impersonation banner is shown in the UI with a "Back to Admin" button. The admin's original session is preserved in localStorage for seamless return. |
+| **Impersonation** | Generate a temporary login session as any user to see exactly what they see. An impersonation banner is shown in the UI with a "Back to Admin" button. The admin's original session is preserved in localStorage for seamless return. |
 | **Exports** | Export school data in various formats. |
 
 #### Hierarchy Protection
 
-- **Super admin** is completely invisible to all other users and cannot be modified.
-- **Master admin** is invisible to regular admins. Only super can see and modify master accounts.
+- **Master admin** is hidden from regular admin user lists.
 - A regular admin **cannot** edit or delete another admin of equal or higher level.
 - Permission checks are **database-verified** on every request — changing permissions in the database takes immediate effect without requiring re-login.
 
@@ -372,12 +370,9 @@ Returns HTTP 429 on excess. Graceful fallback if ratelimit package is unavailabl
 
 | Rule | Enforced By |
 |---|---|
-| Super admin cannot be impersonated | Hard check on user ID |
-| Super admin hidden from all user lists | Excluded from all admin queries |
 | Master admin hidden from regular admins | Filtered in admin user listing |
-| Only super can edit/delete masters | Level comparison in update/delete handlers |
-| Only master+ can create regular admins | Caller level check on POST |
-| Only super can create master/super admins | Caller level check on POST |
+| Regular admins cannot edit/delete higher-level admins | Level comparison in update/delete handlers |
+| Only master admins can create regular admins | Caller level check on POST |
 
 ### Transport & Headers (Production)
 
@@ -468,7 +463,7 @@ The database lives in a custom Supabase schema called `ediary_schema`. Here's th
 |---|---|---|
 | `students` | Student records | `name`, `surname`, `class_id` (FK→classes), `default_password`, `profile_picture_url` |
 | `teachers` | Teacher records | `name`, `surname`, `is_class_teacher`, `class_teacher_of_class_id` (FK→classes), `default_password`, `profile_picture_url` |
-| `admins` | Admin records | `name`, `surname`, `admin_level` (super/master/regular), `permissions` (JSONB), `profile_picture_url` |
+| `admins` | Admin records | `name`, `surname`, `admin_level` (master/regular), `permissions` (JSONB), `profile_picture_url` |
 
 ### Relationship Tables
 
