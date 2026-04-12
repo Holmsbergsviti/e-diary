@@ -895,6 +895,7 @@ def _get_substitutes_for_schedule(db, user_id, role, schedule_rows, teacher_name
                 "substitute_teacher": teacher_name_map.get(r.get("substitute_teacher_id"), ""),
                 "room": r.get("room") or "",
                 "note": r.get("note") or "",
+                "topic": r.get("topic") or "",
                 "is_substitute": True,
                 "is_substitute_for_me": role == "teacher" and r.get("original_teacher_id") == user_id,
             }
@@ -4398,8 +4399,9 @@ def admin_student_lookup(request):
 @csrf_exempt
 def teacher_substitutes(request):
     """
-    GET  → list substitutes created by this teacher (+ ones where they are the sub)
-    POST → create a substitute lesson
+    GET  → list substitutes where this teacher is the substitute
+    POST → create a substitute lesson (logged-in teacher = the substitute)
+    DELETE → remove a substitute by id
     """
     payload = _verify_token(request)
     if not payload or payload.get("role") != "teacher":
@@ -4409,9 +4411,14 @@ def teacher_substitutes(request):
     db = ediary()
 
     if request.method == "GET":
-        # Subs where I'm the original teacher OR the substitute teacher
-        own = db.table("substitutes").select("*").eq("original_teacher_id", teacher_id).order("date", desc=True).execute()
-        covering = ediary().table("substitutes").select("*").eq("substitute_teacher_id", teacher_id).order("date", desc=True).execute()
+        # Subs where I'm the substitute teacher
+        mine = (
+            db.table("substitutes")
+            .select("*")
+            .eq("substitute_teacher_id", teacher_id)
+            .order("date", desc=True)
+            .execute()
+        )
 
         # Lookups
         subj_map = {s["id"]: s["name"] for s in (ediary().table("subjects").select("id, name").execute().data or [])}
@@ -4434,12 +4441,10 @@ def teacher_substitutes(request):
                 "substitute_teacher_id": row.get("substitute_teacher_id"),
                 "room": row.get("room") or "",
                 "note": row.get("note") or "",
+                "topic": row.get("topic") or "",
             }
 
-        own_list = [enrich(r) for r in (own.data or [])]
-        covering_list = [enrich(r) for r in (covering.data or []) if r.get("original_teacher_id") != teacher_id]
-
-        return JsonResponse({"my_absences": own_list, "covering": covering_list})
+        return JsonResponse({"substitutions": [enrich(r) for r in (mine.data or [])]})
 
     if request.method == "POST":
         try:
@@ -4447,66 +4452,140 @@ def teacher_substitutes(request):
         except json.JSONDecodeError:
             return JsonResponse({"message": "Invalid JSON"}, status=400)
 
-        date = data.get("date", "").strip()
+        date_str = data.get("date", "").strip()
         period = data.get("period")
-        substitute_teacher_id = data.get("substitute_teacher_id", "").strip()
-        subject_id = data.get("subject_id", "").strip()
-        class_id = data.get("class_id", "").strip()
+        schedule_id = data.get("schedule_id", "").strip()  # the schedule slot being covered
         room = data.get("room", "").strip()
         note = data.get("note", "").strip()
+        topic = data.get("topic", "").strip()
 
-        if not date or not period or not substitute_teacher_id or not subject_id or not class_id:
-            return JsonResponse({"message": "date, period, substitute_teacher_id, subject_id, and class_id are required"}, status=400)
+        if not date_str or not period or not schedule_id:
+            return JsonResponse({"message": "date, period, and schedule_id are required"}, status=400)
+
+        # Look up the schedule slot to find original teacher, subject, class
+        slot = db.table("schedule").select("*").eq("id", schedule_id).limit(1).execute()
+        if not slot.data:
+            return JsonResponse({"message": "Schedule slot not found"}, status=404)
+        slot = slot.data[0]
+
+        original_teacher_id = slot["teacher_id"]
+        subject_id = slot["subject_id"]
+        class_id = slot["class_id"]
+
+        if original_teacher_id == teacher_id:
+            return JsonResponse({"message": "You cannot substitute for yourself"}, status=400)
 
         # Upsert: if there's already a substitute for this date+period+class, update it
         existing = (
             db.table("substitutes")
             .select("id")
-            .eq("date", date).eq("period", int(period)).eq("class_id", class_id)
+            .eq("date", date_str).eq("period", int(period)).eq("class_id", class_id)
             .limit(1)
             .execute()
         )
         payload_data = {
-            "date": date,
+            "date": date_str,
             "period": int(period),
-            "original_teacher_id": teacher_id,
-            "substitute_teacher_id": substitute_teacher_id,
+            "original_teacher_id": original_teacher_id,
+            "substitute_teacher_id": teacher_id,  # I am the substitute
             "subject_id": subject_id,
             "class_id": class_id,
-            "room": room,
+            "room": room or slot.get("room", ""),
             "note": note,
+            "topic": topic,
         }
         if existing.data:
             db.table("substitutes").update(payload_data).eq("id", existing.data[0]["id"]).execute()
-            return JsonResponse({"message": "Substitute updated"})
+            sub_id = existing.data[0]["id"]
         else:
-            db.table("substitutes").insert(payload_data).execute()
-            return JsonResponse({"message": "Substitute created"}, status=201)
+            ins = db.table("substitutes").insert(payload_data).execute()
+            sub_id = ins.data[0]["id"] if ins.data else None
+
+        return JsonResponse({"message": "Substitute saved", "id": sub_id}, status=201)
 
     if request.method == "DELETE":
         sub_id = request.GET.get("id", "").strip()
         if not sub_id:
             return JsonResponse({"message": "id required"}, status=400)
-        # Only original teacher can delete
-        db.table("substitutes").delete().eq("id", sub_id).eq("original_teacher_id", teacher_id).execute()
+        # Only the substitute teacher who created it can delete
+        db.table("substitutes").delete().eq("id", sub_id).eq("substitute_teacher_id", teacher_id).execute()
         return JsonResponse({"message": "Deleted"})
 
     return JsonResponse({"message": "Method not allowed"}, status=405)
 
 
 @csrf_exempt
-def teacher_substitute_teachers(request):
-    """GET → list all teachers (for the substitute picker dropdown)."""
+def teacher_substitute_classes(request):
+    """GET → list classes that can be substituted for a given date+period.
+
+    Looks at the master schedule for classes happening at that day_of_week + period,
+    excluding the logged-in teacher's own classes.
+    Returns: [{schedule_id, subject, subject_id, class_name, class_id, original_teacher, original_teacher_id, room}]
+    """
     payload = _verify_token(request)
     if not payload or payload.get("role") != "teacher":
         return JsonResponse({"message": "Unauthorized"}, status=401)
 
     teacher_id = payload["sub"]
+    date_str = request.GET.get("date", "").strip()
+    period = request.GET.get("period", "").strip()
+
+    if not date_str or not period:
+        return JsonResponse({"message": "date and period required"}, status=400)
+
+    # Convert date to day_of_week (1=Mon … 5=Fri)
+    try:
+        from datetime import date as dt_date
+        d = dt_date.fromisoformat(date_str)
+        dow = d.isoweekday()  # 1=Mon … 7=Sun
+        if dow > 5:
+            return JsonResponse({"classes": []})  # weekend
+    except ValueError:
+        return JsonResponse({"message": "Invalid date"}, status=400)
+
     db = ediary()
-    rows = db.table("teachers").select("id, name, surname").order("surname").order("name").execute()
-    teachers = [
-        {"id": t["id"], "full_name": f"{t['name']} {t['surname']}"}
-        for t in (rows.data or [])
-        if t["id"] != teacher_id  # exclude self
-    ]
-    return JsonResponse({"teachers": teachers})
+    # Get all schedule slots for this day_of_week + period, excluding this teacher's own
+    slots = (
+        db.table("schedule")
+        .select("id, teacher_id, subject_id, class_id, room")
+        .eq("day_of_week", dow)
+        .eq("period", int(period))
+        .neq("teacher_id", teacher_id)
+        .execute()
+    )
+
+    if not slots.data:
+        return JsonResponse({"classes": []})
+
+    # Filter out classes that already have a substitute for this date+period
+    existing_subs = (
+        db.table("substitutes")
+        .select("class_id")
+        .eq("date", date_str)
+        .eq("period", int(period))
+        .execute()
+    )
+    already_covered = {s["class_id"] for s in (existing_subs.data or [])}
+
+    # Lookups
+    subj_map = {s["id"]: s["name"] for s in (ediary().table("subjects").select("id, name").execute().data or [])}
+    cls_map = {c["id"]: c["class_name"] for c in (ediary().table("classes").select("id, class_name").execute().data or [])}
+    tch_rows = ediary().table("teachers").select("id, name, surname").execute().data or []
+    tch_map = {t["id"]: f"{t['name']} {t['surname']}" for t in tch_rows}
+
+    classes = []
+    for s in slots.data:
+        if s["class_id"] in already_covered:
+            continue
+        classes.append({
+            "schedule_id": s["id"],
+            "subject": subj_map.get(s["subject_id"], ""),
+            "subject_id": s["subject_id"],
+            "class_name": cls_map.get(s["class_id"], ""),
+            "class_id": s["class_id"],
+            "original_teacher": tch_map.get(s["teacher_id"], ""),
+            "original_teacher_id": s["teacher_id"],
+            "room": s.get("room") or "",
+        })
+
+    return JsonResponse({"classes": classes})

@@ -310,6 +310,7 @@ CREATE TABLE ediary_schema.substitutes (
   class_id uuid NOT NULL,
   room text,
   note text,
+  topic text,
   created_at timestamptz DEFAULT now(),
   CONSTRAINT substitutes_pkey PRIMARY KEY (id),
   CONSTRAINT substitutes_unique UNIQUE (date, period, class_id),

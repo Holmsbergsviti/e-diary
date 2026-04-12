@@ -248,9 +248,12 @@
 
         <!-- Substitute Modal -->
         <div id="substituteModal" class="modal-overlay" style="display:none;">
-            <div class="modal" style="max-width:480px;">
+            <div class="modal">
                 <div class="modal-header">
-                    <h2>Add Substitute</h2>
+                    <div>
+                        <h2 id="subModalTitle">Add Substitute</h2>
+                        <p id="subModalSubtitle" class="modal-subtitle"></p>
+                    </div>
                     <button id="subModalClose" class="modal-close-btn">&times;</button>
                 </div>
                 <div class="modal-body">
@@ -275,25 +278,27 @@
                         </div>
                     </div>
                     <div class="form-group" style="margin-bottom:12px;">
-                        <label for="subSubjectClass">Subject &amp; Class</label>
-                        <select id="subSubjectClass" class="form-input"></select>
-                    </div>
-                    <div class="form-group" style="margin-bottom:12px;">
-                        <label for="subTeacher">Substitute Teacher</label>
-                        <select id="subTeacher" class="form-input"><option value="">Loading…</option></select>
+                        <label for="subClassSelect">Class to Cover</label>
+                        <select id="subClassSelect" class="form-input"><option value="">Select date &amp; period first…</option></select>
                     </div>
                     <div class="form-row" style="gap:12px;margin-bottom:12px;">
+                        <div class="form-group" style="flex:1;">
+                            <label for="subTopic">Topic / Lesson</label>
+                            <input type="text" id="subTopic" class="form-input" placeholder="e.g. Chapter 5 review">
+                        </div>
                         <div class="form-group" style="flex:1;">
                             <label for="subRoom">Room (optional)</label>
                             <input type="text" id="subRoom" class="form-input" placeholder="e.g. 101">
                         </div>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" style="margin-bottom:12px;">
                         <label for="subNote">Note (optional)</label>
                         <input type="text" id="subNote" class="form-input" placeholder="e.g. Pages 45-50">
                     </div>
+                    <div id="subStudentList"></div>
                 </div>
                 <div class="modal-footer">
+                    <button id="subMarkAllPresent" class="btn btn-secondary">Mark all present</button>
                     <button id="subSaveBtn" class="btn btn-primary">Save Substitute</button>
                 </div>
             </div>
