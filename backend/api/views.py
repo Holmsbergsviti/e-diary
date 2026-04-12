@@ -785,7 +785,14 @@ def schedule(request):
     # Include study hall sessions
     study_hall_sessions = _get_study_hall_for_schedule(ediary(), user_id, role)
 
-    return JsonResponse({"schedule": rows, "study_hall": study_hall_sessions})
+    # Include substitute lessons (upcoming + recent)
+    substitutes = _get_substitutes_for_schedule(ediary(), user_id, role, rows, teacher_name_map)
+
+    return JsonResponse({
+        "schedule": rows,
+        "study_hall": study_hall_sessions,
+        "substitutes": substitutes,
+    })
 
 
 def _get_study_hall_for_schedule(db, user_id, role):
@@ -848,6 +855,51 @@ def _get_study_hall_for_schedule(db, user_id, role):
                 }
                 for s in (sessions.data or [])
             ]
+    except Exception:
+        return []
+
+
+def _get_substitutes_for_schedule(db, user_id, role, schedule_rows, teacher_name_map):
+    """Return substitute lessons as date-keyed overrides.
+
+    For students: subs affecting their classes.
+    For teachers: subs where they are original or substitute teacher.
+    Returns list of dicts: {date, period, subject, class_name, original_teacher, substitute_teacher, room, note, is_substitute}.
+    """
+    try:
+        subj_map = {s["id"]: s["name"] for s in (db.table("subjects").select("id, name").execute().data or [])}
+        cls_map = {c["id"]: c["class_name"] for c in (db.table("classes").select("id, class_name").execute().data or [])}
+        if not teacher_name_map:
+            for t in (db.table("teachers").select("id, name, surname").execute().data or []):
+                teacher_name_map[t["id"]] = f"{t['name']} {t['surname']}"
+
+        if role == "teacher":
+            own = db.table("substitutes").select("*").eq("original_teacher_id", user_id).execute()
+            covering = ediary().table("substitutes").select("*").eq("substitute_teacher_id", user_id).execute()
+            all_subs = (own.data or []) + [r for r in (covering.data or []) if r.get("original_teacher_id") != user_id]
+        else:
+            # Student: get their class IDs
+            class_ids = list({s["class_id"] for s in schedule_rows if s.get("class_id")})
+            if not class_ids:
+                return []
+            all_subs = db.table("substitutes").select("*").in_("class_id", class_ids).execute().data or []
+
+        return [
+            {
+                "date": r["date"],
+                "period": r["period"],
+                "subject": subj_map.get(r.get("subject_id"), ""),
+                "class_name": cls_map.get(r.get("class_id"), ""),
+                "class_id": r.get("class_id"),
+                "original_teacher": teacher_name_map.get(r.get("original_teacher_id"), ""),
+                "substitute_teacher": teacher_name_map.get(r.get("substitute_teacher_id"), ""),
+                "room": r.get("room") or "",
+                "note": r.get("note") or "",
+                "is_substitute": True,
+                "is_substitute_for_me": role == "teacher" and r.get("original_teacher_id") == user_id,
+            }
+            for r in all_subs
+        ]
     except Exception:
         return []
 
@@ -4337,3 +4389,124 @@ def admin_student_lookup(request):
             "records": beh_records,
         },
     })
+
+
+# ------------------------------------------------------------------
+# Substitute lessons
+# ------------------------------------------------------------------
+
+@csrf_exempt
+def teacher_substitutes(request):
+    """
+    GET  → list substitutes created by this teacher (+ ones where they are the sub)
+    POST → create a substitute lesson
+    """
+    payload = _verify_token(request)
+    if not payload or payload.get("role") != "teacher":
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    teacher_id = payload["sub"]
+    db = ediary()
+
+    if request.method == "GET":
+        # Subs where I'm the original teacher OR the substitute teacher
+        own = db.table("substitutes").select("*").eq("original_teacher_id", teacher_id).order("date", desc=True).execute()
+        covering = ediary().table("substitutes").select("*").eq("substitute_teacher_id", teacher_id).order("date", desc=True).execute()
+
+        # Lookups
+        subj_map = {s["id"]: s["name"] for s in (ediary().table("subjects").select("id, name").execute().data or [])}
+        cls_map = {c["id"]: c["class_name"] for c in (ediary().table("classes").select("id, class_name").execute().data or [])}
+        tch_rows = ediary().table("teachers").select("id, name, surname").execute().data or []
+        tch_map = {t["id"]: f"{t['name']} {t['surname']}" for t in tch_rows}
+
+        def enrich(row):
+            return {
+                "id": row["id"],
+                "date": row["date"],
+                "period": row["period"],
+                "subject": subj_map.get(row.get("subject_id"), ""),
+                "subject_id": row.get("subject_id"),
+                "class_name": cls_map.get(row.get("class_id"), ""),
+                "class_id": row.get("class_id"),
+                "original_teacher": tch_map.get(row.get("original_teacher_id"), ""),
+                "original_teacher_id": row.get("original_teacher_id"),
+                "substitute_teacher": tch_map.get(row.get("substitute_teacher_id"), ""),
+                "substitute_teacher_id": row.get("substitute_teacher_id"),
+                "room": row.get("room") or "",
+                "note": row.get("note") or "",
+            }
+
+        own_list = [enrich(r) for r in (own.data or [])]
+        covering_list = [enrich(r) for r in (covering.data or []) if r.get("original_teacher_id") != teacher_id]
+
+        return JsonResponse({"my_absences": own_list, "covering": covering_list})
+
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"message": "Invalid JSON"}, status=400)
+
+        date = data.get("date", "").strip()
+        period = data.get("period")
+        substitute_teacher_id = data.get("substitute_teacher_id", "").strip()
+        subject_id = data.get("subject_id", "").strip()
+        class_id = data.get("class_id", "").strip()
+        room = data.get("room", "").strip()
+        note = data.get("note", "").strip()
+
+        if not date or not period or not substitute_teacher_id or not subject_id or not class_id:
+            return JsonResponse({"message": "date, period, substitute_teacher_id, subject_id, and class_id are required"}, status=400)
+
+        # Upsert: if there's already a substitute for this date+period+class, update it
+        existing = (
+            db.table("substitutes")
+            .select("id")
+            .eq("date", date).eq("period", int(period)).eq("class_id", class_id)
+            .limit(1)
+            .execute()
+        )
+        payload_data = {
+            "date": date,
+            "period": int(period),
+            "original_teacher_id": teacher_id,
+            "substitute_teacher_id": substitute_teacher_id,
+            "subject_id": subject_id,
+            "class_id": class_id,
+            "room": room,
+            "note": note,
+        }
+        if existing.data:
+            db.table("substitutes").update(payload_data).eq("id", existing.data[0]["id"]).execute()
+            return JsonResponse({"message": "Substitute updated"})
+        else:
+            db.table("substitutes").insert(payload_data).execute()
+            return JsonResponse({"message": "Substitute created"}, status=201)
+
+    if request.method == "DELETE":
+        sub_id = request.GET.get("id", "").strip()
+        if not sub_id:
+            return JsonResponse({"message": "id required"}, status=400)
+        # Only original teacher can delete
+        db.table("substitutes").delete().eq("id", sub_id).eq("original_teacher_id", teacher_id).execute()
+        return JsonResponse({"message": "Deleted"})
+
+    return JsonResponse({"message": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def teacher_substitute_teachers(request):
+    """GET → list all teachers (for the substitute picker dropdown)."""
+    payload = _verify_token(request)
+    if not payload or payload.get("role") != "teacher":
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    teacher_id = payload["sub"]
+    db = ediary()
+    rows = db.table("teachers").select("id, name, surname").order("surname").order("name").execute()
+    teachers = [
+        {"id": t["id"], "full_name": f"{t['name']} {t['surname']}"}
+        for t in (rows.data or [])
+        if t["id"] != teacher_id  # exclude self
+    ]
+    return JsonResponse({"teachers": teachers})

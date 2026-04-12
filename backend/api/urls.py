@@ -21,6 +21,7 @@ from .views import (
     admin_student_lookup,
     public_events,
     teacher_study_hall, teacher_study_hall_students, teacher_study_hall_attendance,
+    teacher_substitutes, teacher_substitute_teachers,
 )
 
 urlpatterns = [
@@ -74,4 +75,6 @@ urlpatterns = [
     path("teacher/study-hall/", teacher_study_hall),
     path("teacher/study-hall/students/", teacher_study_hall_students),
     path("teacher/study-hall/attendance/", teacher_study_hall_attendance),
+    path("teacher/substitutes/", teacher_substitutes),
+    path("teacher/substitutes/teachers/", teacher_substitute_teachers),
 ]

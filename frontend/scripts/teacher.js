@@ -17,6 +17,7 @@ let currentTeacherId = null; // current teacher's user ID
 let currentTeacherTab = "dashboard"; // active tab
 let statsLoaded = false;   // lazy flag for statistics tab
 let exportsLoaded = false; // lazy flag for exports tab
+let teacherSubstitutes = []; // substitute lessons from schedule API
 
 /* ---- Bootstrap ------------------------------------------------ */
 async function initTeacher() {
@@ -31,7 +32,7 @@ async function initTeacher() {
     currentTeacherId = user?.id || null;
 
     initNav();
-    await Promise.all([loadSchedule(), loadHomework(), loadBehavioral(), loadStudyHall()]);
+    await Promise.all([loadSchedule(), loadHomework(), loadBehavioral(), loadStudyHall(), loadSubstitutes()]);
     
     // Initialize card collapse functionality
     initCardCollapse();
@@ -45,6 +46,9 @@ async function initTeacher() {
 
     // Study hall button
     document.getElementById("openStudyHallBtn").addEventListener("click", openStudyHallModal);
+
+    // Substitute button
+    document.getElementById("openSubstituteBtn").addEventListener("click", openSubstituteModal);
 
     // Check if redirected from schedule page with an attendance slot to open
     const pending = sessionStorage.getItem("openAttendance");
@@ -123,6 +127,7 @@ async function loadSchedule() {
         ]);
         const data = await schedRes.json();
         allSlots = data.schedule || [];
+        teacherSubstitutes = data.substitutes || [];
 
         // Load events/holidays
         try {
@@ -336,6 +341,13 @@ function renderWeeklySchedule() {
         { type: "period", period: 8 },
     ];
 
+    // Build substitute lookup: tSubMap[dateStr][period] = sub
+    const tSubMap = {};
+    for (const sub of teacherSubstitutes) {
+        if (!tSubMap[sub.date]) tSubMap[sub.date] = {};
+        tSubMap[sub.date][sub.period] = sub;
+    }
+
     for (const row of TEACHER_ROWS) {
         if (row.type === "break") {
             html += `<tr class="schedule-break-row">
@@ -354,6 +366,7 @@ function renderWeeklySchedule() {
             const cellDateStr = isoDate(cellDate);
             const holiday = getHoliday(cellDateStr);
             const eventOverride = (eventPeriodMap[cellDateStr] || {})[p];
+            const subOverride = (tSubMap[cellDateStr] || {})[p];
 
             if (holiday) {
                 html += `<td class="lesson-holiday" title="${escHtml(holiday.name)}"><span class="holiday-label">${p === 1 ? escHtml(holiday.name) : ""}</span></td>`;
@@ -366,6 +379,14 @@ function renderWeeklySchedule() {
                     ${eventOverride.start_time ? `<br><span class="lesson-room">${eventOverride.start_time}${eventOverride.end_time ? '–' + eventOverride.end_time : ''}</span>` : ""}
                 </td>`;
             } else if (slot) {
+                // Check for substitute override on this slot
+                if (subOverride && subOverride.is_substitute_for_me) {
+                    // Teacher is absent – someone else is covering
+                    html += `<td class="lesson lesson-substitute" title="You're absent – ${escHtml(subOverride.substitute_teacher || 'substitute')} is covering">
+                        ${escHtml(subOverride.subject || slot.subject)} <small class="sub-badge sub-badge-out">Absent</small><br>
+                        <span class="lesson-room">${escHtml(slot.class_name || '')}${subOverride.substitute_teacher ? ' · ' + escHtml(subOverride.substitute_teacher) : ''}</span>
+                    </td>`;
+                } else {
                 // Check if this class is on an event (class-level or all-school) for this date
                 const dayEvents = eventsByDate[cellDateStr] || [];
                 let classOnTrip = null;
@@ -393,8 +414,17 @@ function renderWeeklySchedule() {
                         <span class="lesson-room">${yrLabel}${slot.room ? " · " + escHtml(slot.room) : ""}</span>
                     </td>`;
                 }
+                }
             } else {
+                // Empty cell – check if teacher is covering for someone
+                if (subOverride && !subOverride.is_substitute_for_me) {
+                    html += `<td class="lesson lesson-substitute" title="Covering for ${escHtml(subOverride.original_teacher || '')}">
+                        ${escHtml(subOverride.subject)} <small class="sub-badge sub-badge-in">Covering</small><br>
+                        <span class="lesson-room">${escHtml(subOverride.class_name || '')}${subOverride.room ? ' · Room ' + escHtml(subOverride.room) : ''}</span>
+                    </td>`;
+                } else {
                 html += "<td>–</td>";
+                }
             }
         }
         html += "</tr>";
@@ -1713,6 +1743,172 @@ async function saveStudyHallAttendance() {
         showToast("Failed to save: " + err.message, "error");
         btn.textContent = "Save Attendance";
         btn.disabled = false;
+    }
+}
+
+/* ================================================================
+   Substitutes – teacher marks absence & assigns a substitute
+   ================================================================ */
+
+let _substituteTeachers = []; // cached teacher list for dropdown
+
+async function loadSubstitutes() {
+    const container = document.getElementById("substituteList");
+    try {
+        const res = await apiFetch("/teacher/substitutes/");
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || `HTTP ${res.status}`); }
+        const data = await res.json();
+        const absences = data.my_absences || [];
+        const covering = data.covering || [];
+
+        if (absences.length === 0 && covering.length === 0) {
+            container.innerHTML = '<p class="empty-state">No substitute lessons yet. Click "+ Add Substitute" to report an absence.</p>';
+            return;
+        }
+
+        let html = "";
+
+        if (absences.length > 0) {
+            html += `<h4 style="margin:0 0 8px;">My Absences</h4>
+            <table class="attendance-table">
+                <thead><tr><th>Date</th><th>Period</th><th>Subject / Class</th><th>Substitute</th><th></th></tr></thead>
+                <tbody>${absences.map(s => {
+                    const time = PERIOD_TIMES[s.period - 1] || `P${s.period}`;
+                    return `<tr>
+                        <td>${escHtml(s.date)}</td>
+                        <td>${s.period} <small style="color:var(--text-lighter)">(${time})</small></td>
+                        <td>${escHtml(s.subject)} · ${escHtml(s.class_name)}</td>
+                        <td>${escHtml(s.substitute_teacher)}</td>
+                        <td><button class="btn btn-sm btn-danger" onclick="deleteSubstitute('${s.id}')">✕</button></td>
+                    </tr>`;
+                }).join("")}</tbody>
+            </table>`;
+        }
+
+        if (covering.length > 0) {
+            html += `<h4 style="margin:${absences.length ? '16px' : '0'} 0 8px;">Covering For</h4>
+            <table class="attendance-table">
+                <thead><tr><th>Date</th><th>Period</th><th>Subject / Class</th><th>Original Teacher</th></tr></thead>
+                <tbody>${covering.map(s => {
+                    const time = PERIOD_TIMES[s.period - 1] || `P${s.period}`;
+                    return `<tr>
+                        <td>${escHtml(s.date)}</td>
+                        <td>${s.period} <small style="color:var(--text-lighter)">(${time})</small></td>
+                        <td>${escHtml(s.subject)} · ${escHtml(s.class_name)}</td>
+                        <td>${escHtml(s.original_teacher)}</td>
+                    </tr>`;
+                }).join("")}</tbody>
+            </table>`;
+        }
+
+        container.innerHTML = html;
+    } catch (err) {
+        container.innerHTML = `<p class="empty-state">Failed to load substitutes: ${escHtml(err.message)}</p>`;
+    }
+}
+
+async function openSubstituteModal() {
+    const modal = document.getElementById("substituteModal");
+    const dateInput = document.getElementById("subDate");
+    const periodSelect = document.getElementById("subPeriod");
+    const subjectClassSelect = document.getElementById("subSubjectClass");
+    const teacherSelect = document.getElementById("subTeacher");
+
+    dateInput.value = new Date().toISOString().slice(0, 10);
+    periodSelect.value = "";
+    document.getElementById("subRoom").value = "";
+    document.getElementById("subNote").value = "";
+
+    // Populate subject & class from the teacher's own schedule slots
+    const unique = new Map();
+    allSlots.forEach(s => {
+        const key = `${s.subject_id}__${s.class_id}`;
+        if (!unique.has(key)) unique.set(key, s);
+    });
+    subjectClassSelect.innerHTML = '<option value="">Select…</option>' +
+        [...unique.values()].map(s =>
+            `<option value="${s.subject_id}__${s.class_id}" data-room="${escHtml(s.room || "")}">${escHtml(s.subject)} · ${escHtml(s.class_name)}</option>`
+        ).join("");
+
+    // Auto-fill period & subject/class when date changes based on schedule
+    const autoFill = () => {
+        const d = new Date(dateInput.value + "T00:00:00");
+        const dow = d.getDay() === 0 ? 7 : d.getDay(); // 1=Mon
+        if (periodSelect.value) {
+            const match = allSlots.find(s => s.day_of_week === dow && s.period === parseInt(periodSelect.value));
+            if (match) {
+                subjectClassSelect.value = `${match.subject_id}__${match.class_id}`;
+                document.getElementById("subRoom").value = match.room || "";
+            }
+        }
+    };
+    dateInput.onchange = autoFill;
+    periodSelect.onchange = autoFill;
+
+    // Load teachers for the dropdown
+    if (_substituteTeachers.length === 0) {
+        teacherSelect.innerHTML = '<option value="">Loading…</option>';
+        try {
+            const res = await apiFetch("/teacher/substitutes/teachers/");
+            if (res.ok) {
+                const d = await res.json();
+                _substituteTeachers = d.teachers || [];
+            }
+        } catch (_) { /* ignore */ }
+    }
+    teacherSelect.innerHTML = '<option value="">Select teacher…</option>' +
+        _substituteTeachers.map(t => `<option value="${t.id}">${escHtml(t.full_name)}</option>`).join("");
+
+    modal.style.display = "flex";
+    document.getElementById("subModalClose").onclick = () => { modal.style.display = "none"; };
+    modal.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; };
+    document.getElementById("subSaveBtn").onclick = saveSubstitute;
+}
+
+async function saveSubstitute() {
+    const btn = document.getElementById("subSaveBtn");
+    const date = document.getElementById("subDate").value;
+    const period = document.getElementById("subPeriod").value;
+    const scVal = document.getElementById("subSubjectClass").value;
+    const substituteTeacherId = document.getElementById("subTeacher").value;
+    const room = document.getElementById("subRoom").value.trim();
+    const note = document.getElementById("subNote").value.trim();
+
+    if (!date || !period || !scVal || !substituteTeacherId) {
+        showToast("Please fill in date, period, subject/class, and substitute teacher", "warning");
+        return;
+    }
+    const [subjectId, classId] = scVal.split("__");
+
+    btn.disabled = true;
+    btn.textContent = "Saving…";
+    try {
+        const res = await apiFetch("/teacher/substitutes/", {
+            method: "POST",
+            body: JSON.stringify({ date, period: parseInt(period), substitute_teacher_id: substituteTeacherId, subject_id: subjectId, class_id: classId, room, note }),
+        });
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || `HTTP ${res.status}`); }
+
+        showToast("Substitute saved", "success");
+        document.getElementById("substituteModal").style.display = "none";
+        loadSubstitutes();
+    } catch (err) {
+        showToast("Failed: " + err.message, "error");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Save Substitute";
+    }
+}
+
+async function deleteSubstitute(id) {
+    if (!confirm("Remove this substitute?")) return;
+    try {
+        const res = await apiFetch(`/teacher/substitutes/?id=${id}`, { method: "DELETE" });
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || `HTTP ${res.status}`); }
+        showToast("Substitute removed", "success");
+        loadSubstitutes();
+    } catch (err) {
+        showToast("Failed: " + err.message, "error");
     }
 }
 
