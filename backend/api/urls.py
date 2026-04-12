@@ -1,10 +1,12 @@
 from django.urls import path
+from .views_auth import login, me, upload_avatar
+from .views_student import grades, subjects, diary_entries, attendance, announcements, behavioral_entries
 from .views import (
-    login, me, upload_avatar, grades, subjects, diary_entries, attendance, schedule,
-    announcements, teacher_class_students, teacher_attendance, teacher_marks,
+    schedule,
+    teacher_class_students, teacher_attendance, teacher_marks,
     teacher_add_grade, teacher_edit_grade, teacher_delete_grade,
     teacher_add_homework, teacher_delete_homework, teacher_homework_completions,
-    behavioral_entries, teacher_add_behavioral, teacher_delete_behavioral,
+    teacher_add_behavioral, teacher_delete_behavioral,
     teacher_class_stats, teacher_student_comments, teacher_reports,
     admin_classes, admin_class_detail,
     admin_subjects, admin_subject_detail,
