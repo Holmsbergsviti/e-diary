@@ -3133,6 +3133,99 @@ tr:hover td {
 }
 
 /* ============================================================
+   Confirmation Dialog
+   ============================================================ */
+.confirm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(4px);
+    animation: confirm-fade-in 0.2s ease;
+}
+
+.confirm-overlay.confirm-exit {
+    animation: confirm-fade-out 0.2s ease forwards;
+}
+
+@keyframes confirm-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes confirm-fade-out {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+}
+
+.confirm-dialog {
+    background: var(--bg-card, #fff);
+    border-radius: 16px;
+    padding: 32px 28px 24px;
+    max-width: 380px;
+    width: calc(100% - 40px);
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    animation: confirm-scale-in 0.2s ease;
+}
+
+@keyframes confirm-scale-in {
+    from { transform: scale(0.9); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+}
+
+.confirm-icon {
+    font-size: 2.2rem;
+    margin-bottom: 8px;
+}
+
+.confirm-danger .confirm-icon { color: #dc3545; }
+.confirm-warning .confirm-icon { color: #ffab00; }
+.confirm-info .confirm-icon { color: #007bff; }
+
+.confirm-title {
+    margin: 0 0 8px;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-primary, #1e293b);
+}
+
+.confirm-message {
+    margin: 0 0 24px;
+    font-size: 0.92rem;
+    color: var(--text-secondary, #64748b);
+    line-height: 1.5;
+}
+
+.confirm-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.confirm-actions .btn {
+    min-width: 100px;
+    padding: 10px 20px;
+    font-size: 0.9rem;
+}
+
+[data-theme="dark"] .confirm-dialog {
+    background: var(--bg-card, #1e293b);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .confirm-title {
+    color: var(--text-primary, #e2e8f0);
+}
+
+[data-theme="dark"] .confirm-message {
+    color: var(--text-secondary, #94a3b8);
+}
+
+/* ============================================================
    Toast notifications
    ============================================================ */
 #toast-container {

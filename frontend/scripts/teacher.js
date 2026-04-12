@@ -1142,7 +1142,8 @@ function renderHomework() {
     container.querySelectorAll(".hw-delete-btn").forEach(btn => {
         btn.addEventListener("click", async (e) => {
             e.stopPropagation();
-            if (!confirm("Delete this homework?")) return;
+            const ok = await showConfirm("Delete this homework? This cannot be undone.", { title: "Delete Homework", confirmText: "Delete" });
+            if (!ok) return;
             try {
                 await apiFetch("/teacher/homework/delete/", {
                     method: "POST",
@@ -1418,7 +1419,8 @@ function renderBehavioral() {
     container.querySelectorAll(".beh-delete-btn").forEach(btn => {
         btn.addEventListener("click", async (ev) => {
             ev.stopPropagation();
-            if (!confirm("Delete this behavioral note?")) return;
+            const ok = await showConfirm("Delete this behavioral note? This cannot be undone.", { title: "Delete Note", confirmText: "Delete" });
+            if (!ok) return;
             try {
                 await apiFetch("/teacher/behavioral/delete/", {
                     method: "POST",
@@ -1513,7 +1515,6 @@ async function loadStudentsForBehavioral() {
     try {
         const res = await apiFetch(`/teacher/class-students/?subject_id=${subject_id}&class_id=${class_id}`);
         const data = await res.json();
-        console.log("Students for behavioral:", data);
         const students = data.students || [];
         if (students.length === 0) {
             stuSelect.innerHTML = '<option value="">No students</option>';
@@ -1611,7 +1612,7 @@ function openStudyHallModal() {
         h => todayStr >= h.start_date && todayStr <= (h.end_date || h.start_date)
     );
     if (hol) {
-        alert(`Cannot create a study hall session — today is a holiday (${hol.name}).`);
+        showToast(`Cannot create a study hall session — today is a holiday (${hol.name}).`, "warning");
         return;
     }
 
@@ -2091,7 +2092,8 @@ async function saveSubstitute() {
 }
 
 async function deleteSubstitute(id) {
-    if (!confirm("Remove this substitute?")) return;
+    const ok = await showConfirm("Remove this substitute lesson?", { title: "Remove Substitute", confirmText: "Remove" });
+    if (!ok) return;
     try {
         const res = await apiFetch(`/teacher/substitutes/?id=${id}`, { method: "DELETE" });
         if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || `HTTP ${res.status}`); }

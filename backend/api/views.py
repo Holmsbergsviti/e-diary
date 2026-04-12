@@ -2981,6 +2981,9 @@ def admin_users(request):
         if not name or not surname:
             return JsonResponse({"message": "name, surname required"}, status=400)
 
+        if password and len(password) < 8:
+            return JsonResponse({"message": "Password must be at least 8 characters"}, status=400)
+
         # For students: auto-generate email and password if not provided
         generated_password = None
         if role == "student":

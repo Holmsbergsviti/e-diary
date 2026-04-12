@@ -649,7 +649,8 @@ function openAddClass() {
         const class_name = document.getElementById("mClassName").value.trim();
         const grade_level = document.getElementById("mGradeLevel").value.trim();
         if (!class_name || !grade_level) { showToast("All fields required", "warning"); return; }
-        await apiFetch("/admin/classes/", { method: "POST", body: JSON.stringify({ class_name, grade_level }) });
+        const res = await apiFetch("/admin/classes/", { method: "POST", body: JSON.stringify({ class_name, grade_level }) });
+        if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.message || "Failed to create class", "error"); return; }
         closeAdminModal();
         showToast("Class created", "success");
         await loadSection("classes");
@@ -661,10 +662,11 @@ function editClass(c) {
         <label>Class Name <input class="form-input" id="mClassName" value="${escHtml(c.class_name)}"></label>
         <label>Year Level <input class="form-input" id="mGradeLevel" type="number" value="${c.grade_level}"></label>
     `, async () => {
-        await apiFetch("/admin/classes/detail/", { method: "PATCH", body: JSON.stringify({
+        const res = await apiFetch("/admin/classes/detail/", { method: "PATCH", body: JSON.stringify({
             id: c.id, class_name: document.getElementById("mClassName").value.trim(),
             grade_level: document.getElementById("mGradeLevel").value.trim(),
         })});
+        if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.message || "Failed to update class", "error"); return; }
         closeAdminModal();
         showToast("Class updated", "success");
         await loadSection("classes");
@@ -672,10 +674,14 @@ function editClass(c) {
 }
 
 async function deleteClass(id) {
-    if (!confirm("Delete this class? This may affect students and schedules.")) return;
-    await apiFetch(`/admin/classes/detail/?id=${id}`, { method: "DELETE" });
-    showToast("Class deleted", "success");
-    await loadSection("classes");
+    const ok = await showConfirm("Delete this class? This may affect students and schedules.", { title: "Delete Class", confirmText: "Delete" });
+    if (!ok) return;
+    try {
+        const res = await apiFetch(`/admin/classes/detail/?id=${id}`, { method: "DELETE" });
+        if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.message || "Failed to delete class", "error"); return; }
+        showToast("Class deleted", "success");
+        await loadSection("classes");
+    } catch (err) { showToast("Error: " + err.message, "error"); }
 }
 
 /* ═══════════════ SUBJECTS ═══════════════ */
@@ -712,9 +718,10 @@ function openAddSubject() {
     `, async () => {
         const name = document.getElementById("mSubjName").value.trim();
         if (!name) { showToast("Name required", "warning"); return; }
-        await apiFetch("/admin/subjects/", { method: "POST", body: JSON.stringify({
+        const res = await apiFetch("/admin/subjects/", { method: "POST", body: JSON.stringify({
             name, color_code: document.getElementById("mSubjColor").value.trim(),
         })});
+        if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.message || "Failed to create subject", "error"); return; }
         closeAdminModal();
         showToast("Subject created", "success");
         await loadSection("subjects");
@@ -726,10 +733,11 @@ function editSubject(s) {
         <label>Name <input class="form-input" id="mSubjName" value="${escHtml(s.name)}"></label>
         <label>Color Code <input class="form-input" id="mSubjColor" value="${escHtml(s.color_code || "")}"></label>
     `, async () => {
-        await apiFetch("/admin/subjects/detail/", { method: "PATCH", body: JSON.stringify({
+        const res = await apiFetch("/admin/subjects/detail/", { method: "PATCH", body: JSON.stringify({
             id: s.id, name: document.getElementById("mSubjName").value.trim(),
             color_code: document.getElementById("mSubjColor").value.trim(),
         })});
+        if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.message || "Failed to update subject", "error"); return; }
         closeAdminModal();
         showToast("Subject updated", "success");
         await loadSection("subjects");
@@ -737,10 +745,14 @@ function editSubject(s) {
 }
 
 async function deleteSubject(id) {
-    if (!confirm("Delete this subject?")) return;
-    await apiFetch(`/admin/subjects/detail/?id=${id}`, { method: "DELETE" });
-    showToast("Subject deleted", "success");
-    await loadSection("subjects");
+    const ok = await showConfirm("Delete this subject? This cannot be undone.", { title: "Delete Subject", confirmText: "Delete" });
+    if (!ok) return;
+    try {
+        const res = await apiFetch(`/admin/subjects/detail/?id=${id}`, { method: "DELETE" });
+        if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.message || "Failed to delete subject", "error"); return; }
+        showToast("Subject deleted", "success");
+        await loadSection("subjects");
+    } catch (err) { showToast("Error: " + err.message, "error"); }
 }
 
 /* ═══════════════ TEACHERS ═══════════════ */
@@ -1239,7 +1251,8 @@ function editAdmin(a) {
 }
 
 async function deleteUser(id, role) {
-    if (!confirm(`Delete this ${role}? This cannot be undone.`)) return;
+    const ok = await showConfirm(`Delete this ${role}? This cannot be undone.`, { title: `Delete ${role.charAt(0).toUpperCase() + role.slice(1)}`, confirmText: "Delete" });
+    if (!ok) return;
     const res = await apiFetch(`/admin/users/detail/?id=${id}&role=${role}`, { method: "DELETE" });
     if (res.ok) {
         showToast(`${role.charAt(0).toUpperCase() + role.slice(1)} deleted`, "success");
@@ -1297,10 +1310,14 @@ function openAddAssignment() {
 }
 
 async function deleteAssignment(tid, sid, cid) {
-    if (!confirm("Remove this assignment?")) return;
-    await apiFetch(`/admin/teacher-assignments/delete/?teacher_id=${tid}&subject_id=${sid}&class_id=${cid}`, { method: "DELETE" });
-    showToast("Assignment removed", "success");
-    await loadSection("assignments");
+    const ok = await showConfirm("Remove this teacher assignment?", { title: "Remove Assignment", confirmText: "Remove" });
+    if (!ok) return;
+    try {
+        const res = await apiFetch(`/admin/teacher-assignments/delete/?teacher_id=${tid}&subject_id=${sid}&class_id=${cid}`, { method: "DELETE" });
+        if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.message || "Failed to remove assignment", "error"); return; }
+        showToast("Assignment removed", "success");
+        await loadSection("assignments");
+    } catch (err) { showToast("Error: " + err.message, "error"); }
 }
 
 /* ═══════════════ STUDENT ENROLMENTS ═══════════════ */
@@ -1351,10 +1368,14 @@ function openAddEnrollment() {
 }
 
 async function deleteEnrollment(studentId, subjectId) {
-    if (!confirm("Remove this enrolment?")) return;
-    await apiFetch(`/admin/student-subjects/delete/?student_id=${studentId}&subject_id=${subjectId}`, { method: "DELETE" });
-    showToast("Enrolment removed", "success");
-    await loadSection("enrollments");
+    const ok = await showConfirm("Remove this enrolment?", { title: "Remove Enrolment", confirmText: "Remove" });
+    if (!ok) return;
+    try {
+        const res = await apiFetch(`/admin/student-subjects/delete/?student_id=${studentId}&subject_id=${subjectId}`, { method: "DELETE" });
+        if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.message || "Failed to remove enrolment", "error"); return; }
+        showToast("Enrolment removed", "success");
+        await loadSection("enrollments");
+    } catch (err) { showToast("Error: " + err.message, "error"); }
 }
 
 /* ═══════════════ SCHEDULE ═══════════════ */
@@ -1420,10 +1441,14 @@ function openAddScheduleSlot() {
 }
 
 async function deleteScheduleSlot(id) {
-    if (!confirm("Delete this schedule slot?")) return;
-    await apiFetch(`/admin/schedule/detail/?id=${id}`, { method: "DELETE" });
-    showToast("Slot deleted", "success");
-    await loadSection("schedule");
+    const ok = await showConfirm("Delete this schedule slot?", { title: "Delete Slot", confirmText: "Delete" });
+    if (!ok) return;
+    try {
+        const res = await apiFetch(`/admin/schedule/detail/?id=${id}`, { method: "DELETE" });
+        if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.message || "Failed to delete slot", "error"); return; }
+        showToast("Slot deleted", "success");
+        await loadSection("schedule");
+    } catch (err) { showToast("Error: " + err.message, "error"); }
 }
 
 /* ═══════════════ EVENTS ═══════════════ */
@@ -1653,10 +1678,14 @@ function collectEventForm() {
 }
 
 async function deleteEvent(id) {
-    if (!confirm("Delete this event?")) return;
-    await apiFetch(`/admin/events/detail/?id=${id}`, { method: "DELETE" });
-    showToast("Event deleted", "success");
-    await loadSection("events");
+    const ok = await showConfirm("Delete this event? This cannot be undone.", { title: "Delete Event", confirmText: "Delete" });
+    if (!ok) return;
+    try {
+        const res = await apiFetch(`/admin/events/detail/?id=${id}`, { method: "DELETE" });
+        if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.message || "Failed to delete event", "error"); return; }
+        showToast("Event deleted", "success");
+        await loadSection("events");
+    } catch (err) { showToast("Error: " + err.message, "error"); }
 }
 
 /* ═══════════════ HOLIDAYS ═══════════════ */
@@ -1760,10 +1789,14 @@ function openEditHoliday(h) {
 }
 
 async function deleteHoliday(id) {
-    if (!confirm("Delete this holiday?")) return;
-    await apiFetch(`/admin/holidays/detail/?id=${id}`, { method: "DELETE" });
-    showToast("Holiday deleted", "success");
-    await loadSection("holidays");
+    const ok = await showConfirm("Delete this holiday? This cannot be undone.", { title: "Delete Holiday", confirmText: "Delete" });
+    if (!ok) return;
+    try {
+        const res = await apiFetch(`/admin/holidays/detail/?id=${id}`, { method: "DELETE" });
+        if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.message || "Failed to delete holiday", "error"); return; }
+        showToast("Holiday deleted", "success");
+        await loadSection("holidays");
+    } catch (err) { showToast("Error: " + err.message, "error"); }
 }
 
 /* ═══════════════ ATTENDANCE FLAGS ═══════════════ */

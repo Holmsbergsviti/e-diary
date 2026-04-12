@@ -51,7 +51,6 @@ async function loadReports(term) {
     try {
         const res = await apiFetch(`/teacher/reports/?term=${term}`);
         const data = await res.json();
-        console.log("Reports API response:", res.status, data);
         const rows = data.reports || [];
 
         if (!res.ok) {

@@ -755,7 +755,8 @@ async function saveGrade() {
 async function deleteGradeFromModal() {
     const gradeId = document.getElementById("gradeModalDelete").dataset.gradeId;
     if (!gradeId) return;
-    if (!confirm("Delete this grade? This cannot be undone.")) return;
+    const ok = await showConfirm("Delete this grade? This cannot be undone.", { title: "Delete Grade", confirmText: "Delete" });
+    if (!ok) return;
 
     const btn = document.getElementById("gradeModalDelete");
     btn.disabled = true;

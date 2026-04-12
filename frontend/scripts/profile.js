@@ -182,8 +182,8 @@ function initAccountForm() {
             return;
         }
 
-        if (password && password.length < 4) {
-            msg.textContent = "Password must be at least 4 characters.";
+        if (password && password.length < 8) {
+            msg.textContent = "Password must be at least 8 characters.";
             msg.classList.add("form-msg-error");
             return;
         }

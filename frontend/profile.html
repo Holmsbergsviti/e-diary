@@ -48,7 +48,7 @@
                 </div>
                 <div class="form-group">
                     <label for="newPassword">New Password</label>
-                    <input type="password" id="newPassword" class="form-input" placeholder="New password (min 4 chars)">
+                    <input type="password" id="newPassword" class="form-input" minlength="8" placeholder="New password (min 8 chars)">
                 </div>
                 <div class="form-group">
                     <label for="confirmPassword">Confirm Password</label>
@@ -61,7 +61,7 @@
 
         <div class="card" style="max-width:520px;">
             <div class="card-title">🎨 Color Palette</div>
-            <p style="font-size: 0.9rem; color: #666; margin-bottom: 16px;">Choose your preferred color theme:</p>
+            <p style="font-size: 0.9rem; color: var(--text-secondary, #666); margin-bottom: 16px;">Choose your preferred color theme:</p>
             <div class="palette-grid">
                 <button class="palette-btn palette-active" data-theme="bright-blue" title="Bright Blue">
                     <span class="palette-preview" style="background: #2563eb;"></span>
