@@ -172,6 +172,7 @@ def _get_study_hall_for_schedule(db, user_id, role):
                 db.table("study_hall_attendance")
                 .select("study_hall_id")
                 .eq("student_id", user_id)
+                .eq("status", "Present")
                 .execute()
             )
             sh_ids = [a["study_hall_id"] for a in (att.data or [])]
