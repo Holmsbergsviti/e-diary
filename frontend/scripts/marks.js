@@ -388,27 +388,22 @@ function gradeClass(code) {
     return "grade-u";
 }
 
-/* Calculate weighted predicted grade from a list of grade objects */
+/* Calculate weighted predicted grade from a list of grade objects.
+   Each individual grade is weighted by its category weight, so three
+   test grades collectively outweigh one quiz grade (rather than the
+   old approach that averaged per-category first, giving one quiz the
+   same influence as an entire category of tests). */
 function predictGrade(grades) {
     if (!grades || grades.length === 0) return null;
-
-    // Group by category
-    const byCat = {};
-    for (const g of grades) {
-        const cat = g.category || "other";
-        if (!byCat[cat]) byCat[cat] = [];
-        const val = GRADE_VALUES[g.grade_code];
-        if (val != null) byCat[cat].push(val);
-    }
 
     let weightedSum = 0;
     let totalWeight = 0;
 
-    for (const [cat, vals] of Object.entries(byCat)) {
-        if (vals.length === 0) continue;
-        const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-        const w = CATEGORY_WEIGHTS[cat] || CATEGORY_WEIGHTS.other;
-        weightedSum += avg * w;
+    for (const g of grades) {
+        const val = GRADE_VALUES[g.grade_code];
+        if (val == null) continue;
+        const w = CATEGORY_WEIGHTS[g.category || "other"] || CATEGORY_WEIGHTS.other;
+        weightedSum += val * w;
         totalWeight += w;
     }
 
