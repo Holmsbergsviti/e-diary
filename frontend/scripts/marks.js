@@ -887,11 +887,11 @@ function _buildExportRows(group) {
                 student: `${stu.surname} ${stu.name}`,
                 class_name: stu.class_name || group.class_name || "",
                 subject: group.subject || "",
-                assessment: g.assessment_name || "",
+                assessment: g.assessment || "",
                 category: g.category || "",
                 grade: g.grade_code || "",
                 percentage: g.percentage != null ? g.percentage : "",
-                date: g.date_taken || "",
+                date: g.date || "",
                 term: g.term || "",
                 comment: g.comment || ""
             });
