@@ -2205,9 +2205,8 @@ function openEventModal(existingEvent) {
     const selectedPeriods = new Set((existingEvent?.affected_periods || []).map(String));
     document.querySelectorAll(".ev-period-btn").forEach(btn => {
         const p = btn.dataset.period;
-        const active = p === "all" ? selectedPeriods.size === 8 : selectedPeriods.has(p);
-        btn.classList.toggle("btn-primary", active);
-        btn.classList.toggle("btn-secondary", !active);
+        const isActive = p === "all" ? selectedPeriods.size === 8 : selectedPeriods.has(p);
+        btn.classList.toggle("active", isActive);
     });
 
     // Target type
@@ -2227,10 +2226,7 @@ function openEventModal(existingEvent) {
 
     const selClassIds = new Set((existingEvent?.target_class_ids || []).map(String));
     document.getElementById("evClassList").innerHTML = classes.map(c =>
-        `<label style="display:block;padding:2px 0;cursor:pointer;">
-            <input type="checkbox" class="ev-class-cb" value="${c.id}" ${selClassIds.has(c.id) ? "checked" : ""}>
-            ${escHtml(c.label)}
-        </label>`
+        `<label><input type="checkbox" class="ev-class-cb" value="${c.id}" ${selClassIds.has(c.id) ? "checked" : ""}> ${escHtml(c.label)}</label>`
     ).join("");
 
     // Build student checkboxes – group by class from allSlots
@@ -2246,23 +2242,16 @@ function openEventModal(existingEvent) {
     document.querySelectorAll(".ev-period-btn").forEach(btn => {
         btn.onclick = () => {
             if (btn.dataset.period === "all") {
-                // Toggle all periods
-                const allActive = btn.classList.contains("btn-primary");
+                const allActive = btn.classList.contains("active");
                 document.querySelectorAll(".ev-period-btn").forEach(b => {
-                    b.classList.toggle("btn-primary", !allActive);
-                    b.classList.toggle("btn-secondary", allActive);
+                    b.classList.toggle("active", !allActive);
                 });
             } else {
-                btn.classList.toggle("btn-primary");
-                btn.classList.toggle("btn-secondary");
-                // Update "All Day" button state
+                btn.classList.toggle("active");
                 const allPeriods = document.querySelectorAll('.ev-period-btn:not([data-period="all"])');
-                const allActive = [...allPeriods].every(b => b.classList.contains("btn-primary"));
+                const allActive = [...allPeriods].every(b => b.classList.contains("active"));
                 const allDayBtn = document.querySelector('.ev-period-btn[data-period="all"]');
-                if (allDayBtn) {
-                    allDayBtn.classList.toggle("btn-primary", allActive);
-                    allDayBtn.classList.toggle("btn-secondary", !allActive);
-                }
+                if (allDayBtn) allDayBtn.classList.toggle("active", allActive);
             }
         };
     });
@@ -2308,13 +2297,10 @@ async function _buildEventStudentPicker(existingEvent) {
                 return true;
             });
             if (uniqueStudents.length === 0) continue;
-            html += `<div style="margin-bottom:6px;"><strong>${escHtml(r.class_name)}</strong></div>`;
+            html += `<strong>${escHtml(r.class_name)}</strong>`;
             for (const st of uniqueStudents) {
-                const name = `${st.first_name || ""} ${st.last_name || ""}`.trim();
-                html += `<label style="display:block;padding:2px 0 2px 12px;cursor:pointer;">
-                    <input type="checkbox" class="ev-student-cb" value="${st.id}" ${selStudentIds.has(st.id) ? "checked" : ""}>
-                    ${escHtml(name)}
-                </label>`;
+                const name = `${st.name || ""} ${st.surname || ""}`.trim();
+                html += `<label><input type="checkbox" class="ev-student-cb" value="${st.id}" ${selStudentIds.has(st.id) ? "checked" : ""}> ${escHtml(name)}</label>`;
             }
         }
         container.innerHTML = html || '<p class="empty-state">No students found.</p>';
@@ -2344,7 +2330,7 @@ async function saveTeacherEvent() {
 
     // Collect affected periods
     const affected_periods = [];
-    document.querySelectorAll('.ev-period-btn.btn-primary:not([data-period="all"])').forEach(btn => {
+    document.querySelectorAll('.ev-period-btn.active:not([data-period="all"])').forEach(btn => {
         affected_periods.push(parseInt(btn.dataset.period));
     });
 
