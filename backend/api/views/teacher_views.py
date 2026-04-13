@@ -12,6 +12,16 @@ from ..utils import (
     supabase_admin_auth,
 )
 
+# Grade-code → numeric value (mirrors frontend GRADE_VALUES)
+GRADE_VALUES = {
+    "A*": 9, "A": 8, "A-": 7,
+    "B+": 6.5, "B": 6, "B-": 5.5,
+    "C+": 5.5, "C": 5, "C-": 4.5,
+    "D+": 4.5, "D": 4, "D-": 3.5,
+    "E+": 3.5, "E": 3, "E-": 2.5,
+    "U": 1,
+}
+
 __all__ = [
     "teacher_class_students", "teacher_attendance", "teacher_marks",
     "teacher_add_grade", "teacher_edit_grade", "teacher_delete_grade",
@@ -1081,7 +1091,7 @@ def teacher_class_stats(request):
 
     grades_result = (
         ediary().table("grades")
-        .select("subject_id, student_id, percentage")
+        .select("subject_id, student_id, percentage, grade_code")
         .in_("student_id", all_student_ids)
         .execute()
     ) if all_student_ids else type('', (), {'data': []})()
@@ -1128,13 +1138,19 @@ def teacher_class_stats(request):
         att_total = sum(att_counts.values())
 
         grade_values = []
+        grade_count = 0
         for g in (grades_result.data or []):
             if g["subject_id"] == subject_id and g.get("student_id") in class_enrolled:
-                gv = g.get("percentage")
-                if gv is not None:
-                    grade_values.append(gv)
-        grade_count = len(grade_values)
-        grade_avg = round(sum(grade_values) / grade_count, 2) if grade_count else None
+                grade_count += 1
+                pct = g.get("percentage")
+                if pct is not None:
+                    grade_values.append(float(pct))
+                else:
+                    gc = g.get("grade_code", "")
+                    nv = GRADE_VALUES.get(gc)
+                    if nv is not None:
+                        grade_values.append(nv)
+        grade_avg = round(sum(grade_values) / len(grade_values), 2) if grade_values else None
 
         hw_for_pair = [h_id for h_id, (sid, cid) in hw_pair_map.items() if sid == subject_id and cid == class_id]
         hw_count = len(hw_for_pair)

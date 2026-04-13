@@ -19,6 +19,27 @@ let statsLoaded = false;   // lazy flag for statistics tab
 let exportsLoaded = false; // lazy flag for exports tab
 let teacherSubstitutes = []; // substitute lessons from schedule API
 
+// Numeric value → letter grade (mirrors marks.js)
+function _numToGrade(val) {
+    if (val == null) return "–";
+    if (val >= 8.5) return "A*";
+    if (val >= 7.5) return "A";
+    if (val >= 6.5) return "A-";
+    if (val >= 6.25) return "B+";
+    if (val >= 5.75) return "B";
+    if (val >= 5.25) return "B-";
+    if (val >= 4.75) return "C+";
+    if (val >= 4.5) return "C";
+    if (val >= 4.25) return "C-";
+    if (val >= 3.75) return "D+";
+    if (val >= 3.5) return "D";
+    if (val >= 3.25) return "D-";
+    if (val >= 2.75) return "E+";
+    if (val >= 2.25) return "E";
+    if (val >= 1.75) return "E-";
+    return "U";
+}
+
 /* ---- Bootstrap ------------------------------------------------ */
 async function initTeacher() {
     if (!requireAuth()) return;
@@ -766,7 +787,7 @@ async function loadClassStats() {
                 att_absent: s.attendance.absent,
                 att_excused: s.attendance.excused,
                 att_rate: attT ? Math.round((s.attendance.present / attT) * 100) + "%" : "N/A",
-                grade_avg: s.grades.average !== null ? s.grades.average.toFixed(1) : "–",
+                grade_avg: s.grades.average !== null ? _numToGrade(s.grades.average) : "–",
                 grade_count: s.grades.count,
                 hw_assigned: s.homework.assigned,
                 hw_completed: s.homework.completed,
@@ -916,7 +937,7 @@ function renderClassStats(stats) {
 
         const hwTotal = s.homework.completed + s.homework.partial + s.homework.not_done;
 
-        const gradeAvg = s.grades.average !== null ? s.grades.average.toFixed(1) : "–";
+        const gradeAvg = s.grades.average !== null ? _numToGrade(s.grades.average) : "–";
         
         const classId = statCardKey(s);
 
@@ -1026,7 +1047,7 @@ function updateClassStats(stats) {
         
         const attTotal = s.attendance.total;
         const hwTotal = s.homework.completed + s.homework.partial + s.homework.not_done;
-        const gradeAvg = s.grades.average !== null ? s.grades.average.toFixed(1) : "–";
+        const gradeAvg = s.grades.average !== null ? _numToGrade(s.grades.average) : "–";
         
         // Update attendance ring
         const attRingContainer = card.querySelector(`#att-ring-${classId}`);
