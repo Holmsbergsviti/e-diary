@@ -516,17 +516,22 @@ function renderGroup(container, group) {
                 <td class="att-pct-cell${attPct !== null && attPct < 80 ? ' att-low' : ''}">${attPct !== null ? attPct + '%' : '–'}<br><small class="att-terms" title="T1 / T2">${attByTerm.term_1?.attendance_pct ?? '–'}/${attByTerm.term_2?.attendance_pct ?? '–'}</small></td>
                 <td><button class="btn btn-secondary btn-sm view-comments-btn" data-student-id="${s.student_id}" data-subject-id="${group.subject_id}" data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">Subject (${commentCount})</button></td>`;
 
-            // Grades column with assessment names and grades together
-            if (s.grades.length > 0) {
-                const gradesHtml = s.grades.map(g => {
-                    const pct = g.percentage != null ? ` ${g.percentage}%` : "";
-                    const commentIcon = g.comment ? ' 💬' : "";
-                    return `<div class="grade-item-compact grade-clickable" data-grade='${JSON.stringify(g).replace(/'/g, "&#39;")}' data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}" style="cursor:pointer;margin:2px 0;padding:2px 4px;border-radius:3px;background:var(--bg-input);font-size:0.9rem;">
-                        <strong>${escHtml(g.assessment || 'Unnamed')}:</strong>
-                        <span class="grade-badge ${gradeClass(g.grade_code)}" style="margin-left:4px;">${escHtml(g.grade_code)}</span>${pct}${commentIcon}
-                    </div>`;
-                }).join("");
-                html += `<td class="grades-column" style="padding:4px;">${gradesHtml}</td>`;
+            // One <td> per assessment column (matches header)
+            if (assessments.length > 0) {
+                for (const a of assessments) {
+                    const g = s.grades.find(gr => gr.assessment === a);
+                    if (g) {
+                        const pct = g.percentage != null ? ` ${g.percentage}%` : "";
+                        const commentIcon = g.comment ? ' 💬' : "";
+                        html += `<td class="grades-column" style="padding:4px;">
+                            <div class="grade-item-compact grade-clickable" data-grade='${JSON.stringify(g).replace(/'/g, "&#39;")}' data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}" style="cursor:pointer;margin:2px 0;padding:2px 4px;border-radius:3px;background:var(--bg-input);font-size:0.9rem;">
+                                <span class="grade-badge ${gradeClass(g.grade_code)}" style="margin-left:4px;">${escHtml(g.grade_code)}</span>${pct}${commentIcon}
+                            </div>
+                        </td>`;
+                    } else {
+                        html += `<td class="grades-column">–</td>`;
+                    }
+                }
             } else {
                 html += `<td class="grades-column">–</td>`;
             }
