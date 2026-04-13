@@ -446,7 +446,7 @@ def teacher_marks(request):
         db6.table("grades")
         .select("id, student_id, subject_id, assessment_name, grade_code, percentage, date_taken, comment, category, term")
         .in_("student_id", student_ids)
-        .order("date_taken", desc=True)
+        .order("date_taken", desc=False)
         .execute()
     )
 

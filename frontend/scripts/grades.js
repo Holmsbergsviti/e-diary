@@ -131,6 +131,7 @@ function renderGrades() {
                                 <th>Grade</th>
                                 <th>%</th>
                                 <th>Date</th>
+                                <th>Comment</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -140,6 +141,7 @@ function renderGrades() {
                                     <td><span class="grade-badge ${gradeClass(g.grade_code)}">${escHtml(g.grade_code || "\u2013")}</span></td>
                                     <td>${g.percentage != null ? g.percentage + "%" : "\u2013"}</td>
                                     <td>${formatDate(g.date)}</td>
+                                    <td>${g.comment ? escHtml(g.comment) : "\u2013"}</td>
                                 </tr>
                             `).join("")}
                         </tbody>

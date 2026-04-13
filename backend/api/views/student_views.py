@@ -31,7 +31,7 @@ def grades(request):
         db.table("grades")
         .select("id, subject_id, assessment_name, percentage, grade_code, date_taken, comment, category, term, created_by_teacher_id")
         .eq("student_id", payload["sub"])
-        .order("date_taken", desc=True)
+        .order("date_taken", desc=False)
         .execute()
     )
 

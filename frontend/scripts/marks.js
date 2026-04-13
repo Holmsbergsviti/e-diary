@@ -438,14 +438,19 @@ function renderGroup(container, group) {
         allGrades: s.grades,
     }));
 
-    // Find unique assessments from filtered grades
-    const assessmentSet = new Set();
+    // Find unique assessments from filtered grades, sorted by earliest date
+    const assessmentMap = new Map(); // assessment name → earliest date
     for (const s of filteredStudents) {
         for (const g of s.grades) {
-            assessmentSet.add(g.assessment);
+            const existing = assessmentMap.get(g.assessment);
+            if (!existing || (g.date && g.date < existing)) {
+                assessmentMap.set(g.assessment, g.date || '');
+            }
         }
     }
-    const assessments = Array.from(assessmentSet).sort();
+    const assessments = Array.from(assessmentMap.entries())
+        .sort((a, b) => (a[1] || '').localeCompare(b[1] || '') || a[0].localeCompare(b[0]))
+        .map(e => e[0]);
 
     const colCount = 5 + (assessments.length > 0 ? assessments.length : 1) + 1; // #, Student, Class, Att%, Comments, assessments, Predicted
 
@@ -519,7 +524,8 @@ function renderGroup(container, group) {
             // One <td> per assessment column (matches header) — filter to show ALL grades with same name
             if (assessments.length > 0) {
                 for (const a of assessments) {
-                    const matching = s.grades.filter(gr => gr.assessment === a);
+                    const matching = s.grades.filter(gr => gr.assessment === a)
+                        .sort((x, y) => (x.date || '').localeCompare(y.date || ''));
                     if (matching.length > 0) {
                         const cellHtml = matching.map(g => {
                             const pct = g.percentage != null ? ` ${g.percentage}%` : "";
