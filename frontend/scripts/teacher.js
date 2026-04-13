@@ -32,7 +32,7 @@ async function initTeacher() {
     currentTeacherId = user?.id || null;
 
     initNav();
-    await Promise.all([loadSchedule(), loadHomework(), loadBehavioral(), loadStudyHall(), loadSubstitutes()]);
+    await Promise.all([loadSchedule(), loadHomework(), loadBehavioral(), loadStudyHall(), loadSubstitutes(), loadTeacherEvents()]);
     
     // Initialize card collapse functionality
     initCardCollapse();
@@ -49,6 +49,9 @@ async function initTeacher() {
 
     // Substitute button
     document.getElementById("openSubstituteBtn").addEventListener("click", openSubstituteModal);
+
+    // Event button
+    document.getElementById("addEventBtn").addEventListener("click", () => openEventModal());
 
     // Check if redirected from schedule page with an attendance slot to open
     const pending = sessionStorage.getItem("openAttendance");
@@ -1724,7 +1727,7 @@ async function fetchFreeStudents(date, period) {
             <table class="attendance-table">
                 <thead><tr><th>#</th><th>Student</th><th>Class</th><th>Status</th></tr></thead>
                 <tbody>${students.map((s, i) => {
-                    const status = attMap[s.id] || "Present";
+                    const status = attMap[s.id] || "Absent";
                     return `<tr data-student-id="${s.id}">
                         <td>${i + 1}</td>
                         <td>${escHtml(s.surname)} ${escHtml(s.name)}</td>
@@ -2099,6 +2102,284 @@ async function deleteSubstitute(id) {
         if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || `HTTP ${res.status}`); }
         showToast("Substitute removed", "success");
         loadSubstitutes();
+    } catch (err) {
+        showToast("Failed: " + err.message, "error");
+    }
+}
+
+/* ================================================================
+   TEACHER EVENTS (create / list / edit / delete)
+   ================================================================ */
+
+let _teacherOwnEvents = [];
+let _editingEventId = null;
+
+async function loadTeacherEvents() {
+    const container = document.getElementById("eventsList");
+    if (!container) return;
+
+    try {
+        const res = await apiFetch("/teacher/events/");
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        _teacherOwnEvents = data.events || [];
+        renderTeacherEvents();
+    } catch (err) {
+        console.error("[teacher.js] loadTeacherEvents error:", err);
+        container.innerHTML = '<p class="empty-state">Failed to load events.</p>';
+    }
+}
+
+function renderTeacherEvents() {
+    const container = document.getElementById("eventsList");
+    if (!container) return;
+
+    if (_teacherOwnEvents.length === 0) {
+        container.innerHTML = '<p class="empty-state">No events created yet.</p>';
+        return;
+    }
+
+    const sorted = [..._teacherOwnEvents].sort((a, b) => (a.event_date || "").localeCompare(b.event_date || ""));
+    const rows = sorted.map(ev => {
+        const dateStr = ev.event_date || "";
+        const endStr = ev.event_end_date && ev.event_end_date !== ev.event_date ? ` – ${ev.event_end_date}` : "";
+        const periods = (ev.affected_periods || []).length > 0
+            ? ev.affected_periods.map(p => `P${p}`).join(", ")
+            : (ev.start_time ? `${ev.start_time}${ev.end_time ? " – " + ev.end_time : ""}` : "All day");
+        const target = ev.target_type === "all" ? "Everyone"
+            : ev.target_type === "students" ? `${(ev.target_student_ids || []).length} students`
+            : `${(ev.target_class_ids || []).length} class(es)`;
+
+        return `<tr>
+            <td>${escHtml(ev.title)}</td>
+            <td>${dateStr}${endStr}</td>
+            <td>${periods}</td>
+            <td>${target}</td>
+            <td style="white-space:nowrap;">
+                <button class="btn btn-sm btn-secondary" onclick="editTeacherEvent('${ev.id}')">Edit</button>
+                <button class="btn btn-sm" style="background:var(--danger);color:#fff;" onclick="deleteTeacherEvent('${ev.id}')">Delete</button>
+            </td>
+        </tr>`;
+    }).join("");
+
+    container.innerHTML = `<table class="data-table"><thead><tr>
+        <th>Title</th><th>Date</th><th>Time / Periods</th><th>Target</th><th>Actions</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function openEventModal(existingEvent) {
+    _editingEventId = existingEvent ? existingEvent.id : null;
+    const modal = document.getElementById("eventModal");
+    document.getElementById("evModalTitle").textContent = existingEvent ? "Edit Event" : "Add Event";
+
+    // Reset fields
+    document.getElementById("evTitle").value = existingEvent ? existingEvent.title || "" : "";
+    document.getElementById("evDesc").value = existingEvent ? existingEvent.description || "" : "";
+    document.getElementById("evDate").value = existingEvent ? existingEvent.event_date || "" : new Date().toISOString().slice(0, 10);
+    document.getElementById("evEndDate").value = existingEvent ? existingEvent.event_end_date || "" : "";
+    document.getElementById("evStartTime").value = existingEvent ? existingEvent.start_time || "" : "";
+    document.getElementById("evEndTime").value = existingEvent ? existingEvent.end_time || "" : "";
+
+    // Period toggles
+    const selectedPeriods = new Set((existingEvent?.affected_periods || []).map(String));
+    document.querySelectorAll(".ev-period-btn").forEach(btn => {
+        const p = btn.dataset.period;
+        const active = p === "all" ? selectedPeriods.size === 8 : selectedPeriods.has(p);
+        btn.classList.toggle("btn-primary", active);
+        btn.classList.toggle("btn-secondary", !active);
+    });
+
+    // Target type
+    const targetType = existingEvent ? existingEvent.target_type || "class" : "class";
+    document.getElementById("evTargetType").value = targetType;
+
+    // Build class checkboxes from schedule
+    const seen = new Set();
+    const classes = [];
+    for (const s of allSlots) {
+        const key = s.class_id;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        classes.push({ id: s.class_id, label: s.class_name || "Year " + s.grade_level });
+    }
+    classes.sort((a, b) => a.label.localeCompare(b.label));
+
+    const selClassIds = new Set((existingEvent?.target_class_ids || []).map(String));
+    document.getElementById("evClassList").innerHTML = classes.map(c =>
+        `<label style="display:block;padding:2px 0;cursor:pointer;">
+            <input type="checkbox" class="ev-class-cb" value="${c.id}" ${selClassIds.has(c.id) ? "checked" : ""}>
+            ${escHtml(c.label)}
+        </label>`
+    ).join("");
+
+    // Build student checkboxes – group by class from allSlots
+    _buildEventStudentPicker(existingEvent);
+
+    // Show/hide pickers
+    _toggleEventTargetPickers(targetType);
+
+    // Bind target type change
+    document.getElementById("evTargetType").onchange = (e) => _toggleEventTargetPickers(e.target.value);
+
+    // Period toggle clicks
+    document.querySelectorAll(".ev-period-btn").forEach(btn => {
+        btn.onclick = () => {
+            if (btn.dataset.period === "all") {
+                // Toggle all periods
+                const allActive = btn.classList.contains("btn-primary");
+                document.querySelectorAll(".ev-period-btn").forEach(b => {
+                    b.classList.toggle("btn-primary", !allActive);
+                    b.classList.toggle("btn-secondary", allActive);
+                });
+            } else {
+                btn.classList.toggle("btn-primary");
+                btn.classList.toggle("btn-secondary");
+                // Update "All Day" button state
+                const allPeriods = document.querySelectorAll('.ev-period-btn:not([data-period="all"])');
+                const allActive = [...allPeriods].every(b => b.classList.contains("btn-primary"));
+                const allDayBtn = document.querySelector('.ev-period-btn[data-period="all"]');
+                if (allDayBtn) {
+                    allDayBtn.classList.toggle("btn-primary", allActive);
+                    allDayBtn.classList.toggle("btn-secondary", !allActive);
+                }
+            }
+        };
+    });
+
+    // Modal close
+    document.getElementById("evModalClose").onclick = () => { modal.style.display = "none"; };
+    modal.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; };
+
+    // Save handler
+    document.getElementById("evSave").onclick = () => saveTeacherEvent();
+
+    modal.style.display = "flex";
+}
+
+async function _buildEventStudentPicker(existingEvent) {
+    // Fetch students for all teacher classes
+    const seen = new Set();
+    const classIds = [];
+    for (const s of allSlots) {
+        if (seen.has(s.class_id)) continue;
+        seen.add(s.class_id);
+        classIds.push({ class_id: s.class_id, subject_id: s.subject_id, class_name: s.class_name || "Year " + s.grade_level });
+    }
+
+    const container = document.getElementById("evStudentList");
+    container.innerHTML = '<p class="loading">Loading students…</p>';
+
+    try {
+        const fetches = classIds.map(c =>
+            apiFetch(`/teacher/class-students/?class_id=${c.class_id}&subject_id=${c.subject_id}`)
+                .then(r => r.json())
+                .then(d => ({ class_name: c.class_name, students: d.students || [] }))
+        );
+        const results = await Promise.all(fetches);
+
+        const selStudentIds = new Set((existingEvent?.target_student_ids || []).map(String));
+        const studentSeen = new Set();
+        let html = "";
+        for (const r of results) {
+            const uniqueStudents = r.students.filter(st => {
+                if (studentSeen.has(st.id)) return false;
+                studentSeen.add(st.id);
+                return true;
+            });
+            if (uniqueStudents.length === 0) continue;
+            html += `<div style="margin-bottom:6px;"><strong>${escHtml(r.class_name)}</strong></div>`;
+            for (const st of uniqueStudents) {
+                const name = `${st.first_name || ""} ${st.last_name || ""}`.trim();
+                html += `<label style="display:block;padding:2px 0 2px 12px;cursor:pointer;">
+                    <input type="checkbox" class="ev-student-cb" value="${st.id}" ${selStudentIds.has(st.id) ? "checked" : ""}>
+                    ${escHtml(name)}
+                </label>`;
+            }
+        }
+        container.innerHTML = html || '<p class="empty-state">No students found.</p>';
+    } catch (err) {
+        console.error("[teacher.js] _buildEventStudentPicker error:", err);
+        container.innerHTML = '<p class="empty-state">Failed to load students.</p>';
+    }
+}
+
+function _toggleEventTargetPickers(targetType) {
+    document.getElementById("evClassPicker").style.display = targetType === "class" ? "" : "none";
+    document.getElementById("evStudentPicker").style.display = targetType === "students" ? "" : "none";
+}
+
+async function saveTeacherEvent() {
+    const title = document.getElementById("evTitle").value.trim();
+    const description = document.getElementById("evDesc").value.trim();
+    const event_date = document.getElementById("evDate").value;
+    const event_end_date = document.getElementById("evEndDate").value || event_date;
+    const start_time = document.getElementById("evStartTime").value || null;
+    const end_time = document.getElementById("evEndTime").value || null;
+
+    if (!title || !event_date) {
+        showToast("Title and start date are required", "warning");
+        return;
+    }
+
+    // Collect affected periods
+    const affected_periods = [];
+    document.querySelectorAll('.ev-period-btn.btn-primary:not([data-period="all"])').forEach(btn => {
+        affected_periods.push(parseInt(btn.dataset.period));
+    });
+
+    const target_type = document.getElementById("evTargetType").value;
+    const target_class_ids = target_type === "class"
+        ? [...document.querySelectorAll(".ev-class-cb:checked")].map(cb => cb.value)
+        : [];
+    const target_student_ids = target_type === "students"
+        ? [...document.querySelectorAll(".ev-student-cb:checked")].map(cb => cb.value)
+        : [];
+
+    const payload = { title, description, event_date, event_end_date, start_time, end_time, affected_periods, target_type, target_class_ids, target_student_ids };
+
+    try {
+        let res;
+        if (_editingEventId) {
+            res = await apiFetch(`/teacher/events/detail/?id=${_editingEventId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+        } else {
+            res = await apiFetch("/teacher/events/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+        }
+        if (!res.ok) {
+            const e = await res.json().catch(() => ({}));
+            throw new Error(e.message || `HTTP ${res.status}`);
+        }
+        showToast(_editingEventId ? "Event updated" : "Event created", "success");
+        document.getElementById("eventModal").style.display = "none";
+        loadTeacherEvents();
+    } catch (err) {
+        showToast("Failed: " + err.message, "error");
+    }
+}
+
+async function editTeacherEvent(eventId) {
+    const ev = _teacherOwnEvents.find(e => e.id === eventId);
+    if (!ev) return;
+    openEventModal(ev);
+}
+
+async function deleteTeacherEvent(eventId) {
+    if (!confirm("Delete this event?")) return;
+    try {
+        const res = await apiFetch(`/teacher/events/detail/?id=${eventId}`, { method: "DELETE" });
+        if (!res.ok) {
+            const e = await res.json().catch(() => ({}));
+            throw new Error(e.message || `HTTP ${res.status}`);
+        }
+        showToast("Event deleted", "success");
+        loadTeacherEvents();
     } catch (err) {
         showToast("Failed: " + err.message, "error");
     }

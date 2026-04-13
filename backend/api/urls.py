@@ -38,6 +38,8 @@ urlpatterns = [
     path("teacher/substitutes/", teacher_views.teacher_substitutes),
     path("teacher/substitutes/classes/", teacher_views.teacher_substitute_classes),
     path("teacher/substitutes/detail/", teacher_views.teacher_substitute_detail),
+    path("teacher/events/", teacher_views.teacher_events),
+    path("teacher/events/detail/", teacher_views.teacher_event_detail),
     # Admin
     path("admin/stats/", admin_views.admin_stats),
     path("admin/impersonate/", admin_views.admin_impersonate),

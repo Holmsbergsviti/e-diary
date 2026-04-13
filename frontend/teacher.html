@@ -95,6 +95,16 @@
             <div class="card-content" id="behavioralList"><p class="loading">Loading…</p></div>
         </div>
 
+        <!-- Events section -->
+        <div class="card" data-card-id="events-teacher">
+            <div class="card-title">
+                <span>📆 Events</span>
+                <button id="addEventBtn" class="btn btn-primary btn-sm">+ Add Event</button>
+                <button class="card-collapse-btn" title="Hide/Show card">−</button>
+            </div>
+            <div class="card-content" id="eventsList"><p class="loading">Loading…</p></div>
+        </div>
+
         </div><!-- /tab-dashboard -->
 
         <!-- Behavioral Modal -->
@@ -360,6 +370,78 @@
                 <div class="modal-footer">
                     <button id="shMarkAllPresent" class="btn btn-secondary">Mark all present</button>
                     <button id="shSaveAttendance" class="btn btn-primary">Save Attendance</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Event Modal -->
+        <div id="eventModal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true">
+            <div class="modal" style="max-width:540px;">
+                <div class="modal-header">
+                    <h2 id="evModalTitle">Add Event</h2>
+                    <button id="evModalClose" class="modal-close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="evTitle">Title</label>
+                        <input id="evTitle" class="form-input" type="text" placeholder="e.g. Field trip, Parent meeting…">
+                    </div>
+                    <div class="form-group">
+                        <label for="evDesc">Description <small>(optional)</small></label>
+                        <textarea id="evDesc" class="form-input" rows="3" placeholder="Event details…"></textarea>
+                    </div>
+                    <div class="form-row" style="gap:12px;">
+                        <div class="form-group" style="flex:1;">
+                            <label for="evDate">Start Date</label>
+                            <input id="evDate" class="form-input" type="date">
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label for="evEndDate">End Date <small>(optional)</small></label>
+                            <input id="evEndDate" class="form-input" type="date">
+                        </div>
+                    </div>
+                    <div class="form-row" style="gap:12px;">
+                        <div class="form-group" style="flex:1;">
+                            <label for="evStartTime">Start Time <small>(optional)</small></label>
+                            <input id="evStartTime" class="form-input" type="time">
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label for="evEndTime">End Time <small>(optional)</small></label>
+                            <input id="evEndTime" class="form-input" type="time">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Affected Periods <small>(optional)</small></label>
+                        <div id="evPeriodToggles" style="display:flex;gap:6px;flex-wrap:wrap;">
+                            <button type="button" class="btn btn-sm ev-period-btn" data-period="1">P1</button>
+                            <button type="button" class="btn btn-sm ev-period-btn" data-period="2">P2</button>
+                            <button type="button" class="btn btn-sm ev-period-btn" data-period="3">P3</button>
+                            <button type="button" class="btn btn-sm ev-period-btn" data-period="4">P4</button>
+                            <button type="button" class="btn btn-sm ev-period-btn" data-period="5">P5</button>
+                            <button type="button" class="btn btn-sm ev-period-btn" data-period="6">P6</button>
+                            <button type="button" class="btn btn-sm ev-period-btn" data-period="7">P7</button>
+                            <button type="button" class="btn btn-sm ev-period-btn" data-period="8">P8</button>
+                            <button type="button" class="btn btn-sm ev-period-btn" data-period="all">All Day</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="evTargetType">Target Audience</label>
+                        <select id="evTargetType" class="form-input">
+                            <option value="class">Specific Classes</option>
+                            <option value="students">Specific Students</option>
+                        </select>
+                    </div>
+                    <div id="evClassPicker" class="form-group">
+                        <label>Select Classes</label>
+                        <div id="evClassList" style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:8px;"></div>
+                    </div>
+                    <div id="evStudentPicker" class="form-group" style="display:none;">
+                        <label>Select Students</label>
+                        <div id="evStudentList" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:8px;"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="evSave" class="btn btn-primary">Save Event</button>
                 </div>
             </div>
         </div>

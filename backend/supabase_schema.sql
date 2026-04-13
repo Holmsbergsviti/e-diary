@@ -260,6 +260,7 @@ CREATE TABLE ediary_schema.events (
   target_class_ids jsonb DEFAULT '[]'::jsonb,
   target_student_ids jsonb DEFAULT '[]'::jsonb,
   target_teacher_ids jsonb DEFAULT '[]'::jsonb,
+  created_by_teacher_id uuid REFERENCES ediary_schema.teachers(id),
   created_at timestamptz DEFAULT now(),
   CONSTRAINT events_pkey PRIMARY KEY (id)
 );

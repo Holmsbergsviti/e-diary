@@ -23,6 +23,7 @@ __all__ = [
     "teacher_study_hall_attendance",
     "teacher_substitutes", "teacher_substitute_classes",
     "teacher_substitute_detail",
+    "teacher_events", "teacher_event_detail",
 ]
 
 
@@ -1068,12 +1069,15 @@ def teacher_class_stats(request):
                 enrolled.add(sid)
         pair_enrolled_map[(subject_id, class_id)] = enrolled
 
+    class_ids_in_pairs = sorted(list({cid for _, cid in pairs}))
+
     att_result = (
         ediary().table("attendance")
         .select("class_id, subject_id, student_id, status")
-        .eq("recorded_by_teacher_id", teacher_id)
+        .in_("subject_id", subjects_in_pairs)
+        .in_("class_id", class_ids_in_pairs)
         .execute()
-    )
+    ) if subjects_in_pairs and class_ids_in_pairs else type('', (), {'data': []})()
 
     grades_result = (
         ediary().table("grades")
@@ -1711,7 +1715,7 @@ def teacher_study_hall_attendance(request):
             rows.append({
                 "study_hall_id": session_id,
                 "student_id": r["student_id"],
-                "status": r.get("status", "Present"),
+                "status": r.get("status", "Absent"),
             })
 
         if rows:
@@ -1984,3 +1988,117 @@ def teacher_substitute_detail(request):
         "students": students,
         "is_read_only": sub["original_teacher_id"] == teacher_id,
     })
+
+
+# ------------------------------------------------------------------
+# Teacher: events (create / list / edit / delete)
+# ------------------------------------------------------------------
+
+@csrf_exempt
+def teacher_events(request):
+    """Teachers can create events targeted at classes they teach."""
+    payload = _verify_token(request)
+    if not payload or payload.get("role") != "teacher":
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    teacher_id = payload["sub"]
+    db = ediary()
+
+    try:
+        if request.method == "GET":
+            # Return events created by this teacher
+            result = (
+                db.table("events")
+                .select("*")
+                .eq("created_by_teacher_id", teacher_id)
+                .order("event_date", desc=True)
+                .execute()
+            )
+            return JsonResponse({"events": result.data or []})
+
+        if request.method == "POST":
+            try:
+                data = json.loads(request.body)
+            except json.JSONDecodeError:
+                return JsonResponse({"message": "Invalid JSON"}, status=400)
+
+            title = data.get("title", "").strip()
+            description = data.get("description", "").strip()
+            event_date = data.get("event_date")
+            event_end_date = data.get("event_end_date") or event_date
+            start_time = data.get("start_time") or None
+            end_time = data.get("end_time") or None
+            affected_periods = data.get("affected_periods", [])
+            target_type = data.get("target_type", "class")
+            target_class_ids = data.get("target_class_ids", [])
+            target_student_ids = data.get("target_student_ids", [])
+
+            if not title or not event_date:
+                return JsonResponse({"message": "title and event_date required"}, status=400)
+
+            row = {
+                "title": title,
+                "description": description,
+                "event_date": event_date,
+                "event_end_date": event_end_date,
+                "start_time": start_time,
+                "end_time": end_time,
+                "affected_periods": affected_periods,
+                "target_type": target_type,
+                "target_class_ids": target_class_ids,
+                "target_student_ids": target_student_ids,
+                "target_teacher_ids": [teacher_id],
+                "created_by_teacher_id": teacher_id,
+            }
+            result = db.table("events").insert(row).execute()
+            return JsonResponse({"event": (result.data or [None])[0]}, status=201)
+
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+    except Exception:
+        logger.exception("Server error")
+        return JsonResponse({"message": "Internal server error"}, status=500)
+
+
+@csrf_exempt
+def teacher_event_detail(request):
+    """Edit or delete an event created by this teacher."""
+    payload = _verify_token(request)
+    if not payload or payload.get("role") != "teacher":
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    teacher_id = payload["sub"]
+    event_id = request.GET.get("id")
+    if not event_id:
+        return JsonResponse({"message": "id required"}, status=400)
+
+    try:
+        db = ediary()
+
+        # Verify ownership
+        ev = db.table("events").select("created_by_teacher_id").eq("id", event_id).limit(1).execute()
+        if not ev.data or ev.data[0].get("created_by_teacher_id") != teacher_id:
+            return JsonResponse({"message": "Not found or not yours"}, status=404)
+
+        if request.method == "DELETE":
+            db.table("events").delete().eq("id", event_id).execute()
+            return JsonResponse({"deleted": True})
+
+        if request.method == "PATCH":
+            try:
+                data = json.loads(request.body)
+            except json.JSONDecodeError:
+                return JsonResponse({"message": "Invalid JSON"}, status=400)
+            updates = {}
+            for key in ("title", "description", "event_date", "event_end_date",
+                        "start_time", "end_time", "affected_periods",
+                        "target_type", "target_class_ids", "target_student_ids"):
+                if key in data:
+                    updates[key] = data[key]
+            if updates:
+                db.table("events").update(updates).eq("id", event_id).execute()
+            return JsonResponse({"updated": True})
+
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+    except Exception:
+        logger.exception("Server error")
+        return JsonResponse({"message": "Internal server error"}, status=500)
