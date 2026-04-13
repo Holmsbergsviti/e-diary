@@ -75,6 +75,11 @@ async function apiFetch(path, options = {}) {
         }
     }
 
+    // Mutations invalidate the entire GET cache so subsequent reloads see fresh data
+    if (method !== "GET") {
+        for (const key of Object.keys(_apiCache)) delete _apiCache[key];
+    }
+
     const res = await fetch(`${API_BASE}${path}`, {
         ...options,
         headers: {
