@@ -1155,11 +1155,19 @@ def teacher_class_stats(request):
         hw_for_pair = [h_id for h_id, (sid, cid) in hw_pair_map.items() if sid == subject_id and cid == class_id]
         hw_count = len(hw_for_pair)
         hwc_counts = {"completed": 0, "partial": 0, "not_done": 0}
+        # Track which (homework, student) pairs have a completion record
+        hwc_seen = set()
         for c in (hwc_result.data or []):
             if c["homework_id"] in hw_for_pair and c.get("student_id") in class_enrolled:
                 st = c.get("status", "")
                 if st in hwc_counts:
                     hwc_counts[st] += 1
+                hwc_seen.add((c["homework_id"], c["student_id"]))
+        # Students with no completion record at all count as missing
+        for h_id in hw_for_pair:
+            for sid in class_enrolled:
+                if (h_id, sid) not in hwc_seen:
+                    hwc_counts["not_done"] += 1
 
         beh_counts = {"positive": 0, "negative": 0, "note": 0}
         for b in (beh_result.data or []):
