@@ -43,7 +43,7 @@ async function loadProfile() {
                 const emojiEl = document.createElement("div");
                 emojiEl.className = "avatar-emoji";
                 emojiEl.textContent = user.avatar_emoji;
-                emojiEl.style.fontSize = "2.2rem";
+                emojiEl.style.fontSize = "4rem";
                 emojiEl.style.backgroundColor = getEmojiBackgroundColor(user.avatar_emoji);
                 wrapper.insertBefore(emojiEl, wrapper.firstChild);
             } else {
@@ -500,7 +500,7 @@ async function setAvatarEmoji(emoji) {
                 const emojiEl = document.createElement("div");
                 emojiEl.className = "avatar-emoji";
                 emojiEl.textContent = emoji;
-                emojiEl.style.fontSize = "2.2rem";
+                emojiEl.style.fontSize = "4rem";
                 emojiEl.style.backgroundColor = getEmojiBackgroundColor(emoji);
                 wrapper.insertBefore(emojiEl, wrapper.firstChild);
                 

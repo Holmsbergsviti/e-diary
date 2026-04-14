@@ -581,45 +581,46 @@ function getAvatarColorFromName(name) {
 
 /**
  * Get background color for emoji avatar based on emoji type/category
+ * Uses darker/saturated colors for better contrast with emoji
  * @param {string} emoji - The emoji character
  * @returns {string} CSS color code
  */
 function getEmojiBackgroundColor(emoji) {
-    // Map emoji categories to colors
+    // Map emoji to darker, saturated background colors for good contrast
     const emojiColorMap = {
-        // Smileys - Yellow/Orange
-        "😀": "#FFD93D", "😊": "#FFD93D", "😄": "#FFD93D", "😂": "#FFD93D",
-        "🤗": "#FFD93D", "😍": "#FF6B9D", "😎": "#4ECDC4", "🤓": "#4ECDC4",
-        "🧐": "#FFD93D", "😌": "#A8E6CF", "😏": "#FFD93D", "😘": "#FF6B9D",
-        "😗": "#FF6B9D", "😙": "#FF6B9D", "🥰": "#FF6B9D", "😚": "#FF6B9D",
+        // Smileys - Dark backgrounds so yellow stands out
+        "😀": "#1E3A8A", "😊": "#1E3A8A", "😄": "#1E3A8A", "😂": "#1E3A8A",
+        "🤗": "#1E3A8A", "😍": "#7C2D12", "😎": "#082F49", "🤓": "#082F49",
+        "🧐": "#1F2937", "😌": "#164E63", "😏": "#1E3A8A", "😘": "#831843",
+        "😗": "#831843", "😙": "#831843", "🥰": "#831843", "😚": "#831843",
         
-        // Animals - Browns/Greens
-        "🐶": "#8B7355", "🐱": "#8B6F47", "🐭": "#9E9E9E", "🐹": "#C4A747",
-        "🐰": "#E8B4A2", "🦊": "#E97D3A", "🐻": "#8B4513", "🐼": "#000000",
-        "🐨": "#9E9E9E", "🐯": "#E97D3A", "🦁": "#E97D3A", "🐮": "#BEBEBE",
-        "🐷": "#E8B4A2", "🐸": "#4CAF50", "🐵": "#8B7355", "🐔": "#C4A747",
+        // Animals - Dark browns and greens
+        "🐶": "#44280D", "🐱": "#3E2817", "🐭": "#404040", "🐹": "#5A4A1E",
+        "🐰": "#5A3A30", "🦊": "#7C2B0B", "🐻": "#3D1E0A", "🐼": "#1A1A1A",
+        "🐨": "#4A4A4A", "🐯": "#7C2B0B", "🦁": "#7C2B0B", "🐮": "#5A5A5A",
+        "🐷": "#6A3D34", "🐸": "#1B4332", "🐵": "#4A3220", "🐔": "#5A4A1E",
         
-        // Mythical - Purple/Blue
-        "🦄": "#D8BFD8", "🌈": "#FF69B4",
+        // Mythical - Dark purple/pink
+        "🦄": "#6B21A8", "🌈": "#831843",
         
-        // Stars/Sky - Blue/Gold
-        "⭐": "#FFD700", "✨": "#FFD700", "💫": "#FFD700", "🌟": "#FFD700",
-        "💥": "#FF6347", "🔥": "#FF6347",
+        // Stars/Sky - Dark blue
+        "⭐": "#1E3A8A", "✨": "#1E3A8A", "💫": "#1E3A8A", "🌟": "#1E3A8A",
+        "💥": "#7C1D12", "🔥": "#7C1D12",
         
-        // Hearts - Red/Pink
-        "❤️": "#FF0000", "💙": "#0000FF", "💚": "#008000", "💛": "#FFD700",
-        "🧡": "#FF8C00", "💜": "#800080", "💖": "#FF1493", "💝": "#FF69B4",
+        // Hearts - Dark reds/blues/purples
+        "❤️": "#7C1D12", "💙": "#0C1E3A", "💚": "#134E4A", "💛": "#1E3A8A",
+        "🧡": "#7C2B0B", "💜": "#4C1D95", "💖": "#831843", "💝": "#831843",
         
-        // Activities/Objects - Various
-        "🎓": "#1A237E", "🎯": "#FF6347", "🎨": "#9C27B0", "📚": "#D2691E",
-        "📖": "#8B4513", "✏️": "#FFD93D", "📝": "#FFD700", "🖊️": "#696969",
+        // Activities/Objects - Various dark colors
+        "🎓": "#0F172A", "🎯": "#7C1D12", "🎨": "#4C1D95", "📚": "#5A2110",
+        "📖": "#3D2414", "✏️": "#1E3A8A", "📝": "#7C2B0B", "🖊️": "#282828",
         
-        // Science/Space - Blue
-        "🚀": "#4169E1", "💡": "#FFD700", "🔬": "#4169E1", "🔭": "#4169E1",
-        "⚡": "#FFD700", "🌙": "#191970", "☀️": "#FFD700", "🌻": "#FFD700"
+        // Science/Space - Dark blue
+        "🚀": "#0C1E3A", "💡": "#7C2B0B", "🔬": "#0C1E3A", "🔭": "#0C1E3A",
+        "⚡": "#7C2B0B", "🌙": "#0F172A", "☀️": "#7C2B0B", "🌻": "#7C2B0B"
     };
     
-    return emojiColorMap[emoji] || "#2563eb"; // Fallback to primary color
+    return emojiColorMap[emoji] || "#1F2937"; // Fallback to dark gray
 }
 
 /**
