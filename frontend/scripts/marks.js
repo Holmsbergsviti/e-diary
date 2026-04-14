@@ -388,27 +388,22 @@ function gradeClass(code) {
     return "grade-u";
 }
 
-/* Calculate weighted predicted grade from a list of grade objects */
+/* Calculate weighted predicted grade from a list of grade objects.
+   Each individual grade is weighted by its category weight, so three
+   test grades collectively outweigh one quiz grade (rather than the
+   old approach that averaged per-category first, giving one quiz the
+   same influence as an entire category of tests). */
 function predictGrade(grades) {
     if (!grades || grades.length === 0) return null;
-
-    // Group by category
-    const byCat = {};
-    for (const g of grades) {
-        const cat = g.category || "other";
-        if (!byCat[cat]) byCat[cat] = [];
-        const val = GRADE_VALUES[g.grade_code];
-        if (val != null) byCat[cat].push(val);
-    }
 
     let weightedSum = 0;
     let totalWeight = 0;
 
-    for (const [cat, vals] of Object.entries(byCat)) {
-        if (vals.length === 0) continue;
-        const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-        const w = CATEGORY_WEIGHTS[cat] || CATEGORY_WEIGHTS.other;
-        weightedSum += avg * w;
+    for (const g of grades) {
+        const val = GRADE_VALUES[g.grade_code];
+        if (val == null) continue;
+        const w = CATEGORY_WEIGHTS[g.category || "other"] || CATEGORY_WEIGHTS.other;
+        weightedSum += val * w;
         totalWeight += w;
     }
 
@@ -438,14 +433,19 @@ function renderGroup(container, group) {
         allGrades: s.grades,
     }));
 
-    // Find unique assessments from filtered grades
-    const assessmentSet = new Set();
+    // Find unique assessments from filtered grades, sorted by earliest date
+    const assessmentMap = new Map(); // assessment name → earliest date
     for (const s of filteredStudents) {
         for (const g of s.grades) {
-            assessmentSet.add(g.assessment);
+            const existing = assessmentMap.get(g.assessment);
+            if (!existing || (g.date && g.date < existing)) {
+                assessmentMap.set(g.assessment, g.date || '');
+            }
         }
     }
-    const assessments = Array.from(assessmentSet).sort();
+    const assessments = Array.from(assessmentMap.entries())
+        .sort((a, b) => (a[1] || '').localeCompare(b[1] || '') || a[0].localeCompare(b[0]))
+        .map(e => e[0]);
 
     const colCount = 5 + (assessments.length > 0 ? assessments.length : 1) + 1; // #, Student, Class, Att%, Comments, assessments, Predicted
 
@@ -516,17 +516,25 @@ function renderGroup(container, group) {
                 <td class="att-pct-cell${attPct !== null && attPct < 80 ? ' att-low' : ''}">${attPct !== null ? attPct + '%' : '–'}<br><small class="att-terms" title="T1 / T2">${attByTerm.term_1?.attendance_pct ?? '–'}/${attByTerm.term_2?.attendance_pct ?? '–'}</small></td>
                 <td><button class="btn btn-secondary btn-sm view-comments-btn" data-student-id="${s.student_id}" data-subject-id="${group.subject_id}" data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}">Subject (${commentCount})</button></td>`;
 
-            // Grades column with assessment names and grades together
-            if (s.grades.length > 0) {
-                const gradesHtml = s.grades.map(g => {
-                    const pct = g.percentage != null ? ` ${g.percentage}%` : "";
-                    const commentIcon = g.comment ? ' 💬' : "";
-                    return `<div class="grade-item-compact grade-clickable" data-grade='${JSON.stringify(g).replace(/'/g, "&#39;")}' data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}" style="cursor:pointer;margin:2px 0;padding:2px 4px;border-radius:3px;background:var(--bg-input);font-size:0.9rem;">
-                        <strong>${escHtml(g.assessment || 'Unnamed')}:</strong>
-                        <span class="grade-badge ${gradeClass(g.grade_code)}" style="margin-left:4px;">${escHtml(g.grade_code)}</span>${pct}${commentIcon}
-                    </div>`;
-                }).join("");
-                html += `<td class="grades-column" style="padding:4px;">${gradesHtml}</td>`;
+            // One <td> per assessment column (matches header) — filter to show ALL grades with same name
+            if (assessments.length > 0) {
+                for (const a of assessments) {
+                    const matching = s.grades.filter(gr => gr.assessment === a)
+                        .sort((x, y) => (x.date || '').localeCompare(y.date || ''));
+                    if (matching.length > 0) {
+                        const cellHtml = matching.map(g => {
+                            const pct = g.percentage != null ? ` ${g.percentage}%` : "";
+                            const commentIcon = g.comment ? ' 💬' : "";
+                            const dateLabel = matching.length > 1 && g.date ? `<small style="opacity:0.6;display:block;">${g.date}</small>` : "";
+                            return `<div class="grade-item-compact grade-clickable" data-grade='${JSON.stringify(g).replace(/'/g, "&#39;")}' data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}" style="cursor:pointer;margin:2px 0;padding:2px 4px;border-radius:3px;background:var(--bg-input);font-size:0.9rem;">
+                                <span class="grade-badge ${gradeClass(g.grade_code)}" style="margin-left:4px;">${escHtml(g.grade_code)}</span>${pct}${commentIcon}${dateLabel}
+                            </div>`;
+                        }).join("");
+                        html += `<td class="grades-column" style="padding:4px;">${cellHtml}</td>`;
+                    } else {
+                        html += `<td class="grades-column">–</td>`;
+                    }
+                }
             } else {
                 html += `<td class="grades-column">–</td>`;
             }
@@ -755,7 +763,8 @@ async function saveGrade() {
 async function deleteGradeFromModal() {
     const gradeId = document.getElementById("gradeModalDelete").dataset.gradeId;
     if (!gradeId) return;
-    if (!confirm("Delete this grade? This cannot be undone.")) return;
+    const ok = await showConfirm("Delete this grade? This cannot be undone.", { title: "Delete Grade", confirmText: "Delete" });
+    if (!ok) return;
 
     const btn = document.getElementById("gradeModalDelete");
     btn.disabled = true;
@@ -878,11 +887,11 @@ function _buildExportRows(group) {
                 student: `${stu.surname} ${stu.name}`,
                 class_name: stu.class_name || group.class_name || "",
                 subject: group.subject || "",
-                assessment: g.assessment_name || "",
+                assessment: g.assessment || "",
                 category: g.category || "",
                 grade: g.grade_code || "",
                 percentage: g.percentage != null ? g.percentage : "",
-                date: g.date_taken || "",
+                date: g.date || "",
                 term: g.term || "",
                 comment: g.comment || ""
             });

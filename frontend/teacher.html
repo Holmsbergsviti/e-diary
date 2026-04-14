@@ -54,6 +54,16 @@
             <div class="card-content" id="studyHallList"><p class="loading">Loading…</p></div>
         </div>
 
+        <!-- Substitutes section -->
+        <div class="card" data-card-id="substitutes">
+            <div class="card-title">
+                <span>🔄 Substitutes</span>
+                <button id="openSubstituteBtn" class="btn btn-primary btn-sm">+ Add Substitute</button>
+                <button class="card-collapse-btn" title="Hide/Show card">−</button>
+            </div>
+            <div class="card-content" id="substituteList"><p class="loading">Loading…</p></div>
+        </div>
+
         <!-- Full week schedule -->
         <div class="card" data-card-id="weekly-schedule">
             <div class="card-title week-nav-header">
@@ -85,10 +95,20 @@
             <div class="card-content" id="behavioralList"><p class="loading">Loading…</p></div>
         </div>
 
+        <!-- Events section -->
+        <div class="card" data-card-id="events-teacher">
+            <div class="card-title">
+                <span>📆 Events</span>
+                <button id="addEventBtn" class="btn btn-primary btn-sm">+ Add Event</button>
+                <button class="card-collapse-btn" title="Hide/Show card">−</button>
+            </div>
+            <div class="card-content" id="eventsList"><p class="loading">Loading…</p></div>
+        </div>
+
         </div><!-- /tab-dashboard -->
 
         <!-- Behavioral Modal -->
-        <div id="behavioralModal" class="modal-overlay" style="display:none;">
+        <div id="behavioralModal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true">
             <div class="modal" style="max-width:480px;">
                 <div class="modal-header">
                     <h2>Add Behavioral Note</h2>
@@ -96,18 +116,18 @@
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
-                        <label>Subject &amp; Class</label>
+                        <label for="behClassSelect">Subject &amp; Class</label>
                         <select id="behClassSelect" class="form-input"></select>
                     </div>
                     <div class="form-group">
-                        <label>Student</label>
+                        <label for="behStudentSelect">Student</label>
                         <select id="behStudentSelect" class="form-input">
                             <option value="">Select a class first…</option>
                         </select>
                     </div>
                     <div class="form-row">
                         <div class="form-group" style="flex:1;">
-                            <label>Type</label>
+                            <label for="behType">Type</label>
                             <select id="behType" class="form-input">
                                 <option value="positive">Positive</option>
                                 <option value="negative">Negative</option>
@@ -115,7 +135,7 @@
                             </select>
                         </div>
                         <div class="form-group" style="flex:1;">
-                            <label>Severity</label>
+                            <label for="behSeverity">Severity</label>
                             <select id="behSeverity" class="form-input">
                                 <option value="low">Low</option>
                                 <option value="medium">Medium</option>
@@ -124,7 +144,7 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Details</label>
+                        <label for="behContent">Details</label>
                         <textarea id="behContent" class="form-input" rows="3" placeholder="Describe the behavior…"></textarea>
                     </div>
                 </div>
@@ -135,7 +155,7 @@
         </div>
 
         <!-- Homework Modal -->
-        <div id="homeworkModal" class="modal-overlay" style="display:none;">
+        <div id="homeworkModal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true">
             <div class="modal" style="max-width:480px;">
                 <div class="modal-header">
                     <h2>Add Homework</h2>
@@ -143,19 +163,19 @@
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
-                        <label>Subject &amp; Class</label>
+                        <label for="hwClassSelect">Subject &amp; Class</label>
                         <select id="hwClassSelect" class="form-input"></select>
                     </div>
                     <div class="form-group">
-                        <label>Title</label>
+                        <label for="hwTitle">Title</label>
                         <input id="hwTitle" class="form-input" type="text" placeholder="e.g. Chapter 5 exercises">
                     </div>
                     <div class="form-group">
-                        <label>Description <small>(optional)</small></label>
+                        <label for="hwDesc">Description <small>(optional)</small></label>
                         <textarea id="hwDesc" class="form-input" rows="3" placeholder="Details, page numbers, etc."></textarea>
                     </div>
                     <div class="form-group">
-                        <label>Due Date</label>
+                        <label for="hwDueDate">Due Date</label>
                         <input id="hwDueDate" class="form-input" type="date">
                     </div>
                 </div>
@@ -166,7 +186,7 @@
         </div>
 
         <!-- Homework Completion Modal -->
-        <div id="hwCompletionModal" class="modal-overlay" style="display:none;">
+        <div id="hwCompletionModal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true">
             <div class="modal" style="max-width:600px;">
                 <div class="modal-header">
                     <div>
@@ -185,7 +205,7 @@
         </div>
 
         <!-- Attendance Modal (hidden by default) -->
-        <div id="attendanceModal" class="modal-overlay" style="display:none;">
+        <div id="attendanceModal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true">
             <div class="modal">
                 <div class="modal-header">
                     <div>
@@ -236,8 +256,82 @@
         </div>
         </div><!-- /tab-exports -->
 
+        <!-- Substitute Modal -->
+        <div id="substituteModal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true">
+            <div class="modal">
+                <div class="modal-header">
+                    <div>
+                        <h2 id="subModalTitle">Add Substitute</h2>
+                        <p id="subModalSubtitle" class="modal-subtitle"></p>
+                    </div>
+                    <button id="subModalClose" class="modal-close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-row" style="gap:12px;margin-bottom:12px;">
+                        <div class="form-group" style="flex:1;">
+                            <label for="subDate">Date</label>
+                            <input type="date" id="subDate" class="form-input">
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label for="subPeriod">Period</label>
+                            <select id="subPeriod" class="form-input">
+                                <option value="">Select…</option>
+                                <option value="1">Period 1</option>
+                                <option value="2">Period 2</option>
+                                <option value="3">Period 3</option>
+                                <option value="4">Period 4</option>
+                                <option value="5">Period 5</option>
+                                <option value="6">Period 6</option>
+                                <option value="7">Period 7</option>
+                                <option value="8">Period 8</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label for="subClassSelect">Class to Cover</label>
+                        <select id="subClassSelect" class="form-input"><option value="">Select date &amp; period first…</option></select>
+                    </div>
+                    <div class="form-row" style="gap:12px;margin-bottom:12px;">
+                        <div class="form-group" style="flex:1;">
+                            <label for="subTopic">Topic / Lesson</label>
+                            <input type="text" id="subTopic" class="form-input" placeholder="e.g. Chapter 5 review">
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label for="subRoom">Room (optional)</label>
+                            <input type="text" id="subRoom" class="form-input" placeholder="e.g. 101">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label for="subNote">Note (optional)</label>
+                        <input type="text" id="subNote" class="form-input" placeholder="e.g. Pages 45-50">
+                    </div>
+                    <div id="subStudentList"></div>
+                </div>
+                <div class="modal-footer">
+                    <button id="subMarkAllPresent" class="btn btn-secondary">Mark all present</button>
+                    <button id="subSaveBtn" class="btn btn-primary">Save Substitute</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Substitute Detail Modal (read-only) -->
+        <div id="subDetailModal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true">
+            <div class="modal">
+                <div class="modal-header">
+                    <div>
+                        <h2 id="subDetailTitle">Substitute Lesson</h2>
+                        <p id="subDetailSubtitle" class="modal-subtitle"></p>
+                    </div>
+                    <button id="subDetailClose" class="modal-close-btn">&times;</button>
+                </div>
+                <div class="modal-body" id="subDetailBody">
+                    <p class="loading">Loading…</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Study Hall Modal -->
-        <div id="studyHallModal" class="modal-overlay" style="display:none;">
+        <div id="studyHallModal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true">
             <div class="modal">
                 <div class="modal-header">
                     <div>
@@ -276,6 +370,91 @@
                 <div class="modal-footer">
                     <button id="shMarkAllPresent" class="btn btn-secondary">Mark all present</button>
                     <button id="shSaveAttendance" class="btn btn-primary">Save Attendance</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Event Modal -->
+        <div id="eventModal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true">
+            <div class="modal" style="max-width:540px;">
+                <div class="modal-header">
+                    <h2 id="evModalTitle">Add Event</h2>
+                    <button id="evModalClose" class="modal-close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <!-- Details section -->
+                    <div class="ev-section">
+                        <div class="ev-section-title">Details</div>
+                        <div class="form-group">
+                            <label for="evTitle">Title</label>
+                            <input id="evTitle" class="form-input" type="text" placeholder="e.g. Field trip, Parent meeting…">
+                        </div>
+                        <div class="form-group">
+                            <label for="evDesc">Description <small>(optional)</small></label>
+                            <textarea id="evDesc" class="form-input" rows="2" placeholder="Event details…"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Date & Time section -->
+                    <div class="ev-section">
+                        <div class="ev-section-title">Date &amp; Time</div>
+                        <div class="form-row" style="gap:12px;">
+                            <div class="form-group" style="flex:1;">
+                                <label for="evDate">Start Date</label>
+                                <input id="evDate" class="form-input" type="date">
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label for="evEndDate">End Date <small>(opt.)</small></label>
+                                <input id="evEndDate" class="form-input" type="date">
+                            </div>
+                        </div>
+                        <div class="form-row" style="gap:12px;">
+                            <div class="form-group" style="flex:1;">
+                                <label for="evStartTime">Start Time <small>(opt.)</small></label>
+                                <input id="evStartTime" class="form-input" type="time">
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label for="evEndTime">End Time <small>(opt.)</small></label>
+                                <input id="evEndTime" class="form-input" type="time">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label>Affected Periods <small>(optional)</small></label>
+                            <div id="evPeriodToggles" class="ev-period-grid">
+                                <button type="button" class="ev-period-btn" data-period="1">P1</button>
+                                <button type="button" class="ev-period-btn" data-period="2">P2</button>
+                                <button type="button" class="ev-period-btn" data-period="3">P3</button>
+                                <button type="button" class="ev-period-btn" data-period="4">P4</button>
+                                <button type="button" class="ev-period-btn" data-period="5">P5</button>
+                                <button type="button" class="ev-period-btn" data-period="6">P6</button>
+                                <button type="button" class="ev-period-btn" data-period="7">P7</button>
+                                <button type="button" class="ev-period-btn" data-period="8">P8</button>
+                                <button type="button" class="ev-period-btn ev-period-allday" data-period="all">All Day</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Target section -->
+                    <div class="ev-section" style="border-bottom:none;padding-bottom:0;">
+                        <div class="ev-section-title">Target Audience</div>
+                        <div class="form-group">
+                            <select id="evTargetType" class="form-input">
+                                <option value="class">Specific Classes</option>
+                                <option value="students">Specific Students</option>
+                            </select>
+                        </div>
+                        <div id="evClassPicker" class="form-group" style="margin-bottom:0;">
+                            <label>Select Classes</label>
+                            <div id="evClassList" class="ev-picker-box"></div>
+                        </div>
+                        <div id="evStudentPicker" class="form-group" style="display:none;margin-bottom:0;">
+                            <label>Select Students</label>
+                            <div id="evStudentList" class="ev-picker-box" style="max-height:200px;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="evSave" class="btn btn-primary">Save Event</button>
                 </div>
             </div>
         </div>

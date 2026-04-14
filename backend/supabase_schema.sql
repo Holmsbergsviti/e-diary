@@ -260,6 +260,7 @@ CREATE TABLE ediary_schema.events (
   target_class_ids jsonb DEFAULT '[]'::jsonb,
   target_student_ids jsonb DEFAULT '[]'::jsonb,
   target_teacher_ids jsonb DEFAULT '[]'::jsonb,
+  created_by_teacher_id uuid REFERENCES ediary_schema.teachers(id),
   created_at timestamptz DEFAULT now(),
   CONSTRAINT events_pkey PRIMARY KEY (id)
 );
@@ -297,4 +298,25 @@ CREATE TABLE ediary_schema.study_hall_attendance (
   CONSTRAINT study_hall_attendance_unique UNIQUE (study_hall_id, student_id),
   CONSTRAINT study_hall_att_session_fkey FOREIGN KEY (study_hall_id) REFERENCES ediary_schema.study_hall(id) ON DELETE CASCADE,
   CONSTRAINT study_hall_att_student_fkey FOREIGN KEY (student_id) REFERENCES ediary_schema.students(id)
+);
+
+-- Substitute lessons (replaces a regular teacher for a specific date+period)
+CREATE TABLE ediary_schema.substitutes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  date date NOT NULL,
+  period smallint NOT NULL CHECK (period BETWEEN 1 AND 8),
+  original_teacher_id uuid NOT NULL,
+  substitute_teacher_id uuid NOT NULL,
+  subject_id uuid NOT NULL,
+  class_id uuid NOT NULL,
+  room text,
+  note text,
+  topic text,
+  created_at timestamptz DEFAULT now(),
+  CONSTRAINT substitutes_pkey PRIMARY KEY (id),
+  CONSTRAINT substitutes_unique UNIQUE (date, period, class_id),
+  CONSTRAINT substitutes_orig_teacher_fkey FOREIGN KEY (original_teacher_id) REFERENCES ediary_schema.teachers(id),
+  CONSTRAINT substitutes_sub_teacher_fkey FOREIGN KEY (substitute_teacher_id) REFERENCES ediary_schema.teachers(id),
+  CONSTRAINT substitutes_subject_fkey FOREIGN KEY (subject_id) REFERENCES ediary_schema.subjects(id),
+  CONSTRAINT substitutes_class_fkey FOREIGN KEY (class_id) REFERENCES ediary_schema.classes(id)
 );

@@ -75,6 +75,11 @@ async function apiFetch(path, options = {}) {
         }
     }
 
+    // Mutations invalidate the entire GET cache so subsequent reloads see fresh data
+    if (method !== "GET") {
+        for (const key of Object.keys(_apiCache)) delete _apiCache[key];
+    }
+
     const res = await fetch(`${API_BASE}${path}`, {
         ...options,
         headers: {
@@ -340,6 +345,59 @@ function dismissToast(toast) {
     toast.addEventListener("transitionend", () => toast.remove(), { once: true });
     // Fallback removal if transitionend doesn't fire
     setTimeout(() => toast.remove(), 400);
+}
+
+// ════════════════════════════════════════════════════════════
+// CONFIRMATION DIALOG (replaces native confirm())
+// ════════════════════════════════════════════════════════════
+
+/**
+ * Show a styled confirmation dialog. Returns a Promise<boolean>.
+ * @param {string} message  – the question / warning text
+ * @param {Object} [opts]
+ * @param {string} [opts.title]       – modal heading (default "Confirm")
+ * @param {string} [opts.confirmText] – label for the confirm button (default "Confirm")
+ * @param {string} [opts.cancelText]  – label for the cancel button (default "Cancel")
+ * @param {string} [opts.type]        – "danger" | "warning" | "info" (default "danger")
+ */
+function showConfirm(message, opts = {}) {
+    return new Promise(resolve => {
+        const { title = "Confirm", confirmText = "Confirm", cancelText = "Cancel", type = "danger" } = opts;
+
+        // Remove any existing dialog first
+        document.getElementById("confirm-dialog-overlay")?.remove();
+
+        const overlay = document.createElement("div");
+        overlay.id = "confirm-dialog-overlay";
+        overlay.className = "confirm-overlay";
+
+        const icons = { danger: "⚠", warning: "⚠", info: "ℹ" };
+        overlay.innerHTML = `
+            <div class="confirm-dialog confirm-${type}">
+                <div class="confirm-icon">${icons[type] || icons.info}</div>
+                <h3 class="confirm-title">${escHtml(title)}</h3>
+                <p class="confirm-message">${escHtml(message)}</p>
+                <div class="confirm-actions">
+                    <button class="btn btn-secondary confirm-cancel">${escHtml(cancelText)}</button>
+                    <button class="btn btn-${type === "danger" ? "danger" : "primary"} confirm-ok">${escHtml(confirmText)}</button>
+                </div>
+            </div>
+        `;
+
+        function close(result) {
+            overlay.classList.add("confirm-exit");
+            overlay.addEventListener("animationend", () => overlay.remove(), { once: true });
+            setTimeout(() => overlay.remove(), 300);
+            resolve(result);
+        }
+
+        overlay.querySelector(".confirm-cancel").addEventListener("click", () => close(false));
+        overlay.querySelector(".confirm-ok").addEventListener("click", () => close(true));
+        overlay.addEventListener("click", e => { if (e.target === overlay) close(false); });
+
+        document.body.appendChild(overlay);
+        overlay.querySelector(".confirm-ok").focus();
+    });
 }
 
 // ════════════════════════════════════════════════════════════

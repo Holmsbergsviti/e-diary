@@ -26,6 +26,7 @@ const SCHEDULE_ROWS = [
 
 let scheduleSlots = [];
 let studyHallSessions = []; // study hall sessions (date-specific)
+let substituteSlots = [];   // substitute lessons (date-specific)
 let weekOffset = 0;   // 0 = this week, -1 = last week, +1 = next week
 let studentAttendance = []; // attendance records for students
 let scheduleHolidays = []; // holidays
@@ -58,6 +59,7 @@ async function fetchSchedule() {
         const schedData = await results[0].json();
         scheduleSlots = schedData.schedule || [];
         studyHallSessions = schedData.study_hall || [];
+        substituteSlots = schedData.substitutes || [];
 
         // Events/holidays – don't let a failure break the whole schedule
         try {
@@ -274,6 +276,13 @@ function renderSchedule() {
         shMap[sh.date][sh.period] = sh;
     }
 
+    // Build substitute lookup: subMap[dateStr][period] = substitute
+    const subMap = {};
+    for (const sub of substituteSlots) {
+        if (!subMap[sub.date]) subMap[sub.date] = {};
+        subMap[sub.date][sub.period] = sub;
+    }
+
     for (const row of SCHEDULE_ROWS) {
         if (row.type === "break") {
             // Break row spans all columns
@@ -301,6 +310,9 @@ function renderSchedule() {
             // Check if this period is overridden by an event
             const eventOverride = (eventPeriodMap[cellDateStr] || {})[p];
 
+            // Check for substitute lesson
+            const subOverride = (subMap[cellDateStr] || {})[p];
+
             if (holiday) {
                 // Holiday cell – greyed out
                 html += `<td class="lesson-holiday" title="${escHtml(holiday.name)}"><span class="holiday-label">${p === 1 ? escHtml(holiday.name) : ""}</span></td>`;
@@ -312,6 +324,29 @@ function renderSchedule() {
                     ${eventOverride.start_time ? `<br><span class="lesson-room">${eventOverride.start_time}${eventOverride.end_time ? '–' + eventOverride.end_time : ''}</span>` : ""}
                 </td>`;
             } else if (slot) {
+                // Check if there's a substitute for this specific slot
+                const hasSub = subOverride && (
+                    (isStudent && subOverride.class_id === slot.class_id) ||
+                    (isTeacher)
+                );
+
+                if (hasSub) {
+                    // Substitute lesson – render with special styling
+                    const nowClass = isNowCell ? " cell-current" : "";
+                    const subTeacher = isStudent ? escHtml(subOverride.substitute_teacher || "") : "";
+                    const subNote = subOverride.note ? `<br><small style="opacity:.7">${escHtml(subOverride.note)}</small>` : "";
+                    const subRoom = subOverride.room ? "Room " + escHtml(subOverride.room) : (slot.room ? "Room " + escHtml(slot.room) : "");
+                    const subLabel = isTeacher
+                        ? (subOverride.is_substitute_for_me
+                            ? `<small class="sub-badge sub-badge-out">You're absent</small>`
+                            : `<small class="sub-badge sub-badge-in">Covering</small>`)
+                        : `<small class="sub-badge">SUB</small>`;
+
+                    html += `<td class="lesson lesson-substitute${nowClass}" title="Substitute lesson${subOverride.substitute_teacher ? ' – ' + subOverride.substitute_teacher : ''}">
+                        ${escHtml(subOverride.subject || slot.subject)} ${subLabel}<br>
+                        <span class="lesson-room">${subRoom}${subTeacher ? (subRoom ? " · " : "") + subTeacher : ""}${subNote}</span>
+                    </td>`;
+                } else {
                 const yearLabel = isTeacher
                     ? escHtml(slot.class_name || `Year ${slot.grade_level}`)
                     : (slot.room ? "Room " + escHtml(slot.room) : "");
@@ -345,10 +380,17 @@ function renderSchedule() {
                     ${escHtml(slot.subject)}${attBadge}<br>
                     <span class="lesson-room">${yearLabel}${isTeacher && slot.room ? " · " + escHtml(slot.room) : ""}${teacherLine ? "<br>" + teacherLine : ""}</span>
                 </td>`;
+                }
             } else {
                 const shSession = (shMap[cellDateStr] || {})[p];
                 const nowClass = isNowCell ? " cell-current" : "";
-                if (shSession) {
+                if (subOverride && isTeacher && !subOverride.is_substitute_for_me) {
+                    // Teacher is covering for someone – show substitute cell
+                    html += `<td class="lesson lesson-substitute${nowClass}" title="Covering for ${escHtml(subOverride.original_teacher || '')}">
+                        ${escHtml(subOverride.subject)} <small class="sub-badge sub-badge-in">Covering</small><br>
+                        <span class="lesson-room">${escHtml(subOverride.class_name || '')}${subOverride.room ? ' · Room ' + escHtml(subOverride.room) : ''}</span>
+                    </td>`;
+                } else if (shSession) {
                     const roomInfo = shSession.room ? `Room ${escHtml(shSession.room)}` : "";
                     const teacherInfo = shSession.teacher_name ? escHtml(shSession.teacher_name) : "";
                     const detail = isStudent ? teacherInfo : "";

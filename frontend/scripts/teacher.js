@@ -17,6 +17,28 @@ let currentTeacherId = null; // current teacher's user ID
 let currentTeacherTab = "dashboard"; // active tab
 let statsLoaded = false;   // lazy flag for statistics tab
 let exportsLoaded = false; // lazy flag for exports tab
+let teacherSubstitutes = []; // substitute lessons from schedule API
+
+// Numeric value → letter grade (mirrors marks.js)
+function _numToGrade(val) {
+    if (val == null) return "–";
+    if (val >= 8.5) return "A*";
+    if (val >= 7.5) return "A";
+    if (val >= 6.5) return "A-";
+    if (val >= 6.25) return "B+";
+    if (val >= 5.75) return "B";
+    if (val >= 5.25) return "B-";
+    if (val >= 4.75) return "C+";
+    if (val >= 4.5) return "C";
+    if (val >= 4.25) return "C-";
+    if (val >= 3.75) return "D+";
+    if (val >= 3.5) return "D";
+    if (val >= 3.25) return "D-";
+    if (val >= 2.75) return "E+";
+    if (val >= 2.25) return "E";
+    if (val >= 1.75) return "E-";
+    return "U";
+}
 
 /* ---- Bootstrap ------------------------------------------------ */
 async function initTeacher() {
@@ -31,7 +53,7 @@ async function initTeacher() {
     currentTeacherId = user?.id || null;
 
     initNav();
-    await Promise.all([loadSchedule(), loadHomework(), loadBehavioral(), loadStudyHall()]);
+    await Promise.all([loadSchedule(), loadHomework(), loadBehavioral(), loadStudyHall(), loadSubstitutes(), loadTeacherEvents()]);
     
     // Initialize card collapse functionality
     initCardCollapse();
@@ -45,6 +67,12 @@ async function initTeacher() {
 
     // Study hall button
     document.getElementById("openStudyHallBtn").addEventListener("click", openStudyHallModal);
+
+    // Substitute button
+    document.getElementById("openSubstituteBtn").addEventListener("click", openSubstituteModal);
+
+    // Event button
+    document.getElementById("addEventBtn").addEventListener("click", () => openEventModal());
 
     // Check if redirected from schedule page with an attendance slot to open
     const pending = sessionStorage.getItem("openAttendance");
@@ -123,6 +151,7 @@ async function loadSchedule() {
         ]);
         const data = await schedRes.json();
         allSlots = data.schedule || [];
+        teacherSubstitutes = data.substitutes || [];
 
         // Load events/holidays
         try {
@@ -336,6 +365,13 @@ function renderWeeklySchedule() {
         { type: "period", period: 8 },
     ];
 
+    // Build substitute lookup: tSubMap[dateStr][period] = sub
+    const tSubMap = {};
+    for (const sub of teacherSubstitutes) {
+        if (!tSubMap[sub.date]) tSubMap[sub.date] = {};
+        tSubMap[sub.date][sub.period] = sub;
+    }
+
     for (const row of TEACHER_ROWS) {
         if (row.type === "break") {
             html += `<tr class="schedule-break-row">
@@ -354,6 +390,7 @@ function renderWeeklySchedule() {
             const cellDateStr = isoDate(cellDate);
             const holiday = getHoliday(cellDateStr);
             const eventOverride = (eventPeriodMap[cellDateStr] || {})[p];
+            const subOverride = (tSubMap[cellDateStr] || {})[p];
 
             if (holiday) {
                 html += `<td class="lesson-holiday" title="${escHtml(holiday.name)}"><span class="holiday-label">${p === 1 ? escHtml(holiday.name) : ""}</span></td>`;
@@ -366,6 +403,15 @@ function renderWeeklySchedule() {
                     ${eventOverride.start_time ? `<br><span class="lesson-room">${eventOverride.start_time}${eventOverride.end_time ? '–' + eventOverride.end_time : ''}</span>` : ""}
                 </td>`;
             } else if (slot) {
+                // Check for substitute override on this slot
+                if (subOverride && subOverride.is_substitute_for_me) {
+                    // Teacher is absent – someone else is covering – clickable to view details
+                    const subJson = JSON.stringify(subOverride).replace(/'/g, "&#39;");
+                    html += `<td class="lesson lesson-substitute clickable-sub" data-sub='${subJson}' title="You're absent – ${escHtml(subOverride.substitute_teacher || 'substitute')} is covering. Click to view.">
+                        ${escHtml(subOverride.subject || slot.subject)} <small class="sub-badge sub-badge-out">Absent</small><br>
+                        <span class="lesson-room">${escHtml(slot.class_name || '')}${subOverride.substitute_teacher ? ' · ' + escHtml(subOverride.substitute_teacher) : ''}</span>
+                    </td>`;
+                } else {
                 // Check if this class is on an event (class-level or all-school) for this date
                 const dayEvents = eventsByDate[cellDateStr] || [];
                 let classOnTrip = null;
@@ -393,8 +439,18 @@ function renderWeeklySchedule() {
                         <span class="lesson-room">${yrLabel}${slot.room ? " · " + escHtml(slot.room) : ""}</span>
                     </td>`;
                 }
+                }
             } else {
+                // Empty cell – check if teacher is covering for someone
+                if (subOverride && !subOverride.is_substitute_for_me) {
+                    const subJson = JSON.stringify(subOverride).replace(/'/g, "&#39;");
+                    html += `<td class="lesson lesson-substitute clickable-sub" data-sub='${subJson}' title="Covering for ${escHtml(subOverride.original_teacher || '')}. Click to view.">
+                        ${escHtml(subOverride.subject)} <small class="sub-badge sub-badge-in">Covering</small><br>
+                        <span class="lesson-room">${escHtml(subOverride.class_name || '')}${subOverride.room ? ' · Room ' + escHtml(subOverride.room) : ''}</span>
+                    </td>`;
+                } else {
                 html += "<td>–</td>";
+                }
             }
         }
         html += "</tr>";
@@ -450,6 +506,73 @@ function renderWeeklySchedule() {
             openAttendanceModal(slot);
         });
     });
+
+    // Clicking a substitute cell opens the detail view
+    container.querySelectorAll(".clickable-sub").forEach(td => {
+        td.addEventListener("click", () => {
+            const sub = JSON.parse(td.dataset.sub);
+            viewSubstituteDetail(sub);
+        });
+    });
+}
+
+/* ---- Substitute detail view (read-only for original teacher) ---- */
+async function viewSubstituteDetail(sub) {
+    const modal = document.getElementById("subDetailModal");
+    const title = document.getElementById("subDetailTitle");
+    const subtitle = document.getElementById("subDetailSubtitle");
+    const body = document.getElementById("subDetailBody");
+
+    const time = PERIOD_TIMES[sub.period - 1] || `Period ${sub.period}`;
+    title.textContent = `${sub.subject} – ${sub.class_name}`;
+    subtitle.textContent = `${sub.date} · ${time}${sub.room ? " · Room " + sub.room : ""}`;
+    body.innerHTML = '<p class="loading">Loading details…</p>';
+
+    modal.style.display = "flex";
+    document.getElementById("subDetailClose").onclick = () => { modal.style.display = "none"; };
+    modal.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; };
+
+    try {
+        const res = await apiFetch(`/teacher/substitutes/detail/?id=${sub.id}`);
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || `HTTP ${res.status}`); }
+        const data = await res.json();
+        const info = data.substitute;
+        const students = data.students || [];
+        const readOnly = data.is_read_only;
+
+        let html = '<div class="sub-detail-info">';
+        if (readOnly) {
+            html += `<div class="sub-detail-row"><strong>Substitute Teacher:</strong> ${escHtml(info.substitute_teacher)}</div>`;
+        } else {
+            html += `<div class="sub-detail-row"><strong>Covering for:</strong> ${escHtml(info.original_teacher)}</div>`;
+        }
+        if (info.topic) html += `<div class="sub-detail-row"><strong>Topic:</strong> ${escHtml(info.topic)}</div>`;
+        if (info.note) html += `<div class="sub-detail-row"><strong>Note:</strong> ${escHtml(info.note)}</div>`;
+        html += '</div>';
+
+        if (students.length === 0) {
+            html += '<p class="empty-state" style="margin-top:12px;">No attendance recorded yet.</p>';
+        } else {
+            html += `<table class="attendance-table" style="margin-top:12px;">
+                <thead><tr><th>#</th><th>Student</th><th>Class</th><th>Status</th><th>Comment</th></tr></thead>
+                <tbody>${students.map((s, i) => {
+                    const statusClass = "status-" + s.status.toLowerCase();
+                    const statusIcon = s.status === "Present" ? "✅" : s.status === "Late" ? "⏰" : s.status === "Absent" ? "❌" : "📋";
+                    return `<tr>
+                        <td>${i + 1}</td>
+                        <td>${escHtml(s.surname)} ${escHtml(s.name)}</td>
+                        <td><span class="class-tag">${escHtml(s.class_name || "")}</span></td>
+                        <td><span class="status-badge ${statusClass}">${statusIcon} ${escHtml(s.status)}</span></td>
+                        <td>${escHtml(s.comment || "—")}</td>
+                    </tr>`;
+                }).join("")}</tbody>
+            </table>`;
+        }
+
+        body.innerHTML = html;
+    } catch (err) {
+        body.innerHTML = `<p class="empty-state">Failed to load details: ${escHtml(err.message)}</p>`;
+    }
 }
 
 /* ---- Attendance modal ----------------------------------------- */
@@ -664,7 +787,7 @@ async function loadClassStats() {
                 att_absent: s.attendance.absent,
                 att_excused: s.attendance.excused,
                 att_rate: attT ? Math.round((s.attendance.present / attT) * 100) + "%" : "N/A",
-                grade_avg: s.grades.average !== null ? s.grades.average.toFixed(1) : "–",
+                grade_avg: s.grades.average !== null ? _numToGrade(s.grades.average) : "–",
                 grade_count: s.grades.count,
                 hw_assigned: s.homework.assigned,
                 hw_completed: s.homework.completed,
@@ -814,7 +937,7 @@ function renderClassStats(stats) {
 
         const hwTotal = s.homework.completed + s.homework.partial + s.homework.not_done;
 
-        const gradeAvg = s.grades.average !== null ? s.grades.average.toFixed(1) : "–";
+        const gradeAvg = s.grades.average !== null ? _numToGrade(s.grades.average) : "–";
         
         const classId = statCardKey(s);
 
@@ -924,7 +1047,7 @@ function updateClassStats(stats) {
         
         const attTotal = s.attendance.total;
         const hwTotal = s.homework.completed + s.homework.partial + s.homework.not_done;
-        const gradeAvg = s.grades.average !== null ? s.grades.average.toFixed(1) : "–";
+        const gradeAvg = s.grades.average !== null ? _numToGrade(s.grades.average) : "–";
         
         // Update attendance ring
         const attRingContainer = card.querySelector(`#att-ring-${classId}`);
@@ -1043,7 +1166,8 @@ function renderHomework() {
     container.querySelectorAll(".hw-delete-btn").forEach(btn => {
         btn.addEventListener("click", async (e) => {
             e.stopPropagation();
-            if (!confirm("Delete this homework?")) return;
+            const ok = await showConfirm("Delete this homework? This cannot be undone.", { title: "Delete Homework", confirmText: "Delete" });
+            if (!ok) return;
             try {
                 await apiFetch("/teacher/homework/delete/", {
                     method: "POST",
@@ -1319,7 +1443,8 @@ function renderBehavioral() {
     container.querySelectorAll(".beh-delete-btn").forEach(btn => {
         btn.addEventListener("click", async (ev) => {
             ev.stopPropagation();
-            if (!confirm("Delete this behavioral note?")) return;
+            const ok = await showConfirm("Delete this behavioral note? This cannot be undone.", { title: "Delete Note", confirmText: "Delete" });
+            if (!ok) return;
             try {
                 await apiFetch("/teacher/behavioral/delete/", {
                     method: "POST",
@@ -1414,7 +1539,6 @@ async function loadStudentsForBehavioral() {
     try {
         const res = await apiFetch(`/teacher/class-students/?subject_id=${subject_id}&class_id=${class_id}`);
         const data = await res.json();
-        console.log("Students for behavioral:", data);
         const students = data.students || [];
         if (students.length === 0) {
             stuSelect.innerHTML = '<option value="">No students</option>';
@@ -1512,7 +1636,7 @@ function openStudyHallModal() {
         h => todayStr >= h.start_date && todayStr <= (h.end_date || h.start_date)
     );
     if (hol) {
-        alert(`Cannot create a study hall session — today is a holiday (${hol.name}).`);
+        showToast(`Cannot create a study hall session — today is a holiday (${hol.name}).`, "warning");
         return;
     }
 
@@ -1624,7 +1748,7 @@ async function fetchFreeStudents(date, period) {
             <table class="attendance-table">
                 <thead><tr><th>#</th><th>Student</th><th>Class</th><th>Status</th></tr></thead>
                 <tbody>${students.map((s, i) => {
-                    const status = attMap[s.id] || "Present";
+                    const status = attMap[s.id] || "Absent";
                     return `<tr data-student-id="${s.id}">
                         <td>${i + 1}</td>
                         <td>${escHtml(s.surname)} ${escHtml(s.name)}</td>
@@ -1713,6 +1837,558 @@ async function saveStudyHallAttendance() {
         showToast("Failed to save: " + err.message, "error");
         btn.textContent = "Save Attendance";
         btn.disabled = false;
+    }
+}
+
+/* ================================================================
+   Substitutes – substitute teacher records covering a class
+   ================================================================ */
+
+let _subEditId = null; // when editing an existing substitute
+
+async function loadSubstitutes() {
+    const container = document.getElementById("substituteList");
+    try {
+        const res = await apiFetch("/teacher/substitutes/");
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || `HTTP ${res.status}`); }
+        const data = await res.json();
+        const subs = data.substitutions || [];
+
+        if (subs.length === 0) {
+            container.innerHTML = '<p class="empty-state">No substitute lessons yet. Click "+ Add Substitute" when you cover for another teacher.</p>';
+            return;
+        }
+
+        container.innerHTML = `
+            <table class="attendance-table">
+                <thead><tr><th>Date</th><th>Period</th><th>Subject / Class</th><th>For</th><th>Topic</th><th></th></tr></thead>
+                <tbody>${subs.map(s => {
+                    const time = PERIOD_TIMES[s.period - 1] || `P${s.period}`;
+                    return `<tr>
+                        <td>${escHtml(s.date)}</td>
+                        <td>${s.period} <small style="color:var(--text-lighter)">(${time})</small></td>
+                        <td>${escHtml(s.subject)} · ${escHtml(s.class_name)}</td>
+                        <td>${escHtml(s.original_teacher)}</td>
+                        <td>${escHtml(s.topic || "—")}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick='openSubstituteEdit(${JSON.stringify(s).replace(/'/g, "&#39;")})'>Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteSubstitute('${s.id}')">✕</button>
+                        </td>
+                    </tr>`;
+                }).join("")}</tbody>
+            </table>`;
+    } catch (err) {
+        container.innerHTML = `<p class="empty-state">Failed to load substitutes: ${escHtml(err.message)}</p>`;
+    }
+}
+
+async function openSubstituteModal() {
+    _subEditId = null;
+    const modal = document.getElementById("substituteModal");
+    const dateInput = document.getElementById("subDate");
+    const periodSelect = document.getElementById("subPeriod");
+    const classSelect = document.getElementById("subClassSelect");
+
+    document.getElementById("subModalTitle").textContent = "Add Substitute";
+    document.getElementById("subModalSubtitle").textContent = "";
+    dateInput.value = new Date().toISOString().slice(0, 10);
+    periodSelect.value = "";
+    classSelect.innerHTML = '<option value="">Select date & period first…</option>';
+    document.getElementById("subTopic").value = "";
+    document.getElementById("subRoom").value = "";
+    document.getElementById("subNote").value = "";
+    document.getElementById("subStudentList").innerHTML = "";
+
+    // When date or period changes, fetch available classes
+    const fetchClasses = () => {
+        if (dateInput.value && periodSelect.value) {
+            _loadSubstituteClasses(dateInput.value, periodSelect.value);
+        }
+    };
+    dateInput.onchange = fetchClasses;
+    periodSelect.onchange = fetchClasses;
+
+    // When class changes, load students
+    classSelect.onchange = () => {
+        if (classSelect.value) {
+            const opt = classSelect.selectedOptions[0];
+            const classId = opt.dataset.classId;
+            const subjectId = opt.dataset.subjectId;
+            document.getElementById("subRoom").value = opt.dataset.room || "";
+            _loadSubstituteStudents(classId, subjectId, dateInput.value);
+        } else {
+            document.getElementById("subStudentList").innerHTML = "";
+        }
+    };
+
+    modal.style.display = "flex";
+    document.getElementById("subModalClose").onclick = () => { modal.style.display = "none"; };
+    modal.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; };
+    document.getElementById("subMarkAllPresent").onclick = () => {
+        document.querySelectorAll("#subStudentList .status-select").forEach(sel => {
+            sel.value = "Present";
+            sel.className = "status-select status-present";
+        });
+    };
+    document.getElementById("subSaveBtn").onclick = saveSubstitute;
+}
+
+async function openSubstituteEdit(sub) {
+    await openSubstituteModal();
+    _subEditId = sub.id;
+    document.getElementById("subModalTitle").textContent = "Edit Substitute";
+    const time = PERIOD_TIMES[sub.period - 1] || `Period ${sub.period}`;
+    document.getElementById("subModalSubtitle").textContent = `${sub.date} · ${time} · ${sub.subject} · ${sub.class_name}`;
+    document.getElementById("subDate").value = sub.date;
+    document.getElementById("subPeriod").value = String(sub.period);
+    document.getElementById("subTopic").value = sub.topic || "";
+    document.getElementById("subRoom").value = sub.room || "";
+    document.getElementById("subNote").value = sub.note || "";
+
+    // Load students for attendance
+    _loadSubstituteStudents(sub.class_id, sub.subject_id, sub.date);
+}
+
+async function _loadSubstituteClasses(date, period) {
+    const classSelect = document.getElementById("subClassSelect");
+    classSelect.innerHTML = '<option value="">Loading…</option>';
+    try {
+        const res = await apiFetch(`/teacher/substitutes/classes/?date=${date}&period=${period}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const classes = data.classes || [];
+
+        if (classes.length === 0) {
+            classSelect.innerHTML = '<option value="">No classes available for this slot</option>';
+            document.getElementById("subStudentList").innerHTML = "";
+            return;
+        }
+
+        classSelect.innerHTML = '<option value="">Select class…</option>' +
+            classes.map(c =>
+                `<option value="${c.schedule_id}" data-class-id="${c.class_id}" data-subject-id="${c.subject_id}" data-room="${escHtml(c.room)}">${escHtml(c.subject)} · ${escHtml(c.class_name)} (${escHtml(c.original_teacher)})</option>`
+            ).join("");
+    } catch (err) {
+        classSelect.innerHTML = '<option value="">Failed to load classes</option>';
+    }
+}
+
+async function _loadSubstituteStudents(classId, subjectId, date) {
+    const container = document.getElementById("subStudentList");
+    container.innerHTML = '<p class="loading">Loading students…</p>';
+    try {
+        // Load students and any existing attendance in parallel
+        const [studentsRes, attendanceRes] = await Promise.all([
+            apiFetch(`/teacher/class-students/?class_id=${classId}&subject_id=${subjectId}`),
+            apiFetch(`/teacher/attendance/?class_id=${classId}&subject_id=${subjectId}&date=${date}`),
+        ]);
+        const studentsData = await studentsRes.json();
+        const attendanceData = await attendanceRes.json();
+        const students = studentsData.students || [];
+        const existing = attendanceData.attendance || [];
+
+        // Build lookup
+        const attMap = {};
+        for (const rec of existing) attMap[rec.student_id] = rec;
+
+        if (students.length === 0) {
+            container.innerHTML = '<p class="empty-state">No students found for this class/subject.</p>';
+            return;
+        }
+
+        container.innerHTML = `
+            <table class="attendance-table">
+                <thead><tr><th>#</th><th>Student</th><th>Class</th><th>Status</th><th>Comment</th></tr></thead>
+                <tbody>${students.map((s, i) => {
+                    const rec = attMap[s.id] || {};
+                    const status = rec.status || "Present";
+                    const comment = rec.comment || "";
+                    return `<tr data-student-id="${s.id}">
+                        <td>${i + 1}</td>
+                        <td>${escHtml(s.surname)} ${escHtml(s.name)}</td>
+                        <td><span class="class-tag">${escHtml(s.class_name || "")}</span></td>
+                        <td>
+                            <select class="status-select status-${status.toLowerCase()}">
+                                <option value="Present" ${status === "Present" ? "selected" : ""}>✅ Present</option>
+                                <option value="Late" ${status === "Late" ? "selected" : ""}>⏰ Late</option>
+                                <option value="Absent" ${status === "Absent" ? "selected" : ""}>❌ Absent</option>
+                                <option value="Excused" ${status === "Excused" ? "selected" : ""}>📋 Excused</option>
+                            </select>
+                        </td>
+                        <td><input type="text" class="comment-input" placeholder="Comment…" value="${escHtml(comment)}"></td>
+                    </tr>`;
+                }).join("")}</tbody>
+            </table>`;
+
+        container.querySelectorAll(".status-select").forEach(sel => {
+            sel.addEventListener("change", () => { sel.className = "status-select status-" + sel.value.toLowerCase(); });
+        });
+    } catch (err) {
+        container.innerHTML = `<p class="empty-state">Failed to load students: ${escHtml(err.message)}</p>`;
+    }
+}
+
+async function saveSubstitute() {
+    const btn = document.getElementById("subSaveBtn");
+    const date = document.getElementById("subDate").value;
+    const period = document.getElementById("subPeriod").value;
+    const classSelect = document.getElementById("subClassSelect");
+    const scheduleId = classSelect.value;
+    const topic = document.getElementById("subTopic").value.trim();
+    const room = document.getElementById("subRoom").value.trim();
+    const note = document.getElementById("subNote").value.trim();
+
+    // For edit mode we may not have schedule_id, use _subEditId
+    if (!_subEditId && (!date || !period || !scheduleId)) {
+        showToast("Please select date, period, and class", "warning");
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Saving…";
+
+    try {
+        // 1. Save the substitute record
+        if (!_subEditId) {
+            const res = await apiFetch("/teacher/substitutes/", {
+                method: "POST",
+                body: JSON.stringify({ date, period: parseInt(period), schedule_id: scheduleId, room, note, topic }),
+            });
+            if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || `HTTP ${res.status}`); }
+        }
+
+        // 2. Save attendance (use existing attendance endpoint)
+        const opt = _subEditId ? null : classSelect.selectedOptions[0];
+        const classId = _subEditId ? null : opt?.dataset.classId;
+        const subjectId = _subEditId ? null : opt?.dataset.subjectId;
+
+        const rows = document.querySelectorAll("#subStudentList tbody tr[data-student-id]");
+        if (rows.length > 0) {
+            const records = [];
+            rows.forEach(row => {
+                records.push({
+                    student_id: row.dataset.studentId,
+                    status: row.querySelector(".status-select").value,
+                    comment: row.querySelector(".comment-input").value.trim(),
+                });
+            });
+
+            // We need class_id and subject_id for attendance
+            // For edit mode, get from the substitute data
+            let attClassId = classId;
+            let attSubjectId = subjectId;
+            if (_subEditId) {
+                // Get from the subtitle or stored data
+                const subRes = await apiFetch("/teacher/substitutes/");
+                if (subRes.ok) {
+                    const subData = await subRes.json();
+                    const mySub = (subData.substitutions || []).find(s => s.id === _subEditId);
+                    if (mySub) {
+                        attClassId = mySub.class_id;
+                        attSubjectId = mySub.subject_id;
+                    }
+                }
+            }
+
+            if (attClassId && attSubjectId) {
+                await apiFetch("/teacher/attendance/", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        records,
+                        class_id: attClassId,
+                        subject_id: attSubjectId,
+                        date,
+                        topic,
+                    }),
+                });
+            }
+        }
+
+        showToast("Substitute saved", "success");
+        document.getElementById("substituteModal").style.display = "none";
+        loadSubstitutes();
+    } catch (err) {
+        showToast("Failed: " + err.message, "error");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Save Substitute";
+    }
+}
+
+async function deleteSubstitute(id) {
+    const ok = await showConfirm("Remove this substitute lesson?", { title: "Remove Substitute", confirmText: "Remove" });
+    if (!ok) return;
+    try {
+        const res = await apiFetch(`/teacher/substitutes/?id=${id}`, { method: "DELETE" });
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || `HTTP ${res.status}`); }
+        showToast("Substitute removed", "success");
+        loadSubstitutes();
+    } catch (err) {
+        showToast("Failed: " + err.message, "error");
+    }
+}
+
+/* ================================================================
+   TEACHER EVENTS (create / list / edit / delete)
+   ================================================================ */
+
+let _teacherOwnEvents = [];
+let _editingEventId = null;
+
+async function loadTeacherEvents() {
+    const container = document.getElementById("eventsList");
+    if (!container) return;
+
+    try {
+        const res = await apiFetch("/teacher/events/");
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        _teacherOwnEvents = data.events || [];
+        renderTeacherEvents();
+    } catch (err) {
+        console.error("[teacher.js] loadTeacherEvents error:", err);
+        container.innerHTML = '<p class="empty-state">Failed to load events.</p>';
+    }
+}
+
+function renderTeacherEvents() {
+    const container = document.getElementById("eventsList");
+    if (!container) return;
+
+    if (_teacherOwnEvents.length === 0) {
+        container.innerHTML = '<p class="empty-state">No events created yet.</p>';
+        return;
+    }
+
+    const sorted = [..._teacherOwnEvents].sort((a, b) => (a.event_date || "").localeCompare(b.event_date || ""));
+    const rows = sorted.map(ev => {
+        const dateStr = ev.event_date || "";
+        const endStr = ev.event_end_date && ev.event_end_date !== ev.event_date ? ` – ${ev.event_end_date}` : "";
+        const periods = (ev.affected_periods || []).length > 0
+            ? ev.affected_periods.map(p => `P${p}`).join(", ")
+            : (ev.start_time ? `${ev.start_time}${ev.end_time ? " – " + ev.end_time : ""}` : "All day");
+        const target = ev.target_type === "all" ? "Everyone"
+            : ev.target_type === "students" ? `${(ev.target_student_ids || []).length} students`
+            : `${(ev.target_class_ids || []).length} class(es)`;
+
+        return `<tr>
+            <td>${escHtml(ev.title)}</td>
+            <td>${dateStr}${endStr}</td>
+            <td>${periods}</td>
+            <td>${target}</td>
+            <td style="white-space:nowrap;">
+                <button class="btn btn-sm btn-secondary" onclick="editTeacherEvent('${ev.id}')">Edit</button>
+                <button class="btn btn-sm" style="background:var(--danger);color:#fff;" onclick="deleteTeacherEvent('${ev.id}')">Delete</button>
+            </td>
+        </tr>`;
+    }).join("");
+
+    container.innerHTML = `<table class="data-table"><thead><tr>
+        <th>Title</th><th>Date</th><th>Time / Periods</th><th>Target</th><th>Actions</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function openEventModal(existingEvent) {
+    _editingEventId = existingEvent ? existingEvent.id : null;
+    const modal = document.getElementById("eventModal");
+    document.getElementById("evModalTitle").textContent = existingEvent ? "Edit Event" : "Add Event";
+
+    // Reset fields
+    document.getElementById("evTitle").value = existingEvent ? existingEvent.title || "" : "";
+    document.getElementById("evDesc").value = existingEvent ? existingEvent.description || "" : "";
+    document.getElementById("evDate").value = existingEvent ? existingEvent.event_date || "" : new Date().toISOString().slice(0, 10);
+    document.getElementById("evEndDate").value = existingEvent ? existingEvent.event_end_date || "" : "";
+    document.getElementById("evStartTime").value = existingEvent ? existingEvent.start_time || "" : "";
+    document.getElementById("evEndTime").value = existingEvent ? existingEvent.end_time || "" : "";
+
+    // Period toggles
+    const selectedPeriods = new Set((existingEvent?.affected_periods || []).map(String));
+    document.querySelectorAll(".ev-period-btn").forEach(btn => {
+        const p = btn.dataset.period;
+        const isActive = p === "all" ? selectedPeriods.size === 8 : selectedPeriods.has(p);
+        btn.classList.toggle("active", isActive);
+    });
+
+    // Target type
+    const targetType = existingEvent ? existingEvent.target_type || "class" : "class";
+    document.getElementById("evTargetType").value = targetType;
+
+    // Build class checkboxes from schedule
+    const seen = new Set();
+    const classes = [];
+    for (const s of allSlots) {
+        const key = s.class_id;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        classes.push({ id: s.class_id, label: s.class_name || "Year " + s.grade_level });
+    }
+    classes.sort((a, b) => a.label.localeCompare(b.label));
+
+    const selClassIds = new Set((existingEvent?.target_class_ids || []).map(String));
+    document.getElementById("evClassList").innerHTML = classes.map(c =>
+        `<label><input type="checkbox" class="ev-class-cb" value="${c.id}" ${selClassIds.has(c.id) ? "checked" : ""}> ${escHtml(c.label)}</label>`
+    ).join("");
+
+    // Build student checkboxes – group by class from allSlots
+    _buildEventStudentPicker(existingEvent);
+
+    // Show/hide pickers
+    _toggleEventTargetPickers(targetType);
+
+    // Bind target type change
+    document.getElementById("evTargetType").onchange = (e) => _toggleEventTargetPickers(e.target.value);
+
+    // Period toggle clicks
+    document.querySelectorAll(".ev-period-btn").forEach(btn => {
+        btn.onclick = () => {
+            if (btn.dataset.period === "all") {
+                const allActive = btn.classList.contains("active");
+                document.querySelectorAll(".ev-period-btn").forEach(b => {
+                    b.classList.toggle("active", !allActive);
+                });
+            } else {
+                btn.classList.toggle("active");
+                const allPeriods = document.querySelectorAll('.ev-period-btn:not([data-period="all"])');
+                const allActive = [...allPeriods].every(b => b.classList.contains("active"));
+                const allDayBtn = document.querySelector('.ev-period-btn[data-period="all"]');
+                if (allDayBtn) allDayBtn.classList.toggle("active", allActive);
+            }
+        };
+    });
+
+    // Modal close
+    document.getElementById("evModalClose").onclick = () => { modal.style.display = "none"; };
+    modal.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; };
+
+    // Save handler
+    document.getElementById("evSave").onclick = () => saveTeacherEvent();
+
+    modal.style.display = "flex";
+}
+
+async function _buildEventStudentPicker(existingEvent) {
+    // Fetch students for all teacher classes
+    const seen = new Set();
+    const classIds = [];
+    for (const s of allSlots) {
+        if (seen.has(s.class_id)) continue;
+        seen.add(s.class_id);
+        classIds.push({ class_id: s.class_id, subject_id: s.subject_id, class_name: s.class_name || "Year " + s.grade_level });
+    }
+
+    const container = document.getElementById("evStudentList");
+    container.innerHTML = '<p class="loading">Loading students…</p>';
+
+    try {
+        const fetches = classIds.map(c =>
+            apiFetch(`/teacher/class-students/?class_id=${c.class_id}&subject_id=${c.subject_id}`)
+                .then(r => r.json())
+                .then(d => ({ class_name: c.class_name, students: d.students || [] }))
+        );
+        const results = await Promise.all(fetches);
+
+        const selStudentIds = new Set((existingEvent?.target_student_ids || []).map(String));
+        const studentSeen = new Set();
+        let html = "";
+        for (const r of results) {
+            const uniqueStudents = r.students.filter(st => {
+                if (studentSeen.has(st.id)) return false;
+                studentSeen.add(st.id);
+                return true;
+            });
+            if (uniqueStudents.length === 0) continue;
+            html += `<strong>${escHtml(r.class_name)}</strong>`;
+            for (const st of uniqueStudents) {
+                const name = `${st.name || ""} ${st.surname || ""}`.trim();
+                html += `<label><input type="checkbox" class="ev-student-cb" value="${st.id}" ${selStudentIds.has(st.id) ? "checked" : ""}> ${escHtml(name)}</label>`;
+            }
+        }
+        container.innerHTML = html || '<p class="empty-state">No students found.</p>';
+    } catch (err) {
+        console.error("[teacher.js] _buildEventStudentPicker error:", err);
+        container.innerHTML = '<p class="empty-state">Failed to load students.</p>';
+    }
+}
+
+function _toggleEventTargetPickers(targetType) {
+    document.getElementById("evClassPicker").style.display = targetType === "class" ? "" : "none";
+    document.getElementById("evStudentPicker").style.display = targetType === "students" ? "" : "none";
+}
+
+async function saveTeacherEvent() {
+    const title = document.getElementById("evTitle").value.trim();
+    const description = document.getElementById("evDesc").value.trim();
+    const event_date = document.getElementById("evDate").value;
+    const event_end_date = document.getElementById("evEndDate").value || event_date;
+    const start_time = document.getElementById("evStartTime").value || null;
+    const end_time = document.getElementById("evEndTime").value || null;
+
+    if (!title || !event_date) {
+        showToast("Title and start date are required", "warning");
+        return;
+    }
+
+    // Collect affected periods
+    const affected_periods = [];
+    document.querySelectorAll('.ev-period-btn.active:not([data-period="all"])').forEach(btn => {
+        affected_periods.push(parseInt(btn.dataset.period));
+    });
+
+    const target_type = document.getElementById("evTargetType").value;
+    const target_class_ids = target_type === "class"
+        ? [...document.querySelectorAll(".ev-class-cb:checked")].map(cb => cb.value)
+        : [];
+    const target_student_ids = target_type === "students"
+        ? [...document.querySelectorAll(".ev-student-cb:checked")].map(cb => cb.value)
+        : [];
+
+    const payload = { title, description, event_date, event_end_date, start_time, end_time, affected_periods, target_type, target_class_ids, target_student_ids };
+
+    try {
+        let res;
+        if (_editingEventId) {
+            res = await apiFetch(`/teacher/events/detail/?id=${_editingEventId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+        } else {
+            res = await apiFetch("/teacher/events/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+        }
+        if (!res.ok) {
+            const e = await res.json().catch(() => ({}));
+            throw new Error(e.message || `HTTP ${res.status}`);
+        }
+        showToast(_editingEventId ? "Event updated" : "Event created", "success");
+        document.getElementById("eventModal").style.display = "none";
+        loadTeacherEvents();
+    } catch (err) {
+        showToast("Failed: " + err.message, "error");
+    }
+}
+
+async function editTeacherEvent(eventId) {
+    const ev = _teacherOwnEvents.find(e => e.id === eventId);
+    if (!ev) return;
+    openEventModal(ev);
+}
+
+async function deleteTeacherEvent(eventId) {
+    if (!confirm("Delete this event?")) return;
+    try {
+        const res = await apiFetch(`/teacher/events/detail/?id=${eventId}`, { method: "DELETE" });
+        if (!res.ok) {
+            const e = await res.json().catch(() => ({}));
+            throw new Error(e.message || `HTTP ${res.status}`);
+        }
+        showToast("Event deleted", "success");
+        loadTeacherEvents();
+    } catch (err) {
+        showToast("Failed: " + err.message, "error");
     }
 }
 
