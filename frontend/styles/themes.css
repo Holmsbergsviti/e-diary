@@ -112,8 +112,8 @@
     --bg-lightest: #f8fafb;
     --bg-card: linear-gradient(145deg, #f5f9fe, #f0f4f8);
     --bg-button: linear-gradient(145deg, #f5f9fe, #f0f4f8);
-    --bg-nav: linear-gradient(145deg, #e3f0ff, #d4e8f7);
-    --bg-page: linear-gradient(180deg, #d4e8f7 0%, #e3f0ff 50%, #d4e8f7 100%);
+    --bg-nav: linear-gradient(145deg, #e8ecf1, #dfe7ed);
+    --bg-page: linear-gradient(180deg, #e8ecf1 0%, #f0f4f8 50%, #e8ecf1 100%);
     --bg-table-header: linear-gradient(145deg, #f0f4f8, #eaf0f6);
     --bg-hover: linear-gradient(145deg, #eef4fa, #e8ecf1);
     --bg-lesson: linear-gradient(145deg, #e3f0ff, #d7e8f8);
@@ -196,8 +196,8 @@
     --bg-lightest: #f8fafb;
     --bg-card: linear-gradient(145deg, #f5f9fe, #f0f4f8);
     --bg-button: linear-gradient(145deg, #f5f9fe, #f0f4f8);
-    --bg-nav: linear-gradient(145deg, #ede9fe, #e9d5ff);
-    --bg-page: linear-gradient(180deg, #e9d5ff 0%, #ede9fe 50%, #e9d5ff 100%);
+    --bg-nav: linear-gradient(145deg, #e8ecf1, #dfe7ed);
+    --bg-page: linear-gradient(180deg, #e8ecf1 0%, #f0f4f8 50%, #e8ecf1 100%);
     --bg-table-header: linear-gradient(145deg, #f0f4f8, #eaf0f6);
     --bg-hover: linear-gradient(145deg, #eef4fa, #e8ecf1);
     --bg-lesson: linear-gradient(145deg, #e3f0ff, #d7e8f8);
@@ -280,8 +280,8 @@
     --bg-lightest: #f8fafb;
     --bg-card: linear-gradient(145deg, #f5f9fe, #f0f4f8);
     --bg-button: linear-gradient(145deg, #f5f9fe, #f0f4f8);
-    --bg-nav: linear-gradient(145deg, #d1fae5, #c1f0dd);
-    --bg-page: linear-gradient(180deg, #c1f0dd 0%, #d1fae5 50%, #c1f0dd 100%);
+    --bg-nav: linear-gradient(145deg, #e8ecf1, #dfe7ed);
+    --bg-page: linear-gradient(180deg, #e8ecf1 0%, #f0f4f8 50%, #e8ecf1 100%);
     --bg-table-header: linear-gradient(145deg, #f0f4f8, #eaf0f6);
     --bg-hover: linear-gradient(145deg, #eef4fa, #e8ecf1);
     --bg-lesson: linear-gradient(145deg, #e3f0ff, #d7e8f8);
@@ -364,8 +364,8 @@
     --bg-lightest: #f8fafb;
     --bg-card: linear-gradient(145deg, #f5f9fe, #f0f4f8);
     --bg-button: linear-gradient(145deg, #f5f9fe, #f0f4f8);
-    --bg-nav: linear-gradient(145deg, #fda4af, #fce7f3);
-    --bg-page: linear-gradient(180deg, #fce7f3 0%, #fda4af 50%, #fce7f3 100%);
+    --bg-nav: linear-gradient(145deg, #e8ecf1, #dfe7ed);
+    --bg-page: linear-gradient(180deg, #e8ecf1 0%, #f0f4f8 50%, #e8ecf1 100%);
     --bg-table-header: linear-gradient(145deg, #f0f4f8, #eaf0f6);
     --bg-hover: linear-gradient(145deg, #eef4fa, #e8ecf1);
     --bg-lesson: linear-gradient(145deg, #e3f0ff, #d7e8f8);
@@ -448,8 +448,8 @@
     --bg-lightest: #f8fafb;
     --bg-card: linear-gradient(145deg, #f5f9fe, #f0f4f8);
     --bg-button: linear-gradient(145deg, #f5f9fe, #f0f4f8);
-    --bg-nav: linear-gradient(145deg, #fed7aa, #fef3c7);
-    --bg-page: linear-gradient(180deg, #fef3c7 0%, #fed7aa 50%, #fef3c7 100%);
+    --bg-nav: linear-gradient(145deg, #e8ecf1, #dfe7ed);
+    --bg-page: linear-gradient(180deg, #e8ecf1 0%, #f0f4f8 50%, #e8ecf1 100%);
     --bg-table-header: linear-gradient(145deg, #f0f4f8, #eaf0f6);
     --bg-hover: linear-gradient(145deg, #eef4fa, #e8ecf1);
     --bg-lesson: linear-gradient(145deg, #e3f0ff, #d7e8f8);
@@ -532,8 +532,8 @@
     --bg-lightest: #f8fafb;
     --bg-card: linear-gradient(145deg, #f5f9fe, #f0f4f8);
     --bg-button: linear-gradient(145deg, #f5f9fe, #f0f4f8);
-    --bg-nav: linear-gradient(145deg, #e0e7ff, #ede9fe);
-    --bg-page: linear-gradient(180deg, #ede9fe 0%, #e0e7ff 50%, #ede9fe 100%);
+    --bg-nav: linear-gradient(145deg, #e8ecf1, #dfe7ed);
+    --bg-page: linear-gradient(180deg, #e8ecf1 0%, #f0f4f8 50%, #e8ecf1 100%);
     --bg-table-header: linear-gradient(145deg, #f0f4f8, #eaf0f6);
     --bg-hover: linear-gradient(145deg, #eef4fa, #e8ecf1);
     --bg-lesson: linear-gradient(145deg, #e3f0ff, #d7e8f8);
@@ -616,8 +616,8 @@
     --bg-lightest: #f8fafb;
     --bg-card: linear-gradient(145deg, #f5f9fe, #f0f4f8);
     --bg-button: linear-gradient(145deg, #f5f9fe, #f0f4f8);
-    --bg-nav: linear-gradient(145deg, #ccf9f4, #c1f0dd);
-    --bg-page: linear-gradient(180deg, #c1f0dd 0%, #ccf9f4 50%, #c1f0dd 100%);
+    --bg-nav: linear-gradient(145deg, #e8ecf1, #dfe7ed);
+    --bg-page: linear-gradient(180deg, #e8ecf1 0%, #f0f4f8 50%, #e8ecf1 100%);
     --bg-table-header: linear-gradient(145deg, #f0f4f8, #eaf0f6);
     --bg-hover: linear-gradient(145deg, #eef4fa, #e8ecf1);
     --bg-lesson: linear-gradient(145deg, #e3f0ff, #d7e8f8);
@@ -700,8 +700,8 @@
     --bg-lightest: #f8fafb;
     --bg-card: linear-gradient(145deg, #f5f9fe, #f0f4f8);
     --bg-button: linear-gradient(145deg, #f5f9fe, #f0f4f8);
-    --bg-nav: linear-gradient(145deg, #d1fae5, #a7f3d0);
-    --bg-page: linear-gradient(180deg, #a7f3d0 0%, #d1fae5 50%, #a7f3d0 100%);
+    --bg-nav: linear-gradient(145deg, #e8ecf1, #dfe7ed);
+    --bg-page: linear-gradient(180deg, #e8ecf1 0%, #f0f4f8 50%, #e8ecf1 100%);
     --bg-table-header: linear-gradient(145deg, #f0f4f8, #eaf0f6);
     --bg-hover: linear-gradient(145deg, #eef4fa, #e8ecf1);
     --bg-lesson: linear-gradient(145deg, #e3f0ff, #d7e8f8);
@@ -784,8 +784,8 @@
     --bg-lightest: #f8fafb;
     --bg-card: linear-gradient(145deg, #f5f9fe, #f0f4f8);
     --bg-button: linear-gradient(145deg, #f5f9fe, #f0f4f8);
-    --bg-nav: linear-gradient(145deg, #fee2e2, #fecaca);
-    --bg-page: linear-gradient(180deg, #fecaca 0%, #fee2e2 50%, #fecaca 100%);
+    --bg-nav: linear-gradient(145deg, #e8ecf1, #dfe7ed);
+    --bg-page: linear-gradient(180deg, #e8ecf1 0%, #f0f4f8 50%, #e8ecf1 100%);
     --bg-table-header: linear-gradient(145deg, #f0f4f8, #eaf0f6);
     --bg-hover: linear-gradient(145deg, #eef4fa, #e8ecf1);
     --bg-lesson: linear-gradient(145deg, #e3f0ff, #d7e8f8);
