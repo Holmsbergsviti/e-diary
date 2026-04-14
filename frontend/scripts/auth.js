@@ -118,16 +118,31 @@ function initNav() {
     // Nav avatar
     const navRight = document.querySelector(".topnav-right");
     if (navRight && user && !document.getElementById("navAvatar")) {
-        const img = document.createElement("img");
-        img.id = "navAvatar";
-        img.className = "nav-avatar";
-        img.alt = "";
         if (user.profile_picture_url) {
+            const img = document.createElement("img");
+            img.id = "navAvatar";
+            img.className = "nav-avatar";
             img.src = user.profile_picture_url;
+            img.alt = "";
+            navRight.insertBefore(img, navRight.firstChild);
+        } else if (user.avatar_emoji) {
+            // Show emoji avatar in nav
+            const emoji = document.createElement("div");
+            emoji.id = "navAvatar";
+            emoji.className = "nav-avatar-emoji";
+            emoji.textContent = user.avatar_emoji;
+            emoji.title = user.full_name || user.username;
+            navRight.insertBefore(emoji, navRight.firstChild);
         } else {
-            img.style.display = "none";
+            // Show initials in nav
+            const initials = document.createElement("div");
+            initials.id = "navAvatar";
+            initials.className = "nav-avatar-initials";
+            initials.textContent = getInitialsFromName(user.full_name);
+            initials.style.backgroundColor = getAvatarColorFromName(user.full_name);
+            initials.title = user.full_name || user.username;
+            navRight.insertBefore(initials, navRight.firstChild);
         }
-        navRight.insertBefore(img, navRight.firstChild);
     }
 
     const logoutBtn = document.getElementById("logoutBtn");
@@ -468,4 +483,142 @@ function studentAvatarHtml(student) {
     }
     const initials = ((student.name || "")[0] || "") + ((student.surname || "")[0] || "");
     return `<span class="avatar-sm-initials">${initials.toUpperCase()}</span>`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ENHANCED AVATAR SYSTEM - Support for Images, Emojis, & Initials
+   ═══════════════════════════════════════════════════════════ */
+
+/**
+ * Generate a color based on user name for initials background.
+ * Uses a consistent hash function so same names get same colors.
+ * @param {string} name - User's name
+ * @returns {string} Color code (e.g., "#FF6B6B")
+ */
+function getAvatarColorFromName(name) {
+    if (!name) return "#2563eb"; // fallback to primary color
+    
+    const colors = [
+        "#FF6B6B", // Red
+        "#4ECDC4", // Teal
+        "#45B7D1", // Blue
+        "#FFA07A", // Salmon
+        "#98D8C8", // Mint
+        "#F7DC6F", // Yellow
+        "#BB8FCE", // Purple
+        "#85C1E2", // Light Blue
+        "#F8B88B", // Peach
+        "#A8D8EA"  // Sky
+    ];
+    
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+        hash = ((hash << 5) - hash) + name.charCodeAt(i);
+        hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    return colors[Math.abs(hash) % colors.length];
+}
+
+/**
+ * Extract initials from a name.
+ * @param {string} name - Full name or first/last name
+ * @returns {string} Up to 2 character initials in uppercase
+ */
+function getInitialsFromName(name) {
+    if (!name) return "?";
+    const parts = name.trim().split(/\s+/);
+    let initials = parts.map(p => p[0]).join("").toUpperCase();
+    return initials.slice(0, 2);
+}
+
+/**
+ * Create avatar HTML element.
+ * Supports image URL, emoji, or automatic initials.
+ * @param {Object} options - Configuration object
+ * @param {string} options.name - User's full name (for initials/color)
+ * @param {string} options.imageUrl - Profile picture URL (optional)
+ * @param {string} options.emoji - Custom emoji (optional)
+ * @param {string} options.size - 'sm' (32px), 'md' (100px), 'lg' (120px) - default 'sm'
+ * @param {string} options.className - Additional CSS classes (optional)
+ * @param {string} options.title - Tooltip title (optional)
+ * @returns {HTMLElement} Avatar element (returns div or img)
+ */
+function createAvatarElement(options = {}) {
+    const {
+        name = "",
+        imageUrl = null,
+        emoji = null,
+        size = "sm",
+        className = "",
+        title = ""
+    } = options;
+    
+    // If image exists, return image element
+    if (imageUrl) {
+        const img = document.createElement("img");
+        img.className = `avatar-img avatar-${size} ${className}`.trim();
+        img.src = imageUrl;
+        img.alt = name || "Avatar";
+        if (title) img.title = title;
+        return img;
+    }
+    
+    // If emoji, return emoji in a div
+    if (emoji) {
+        const div = document.createElement("div");
+        div.className = `avatar-emoji avatar-${size} ${className}`.trim();
+        div.textContent = emoji;
+        div.style.display = "flex";
+        div.style.alignItems = "center";
+        div.style.justifyContent = "center";
+        div.style.fontWeight = "700";
+        div.style.cursor = "default";
+        if (title) div.title = title;
+        return div;
+    }
+    
+    // Otherwise use initials
+    const initials = getInitialsFromName(name);
+    const color = getAvatarColorFromName(name);
+    const div = document.createElement("div");
+    div.className = `avatar-initials avatar-${size} ${className}`.trim();
+    div.textContent = initials;
+    div.style.backgroundColor = color;
+    div.style.color = "#ffffff";
+    div.style.display = "flex";
+    div.style.alignItems = "center";
+    div.style.justifyContent = "center";
+    div.style.fontWeight = "700";
+    div.style.userSelect = "none";
+    div.style.cursor = "default";
+    if (title) div.title = title;
+    return div;
+}
+
+/**
+ * Generate avatar HTML as a string (for use in innerHTML).
+ * @param {Object} options - Same as createAvatarElement
+ * @returns {string} HTML string
+ */
+function avatarHtmlString(options = {}) {
+    const {
+        name = "",
+        imageUrl = null,
+        emoji = null,
+        size = "sm",
+        className = ""
+    } = options;
+    
+    if (imageUrl) {
+        return `<img class="avatar-img avatar-${size} ${className}".trim() src="${escHtml(imageUrl)}" alt="${escHtml(name || "Avatar")}">`;
+    }
+    
+    if (emoji) {
+        return `<div class="avatar-emoji avatar-${size} ${className}".trim()>${emoji}</div>`;
+    }
+    
+    const initials = getInitialsFromName(name);
+    const color = getAvatarColorFromName(name);
+    return `<div class="avatar-initials avatar-${size} ${className}".trim() style="background-color: ${color}; color: #ffffff;">${escHtml(initials)}</div>`;
 }

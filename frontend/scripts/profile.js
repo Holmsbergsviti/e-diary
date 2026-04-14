@@ -28,20 +28,31 @@ async function loadProfile() {
 
         // Set avatar
         const avatarImg = document.getElementById("profileAvatar");
-        if (avatarImg) {
+        const wrapper = document.getElementById("avatarWrapper");
+        
+        if (avatarImg && wrapper) {
+            // Clear any existing initials or emoji
+            wrapper.querySelectorAll(".avatar-initials, .avatar-emoji").forEach(el => el.remove());
+            
             if (user.profile_picture_url) {
                 avatarImg.src = user.profile_picture_url;
                 avatarImg.style.display = "";
+            } else if (user.avatar_emoji) {
+                // Show emoji avatar
+                avatarImg.style.display = "none";
+                const emojiEl = document.createElement("div");
+                emojiEl.className = "avatar-emoji";
+                emojiEl.textContent = user.avatar_emoji;
+                emojiEl.style.fontSize = "2.2rem";
+                wrapper.insertBefore(emojiEl, wrapper.firstChild);
             } else {
                 // Show initials placeholder
                 avatarImg.style.display = "none";
-                const wrapper = document.getElementById("avatarWrapper");
-                if (wrapper && !wrapper.querySelector(".avatar-initials")) {
-                    const initEl = document.createElement("div");
-                    initEl.className = "avatar-initials";
-                    initEl.textContent = getInitials(user.full_name);
-                    wrapper.insertBefore(initEl, wrapper.firstChild);
-                }
+                const initEl = document.createElement("div");
+                initEl.className = "avatar-initials";
+                initEl.textContent = getInitials(user.full_name);
+                initEl.style.backgroundColor = getAvatarColorFromName(user.full_name);
+                wrapper.insertBefore(initEl, wrapper.firstChild);
             }
         }
 
@@ -84,7 +95,11 @@ function initAvatarUpload() {
     const input = document.getElementById("avatarInput");
     if (!wrapper || !input) return;
 
-    wrapper.addEventListener("click", () => input.click());
+    // Handle click on wrapper - show menu
+    wrapper.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showAvatarOptionsMenu(wrapper);
+    });
 
     input.addEventListener("change", async () => {
         const file = input.files[0];
@@ -118,13 +133,13 @@ function initAvatarUpload() {
                     avatarImg.src = data.profile_picture_url + "?t=" + Date.now();
                     avatarImg.style.display = "";
                 }
-                // Remove initials if showing
-                const initEl = document.querySelector(".avatar-initials");
-                if (initEl) initEl.remove();
+                // Remove initials/emoji if showing
+                wrapper.querySelectorAll(".avatar-initials, .avatar-emoji").forEach(el => el.remove());
                 // Update cached user
                 const u = getUser();
                 if (u) {
                     u.profile_picture_url = data.profile_picture_url;
+                    u.avatar_emoji = null; // Clear emoji when image is set
                     localStorage.setItem("user", JSON.stringify(u));
                 }
                 // Update nav avatar
@@ -150,8 +165,17 @@ function showAvatarMsg(text, isError) {
 function updateNavAvatar(url) {
     const navAvatar = document.getElementById("navAvatar");
     if (navAvatar && url) {
-        navAvatar.src = url + "?t=" + Date.now();
-        navAvatar.style.display = "";
+        if (navAvatar.tagName === "IMG") {
+            navAvatar.src = url + "?t=" + Date.now();
+        } else {
+            // It's a div (emoji or initials), replace it with an image
+            const img = document.createElement("img");
+            img.id = "navAvatar";
+            img.className = "nav-avatar";
+            img.src = url + "?t=" + Date.now();
+            img.alt = "";
+            navAvatar.replaceWith(img);
+        }
     }
 }
 
@@ -234,6 +258,248 @@ function initAccountForm() {
 
 function capitalize(s) {
     return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// ════════════════════════════════════════════════════════════
+// AVATAR OPTIONS & EMOJI SELECTION
+// ════════════════════════════════════════════════════════════
+
+const AVATAR_EMOJIS = [
+    "😀", "😊", "😄", "😂", "🤗", "😍", "😎", "🤓",
+    "🧐", "😌", "😏", "😘", "😗", "😙", "🥰", "😚",
+    "🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼",
+    "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔",
+    "🦄", "🌈", "⭐", "✨", "💫", "🌟", "💥", "🔥",
+    "❤️", "💙", "💚", "💛", "🧡", "💜", "💖", "💝",
+    "🎓", "🎯", "🎨", "📚", "📖", "✏️", "📝", "🖊️",
+    "🚀", "💡", "🔬", "🔭", "⚡", "🌙", "☀️", "🌻"
+];
+
+let _avatarMenuOpen = false;
+
+function showAvatarOptionsMenu(wrapper) {
+    // Close existing menu
+    const existing = document.getElementById("avatarOptionsMenu");
+    if (existing) {
+        existing.remove();
+        _avatarMenuOpen = false;
+        return;
+    }
+    
+    _avatarMenuOpen = true;
+    
+    const menu = document.createElement("div");
+    menu.id = "avatarOptionsMenu";
+    menu.className = "avatar-options-menu";
+    menu.innerHTML = `
+        <div class="avatar-menu-item avatar-menu-upload" title="Upload a photo">
+            📷 Upload Photo
+        </div>
+        <div class="avatar-menu-item avatar-menu-emoji" title="Choose an emoji">
+            😊 Choose Emoji
+        </div>
+        <div class="avatar-menu-item avatar-menu-initial" title="Use name initials (auto-generated)">
+            🔤 Use Initials
+        </div>
+    `;
+    
+    document.body.appendChild(menu);
+    
+    // Position the menu
+    const rect = wrapper.getBoundingClientRect();
+    menu.style.position = "fixed";
+    menu.style.top = (rect.bottom + 8) + "px";
+    menu.style.left = (rect.left + rect.width / 2 - 120) + "px";
+    menu.style.zIndex = "1000";
+    
+    // Handle menu item clicks
+    menu.querySelector(".avatar-menu-upload").addEventListener("click", () => {
+        document.getElementById("avatarInput").click();
+        closeAvatarMenu();
+    });
+    
+    menu.querySelector(".avatar-menu-emoji").addEventListener("click", () => {
+        showEmojiPicker();
+        closeAvatarMenu();
+    });
+    
+    menu.querySelector(".avatar-menu-initial").addEventListener("click", () => {
+        clearAvatarAndUseInitials();
+        closeAvatarMenu();
+    });
+    
+    // Close menu on outside click
+    setTimeout(() => {
+        document.addEventListener("click", _closeAvatarMenuHandler);
+    }, 0);
+}
+
+function _closeAvatarMenuHandler(e) {
+    const menu = document.getElementById("avatarOptionsMenu");
+    const wrapper = document.getElementById("avatarWrapper");
+    if (menu && !menu.contains(e.target) && !wrapper.contains(e.target)) {
+        closeAvatarMenu();
+    }
+}
+
+function closeAvatarMenu() {
+    const menu = document.getElementById("avatarOptionsMenu");
+    if (menu) {
+        menu.remove();
+        _avatarMenuOpen = false;
+    }
+    document.removeEventListener("click", _closeAvatarMenuHandler);
+}
+
+function showEmojiPicker() {
+    // Close any existing picker
+    const existing = document.getElementById("emojiPickerModal");
+    if (existing) existing.remove();
+    
+    const modal = document.createElement("div");
+    modal.id = "emojiPickerModal";
+    modal.className = "emoji-picker-modal";
+    
+    const grid = AVATAR_EMOJIS.map(emoji => 
+        `<button class="emoji-option" title="${emoji}">${emoji}</button>`
+    ).join("");
+    
+    modal.innerHTML = `
+        <div class="emoji-picker-overlay"></div>
+        <div class="emoji-picker-box">
+            <div class="emoji-picker-header">
+                <span>Choose an Avatar Emoji</span>
+                <button class="emoji-picker-close" aria-label="Close">✕</button>
+            </div>
+            <div class="emoji-picker-grid">
+                ${grid}
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Close button
+    modal.querySelector(".emoji-picker-close").addEventListener("click", () => {
+        modal.remove();
+    });
+    
+    // Close on overlay click
+    modal.querySelector(".emoji-picker-overlay").addEventListener("click", () => {
+        modal.remove();
+    });
+    
+    // Handle emoji selection
+    modal.querySelectorAll(".emoji-option").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+            e.preventDefault();
+            const emoji = btn.textContent;
+            await setAvatarEmoji(emoji);
+            modal.remove();
+        });
+    });
+    
+    // Close on Escape
+    const closeHandler = (e) => {
+        if (e.key === "Escape") {
+            modal.remove();
+            document.removeEventListener("keydown", closeHandler);
+        }
+    };
+    document.addEventListener("keydown", closeHandler);
+}
+
+async function setAvatarEmoji(emoji) {
+    showAvatarMsg("Saving emoji…", false);
+    
+    try {
+        const res = await apiFetch("/me/", {
+            method: "PATCH",
+            body: JSON.stringify({ avatar_emoji: emoji }),
+        });
+        
+        if (res.ok) {
+            showAvatarMsg("Emoji avatar updated!", false);
+            
+            // Update local user
+            const user = getUser();
+            if (user) {
+                user.avatar_emoji = emoji;
+                user.profile_picture_url = null; // Clear photo when emoji is set
+                localStorage.setItem("user", JSON.stringify(user));
+            }
+            
+            // Update display
+            const wrapper = document.getElementById("avatarWrapper");
+            const avatarImg = document.getElementById("profileAvatar");
+            if (wrapper && avatarImg) {
+                wrapper.querySelectorAll(".avatar-initials, .avatar-emoji, img").forEach(el => {
+                    if (el !== avatarImg || avatarImg.style.display !== "none") {
+                        el.style.display = "none";
+                    }
+                });
+                
+                const existing = wrapper.querySelector(".avatar-emoji");
+                if (existing) existing.remove();
+                
+                const emojiEl = document.createElement("div");
+                emojiEl.className = "avatar-emoji";
+                emojiEl.textContent = emoji;
+                emojiEl.style.fontSize = "2.2rem";
+                wrapper.insertBefore(emojiEl, wrapper.firstChild);
+                
+                avatarImg.style.display = "none";
+            }
+            
+            // Update nav
+            const navAvatar = document.getElementById("navAvatar");
+            if (navAvatar) {
+                navAvatar.style.display = "none";
+            }
+        } else {
+            showAvatarMsg("Failed to save emoji", true);
+        }
+    } catch (err) {
+        showAvatarMsg("Error saving emoji", true);
+        console.error(err);
+    }
+}
+
+async function clearAvatarAndUseInitials() {
+    showAvatarMsg("Clearing avatar…", false);
+    
+    try {
+        const res = await apiFetch("/me/", {
+            method: "PATCH",
+            body: JSON.stringify({ avatar_emoji: null, clear_avatar: true }),
+        });
+        
+        if (res.ok) {
+            showAvatarMsg("Using name initials", false);
+            
+            // Update local user
+            const user = getUser();
+            if (user) {
+                user.avatar_emoji = null;
+                user.profile_picture_url = null;
+                localStorage.setItem("user", JSON.stringify(user));
+            }
+            
+            // Reload profile to show initials
+            await loadProfile();
+            
+            // Update nav
+            const navAvatar = document.getElementById("navAvatar");
+            if (navAvatar) {
+                navAvatar.style.display = "none";
+            }
+        } else {
+            showAvatarMsg("Failed to update avatar", true);
+        }
+    } catch (err) {
+        showAvatarMsg("Error updating avatar", true);
+        console.error(err);
+    }
 }
 
 // ════════════════════════════════════════════════════════════
