@@ -410,15 +410,24 @@ function showEmojiPicker() {
 }
 
 async function setAvatarEmoji(emoji) {
+    if (!emoji) {
+        showAvatarMsg("No emoji selected", true);
+        return;
+    }
+    
     showAvatarMsg("Saving emoji…", false);
     
     try {
+        const body = { avatar_emoji: emoji };
+        console.log("Sending avatar update:", body);
+        
         const res = await apiFetch("/me/", {
             method: "PATCH",
-            body: JSON.stringify({ avatar_emoji: emoji }),
+            body: JSON.stringify(body),
         });
         
         const data = await res.json();
+        console.log("Avatar update response:", res.status, data);
         
         if (res.ok) {
             showAvatarMsg("Emoji avatar updated!", false);
@@ -427,7 +436,7 @@ async function setAvatarEmoji(emoji) {
             const user = getUser();
             if (user) {
                 user.avatar_emoji = emoji;
-                user.profile_picture_url = data.profile_picture_url || null;
+                user.profile_picture_url = null;
                 localStorage.setItem("user", JSON.stringify(user));
             }
             
@@ -466,10 +475,11 @@ async function setAvatarEmoji(emoji) {
         } else {
             const errorMsg = data.message || data.detail || "Failed to save emoji";
             showAvatarMsg(errorMsg, true);
-            console.error("Avatar save error:", res.status, data);
+            console.error("Avatar save error:", res.status, errorMsg, data);
         }
     } catch (err) {
-        showAvatarMsg("Error saving emoji: " + (err.message || "Unknown error"), true);
+        const errorMsg = "Error saving emoji: " + (err.message || "Unknown error");
+        showAvatarMsg(errorMsg, true);
         console.error("Avatar save exception:", err);
     }
 }

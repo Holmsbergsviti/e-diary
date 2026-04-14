@@ -123,8 +123,11 @@ def me(request):
         updates = {}
         new_email = data.get("email", "").strip()
         new_password = data.get("password", "").strip()
-        avatar_emoji = data.get("avatar_emoji")
+        avatar_emoji = data.get("avatar_emoji")  # Can be string, None, or not present
         clear_avatar = data.get("clear_avatar", False)
+        
+        # Track if we're updating avatar
+        avatar_updated = False
 
         if new_email:
             updates["email"] = new_email
@@ -133,8 +136,8 @@ def me(request):
                 return JsonResponse({"message": "Password must be at least 8 characters"}, status=400)
             updates["password"] = new_password
 
-        # Handle avatar_emoji update (store in profile table)
-        if avatar_emoji is not None or clear_avatar:
+        # Handle avatar_emoji update separately (store in profile table)
+        if "avatar_emoji" in data or clear_avatar:
             db = ediary()
             role, profile = _get_profile(user_id)
             
@@ -143,27 +146,41 @@ def me(request):
                 profile_updates = {}
                 
                 if avatar_emoji:
+                    # Setting an emoji
                     profile_updates["avatar_emoji"] = avatar_emoji
-                    # Clear profile_picture_url when emoji is set
+                    # Optionally clear profile picture when emoji is set
                     profile_updates["profile_picture_url"] = None
+                    avatar_updated = True
+                elif "avatar_emoji" in data and avatar_emoji is None:
+                    # Explicitly clearing emoji (avatar_emoji: null)
+                    profile_updates["avatar_emoji"] = None
+                    avatar_updated = True
                 elif clear_avatar:
+                    # Clear both emoji and picture
                     profile_updates["avatar_emoji"] = None
                     profile_updates["profile_picture_url"] = None
+                    avatar_updated = True
                 
                 if profile_updates:
                     try:
                         db.table(table).update(profile_updates).eq("id", user_id).execute()
+                        logger.info(f"Avatar updated for {role} {user_id}: {profile_updates}")
                     except Exception as e:
-                        logger.exception("Failed to update avatar emoji")
-                        return JsonResponse({"message": f"Failed to update avatar: {e}"}, status=400)
+                        logger.exception(f"Failed to update avatar for {user_id}")
+                        return JsonResponse({"message": f"Failed to update avatar: {str(e)}"}, status=400)
+            else:
+                return JsonResponse({"message": "Profile not found"}, status=404)
 
-        if not updates and not (avatar_emoji is not None or clear_avatar):
+        # Check if at least one update was requested
+        if not updates and not avatar_updated:
+            logger.warning(f"No updates requested for user {user_id}. Data: {data}")
             return JsonResponse({"message": "Nothing to update"}, status=400)
 
         # Update email/password via Supabase Auth if needed
         if updates:
             try:
                 supabase_admin_auth.auth.admin.update_user_by_id(user_id, updates)
+                logger.info(f"Auth updated for {user_id}")
             except Exception:
                 logger.exception("Profile update failed")
                 return JsonResponse({"message": "Failed to update profile"}, status=400)
