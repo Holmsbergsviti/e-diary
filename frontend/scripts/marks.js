@@ -156,21 +156,54 @@ function renderActiveGroup(container) {
     }
 }
 
+/* ---- Helper: create SVG doughnut chart ---- */
+function createDoughnutChart(done, partial, notDone) {
+    const total = done + partial + notDone;
+    if (total === 0) return '';
+    
+    const donePercent = (done / total) * 100;
+    const partialPercent = (partial / total) * 100;
+    const notDonePercent = (notDone / total) * 100;
+    
+    const doneAngle = (donePercent / 100) * 360;
+    const partialAngle = (partialPercent / 100) * 360;
+    
+    const drawArc = (start, angle, color) => {
+        const r = 40;
+        const startRad = (start * Math.PI) / 180;
+        const endRad = ((start + angle) * Math.PI) / 180;
+        const x1 = 50 + r * Math.cos(startRad);
+        const y1 = 50 + r * Math.sin(startRad);
+        const x2 = 50 + r * Math.cos(endRad);
+        const y2 = 50 + r * Math.sin(endRad);
+        const largeArc = angle > 180 ? 1 : 0;
+        return `<path d="M 50 50 L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z" fill="${color}" />`;
+    };
+    
+    const colors = { done: '#10b981', partial: '#f59e0b', notDone: '#ef4444' };
+    let chartSvg = `<svg width="100" height="100" viewBox="0 0 100 100" style="margin: 0 auto;">`;
+    chartSvg += drawArc(0, doneAngle, colors.done);
+    chartSvg += drawArc(doneAngle, partialAngle, colors.partial);
+    chartSvg += drawArc(doneAngle + partialAngle, notDonePercent * 3.6, colors.notDone);
+    chartSvg += `<circle cx="50" cy="50" r="25" fill="white" /></svg>`;
+    
+    return chartSvg;
+}
+
 /* ---- Helper: build collapsible homework detail list ---- */
 function buildHwDetailHtml(hwDetail) {
     if (!hwDetail || hwDetail.length === 0) return '';
-    const STATUS_ICON = { completed: '✅', partial: '🔶', not_done: '❌' };
     const STATUS_LABEL = { completed: 'Done', partial: 'Partial', not_done: 'Missing' };
+    const STATUS_CLASS = { completed: 'hw-detail-done', partial: 'hw-detail-partial', not_done: 'hw-detail-missing' };
     const rows = hwDetail.map(h => {
-        const icon = STATUS_ICON[h.status] || '❌';
         const label = STATUS_LABEL[h.status] || 'Missing';
+        const statusClass = STATUS_CLASS[h.status] || 'hw-detail-missing';
         const due = h.due_date || '–';
         const subj = h.subject ? `<span class="hw-detail-subj">${escHtml(h.subject)}</span>` : '';
-        return `<div class="hw-detail-row hw-detail-${h.status}">
-            <span class="hw-detail-icon">${icon}</span>
+        return `<div class="hw-detail-row ${statusClass}">
+            <span class="hw-detail-status-badge">${label}</span>
             <span class="hw-detail-title">${escHtml(h.title)}${subj}</span>
             <span class="hw-detail-due">${due}</span>
-            <span class="hw-detail-status">${label}</span>
         </div>`;
     }).join('');
     return `<details class="hw-detail-toggle"><summary class="hw-detail-summary">View details (${hwDetail.length})</summary><div class="hw-detail-list">${rows}</div></details>`;
@@ -196,7 +229,7 @@ function buildStatsHtml(stats) {
 
     return `<div class="student-stats-grid">
         <div class="student-stat-card">
-            <div class="student-stat-label">📋 Attendance</div>
+            <div class="student-stat-label">Attendance</div>
             ${attTotal > 0 ? `
             <div class="student-stat-bar">
                 <div class="stat-bar-seg stat-bar-present" style="width:${(present/attTotal*100).toFixed(1)}%" title="Present: ${present}"></div>
@@ -212,28 +245,51 @@ function buildStatsHtml(stats) {
             </div>` : `<div class="student-stat-empty">No records</div>`}
         </div>
         <div class="student-stat-card">
-            <div class="student-stat-label">📊 Grades</div>
+            <div class="student-stat-label">Grades</div>
             ${gr.count > 0 ? `
             ${gr.average != null ? `<div class="student-stat-big">${gr.average}%</div>` : ''}
             <div class="student-stat-sub">${gr.count} grade${gr.count !== 1 ? 's' : ''} total</div>` : `<div class="student-stat-empty">No grades</div>`}
         </div>
         <div class="student-stat-card">
-            <div class="student-stat-label">📝 Homework</div>
+            <div class="student-stat-label">Homework</div>
             ${hwTotal > 0 ? `
             <div class="student-stat-hw">
-                <span class="stat-hw-pill stat-hw-done">${hw.completed || 0} done</span>
-                <span class="stat-hw-pill stat-hw-partial">${hw.partial || 0} partial</span>
-                <span class="stat-hw-pill stat-hw-not">${hw.not_done || 0} missing</span>
+                ${createDoughnutChart(hw.completed || 0, hw.partial || 0, hw.not_done || 0)}
+                <div class="stat-hw-legend">
+                    <span class="stat-hw-item">
+                        <span class="stat-hw-color" style="background:#10b981;"></span>
+                        <span>${hw.completed || 0} Done</span>
+                    </span>
+                    <span class="stat-hw-item">
+                        <span class="stat-hw-color" style="background:#f59e0b;"></span>
+                        <span>${hw.partial || 0} Partial</span>
+                    </span>
+                    <span class="stat-hw-item">
+                        <span class="stat-hw-color" style="background:#ef4444;"></span>
+                        <span>${hw.not_done || 0} Missing</span>
+                    </span>
+                </div>
             </div>
             ${buildHwDetailHtml(st.homework_detail)}` : `<div class="student-stat-empty">No records</div>`}
         </div>
         <div class="student-stat-card">
-            <div class="student-stat-label">⭐ Behavioral</div>
+            <div class="student-stat-label">Behavioral</div>
             ${behTotal > 0 ? `
             <div class="student-stat-hw">
-                <span class="stat-hw-pill" style="background:#d1fae5;color:#065f46;">👍 ${beh.positive || 0}</span>
-                <span class="stat-hw-pill" style="background:#fee2e2;color:#991b1b;">👎 ${beh.negative || 0}</span>
-                <span class="stat-hw-pill" style="background:#e0e7ff;color:#3730a3;">📝 ${beh.note || 0}</span>
+                <div class="stat-hw-legend">
+                    <span class="stat-hw-item">
+                        <span class="stat-hw-color" style="background:#10b981;"></span>
+                        <span>Positive: ${beh.positive || 0}</span>
+                    </span>
+                    <span class="stat-hw-item">
+                        <span class="stat-hw-color" style="background:#ef4444;"></span>
+                        <span>Negative: ${beh.negative || 0}</span>
+                    </span>
+                    <span class="stat-hw-item">
+                        <span class="stat-hw-color" style="background:#3b82f6;"></span>
+                        <span>Note: ${beh.note || 0}</span>
+                    </span>
+                </div>
             </div>` : `<div class="student-stat-empty">No entries</div>`}
         </div>
     </div>`;
@@ -287,7 +343,7 @@ function renderClassOverview(container, group) {
             <div class="overview-student-header">
                 <span class="overview-num">${idx + 1}</span>
                 ${studentAvatarHtml(student)}
-                <span class="overview-name">${escHtml(student.surname)} ${escHtml(student.name)}${absentMark}${conflictMark}${allCommentCount > 0 ? ` <span title="${allCommentCount} comments">💬</span>` : ''}${hasNew ? ' <span class="new-comment-dot" title="New comments">●</span>' : ''}</span>
+                <span class="overview-name">${escHtml(student.surname)} ${escHtml(student.name)}${absentMark}${conflictMark}${allCommentCount > 0 ? ` <span class="comment-indicator" title="${allCommentCount} comments">(${allCommentCount})</span>` : ''}${hasNew ? ' <span class="new-comment-dot" title="New comments"></span>' : ''}</span>
                 <span class="overview-meta">${subjectCount} subj · ${totalGrades} grades${attRate !== null ? ` · ${attRate}% att.` : ''}</span>
                 <button class="btn btn-secondary btn-sm view-comments-btn" data-student-id="${student.student_id}" data-student-name="${escHtml(student.surname)} ${escHtml(student.name)}" style="margin-left:8px;">View Comments (${allCommentCount})</button>
                 <span class="overview-expand">▸</span>
