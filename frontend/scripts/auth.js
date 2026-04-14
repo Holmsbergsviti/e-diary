@@ -136,6 +136,7 @@ function initNav() {
             emoji.id = "navAvatar";
             emoji.className = "nav-avatar-emoji";
             emoji.textContent = user.avatar_emoji;
+            emoji.style.backgroundColor = getEmojiBackgroundColor(user.avatar_emoji);
             emoji.title = user.full_name || user.username;
             navRight.insertBefore(emoji, navRight.firstChild);
         } else {
@@ -576,6 +577,49 @@ function getAvatarColorFromName(name) {
     }
     
     return colors[Math.abs(hash) % colors.length];
+}
+
+/**
+ * Get background color for emoji avatar based on emoji type/category
+ * @param {string} emoji - The emoji character
+ * @returns {string} CSS color code
+ */
+function getEmojiBackgroundColor(emoji) {
+    // Map emoji categories to colors
+    const emojiColorMap = {
+        // Smileys - Yellow/Orange
+        "😀": "#FFD93D", "😊": "#FFD93D", "😄": "#FFD93D", "😂": "#FFD93D",
+        "🤗": "#FFD93D", "😍": "#FF6B9D", "😎": "#4ECDC4", "🤓": "#4ECDC4",
+        "🧐": "#FFD93D", "😌": "#A8E6CF", "😏": "#FFD93D", "😘": "#FF6B9D",
+        "😗": "#FF6B9D", "😙": "#FF6B9D", "🥰": "#FF6B9D", "😚": "#FF6B9D",
+        
+        // Animals - Browns/Greens
+        "🐶": "#8B7355", "🐱": "#8B6F47", "🐭": "#9E9E9E", "🐹": "#C4A747",
+        "🐰": "#E8B4A2", "🦊": "#E97D3A", "🐻": "#8B4513", "🐼": "#000000",
+        "🐨": "#9E9E9E", "🐯": "#E97D3A", "🦁": "#E97D3A", "🐮": "#BEBEBE",
+        "🐷": "#E8B4A2", "🐸": "#4CAF50", "🐵": "#8B7355", "🐔": "#C4A747",
+        
+        // Mythical - Purple/Blue
+        "🦄": "#D8BFD8", "🌈": "#FF69B4",
+        
+        // Stars/Sky - Blue/Gold
+        "⭐": "#FFD700", "✨": "#FFD700", "💫": "#FFD700", "🌟": "#FFD700",
+        "💥": "#FF6347", "🔥": "#FF6347",
+        
+        // Hearts - Red/Pink
+        "❤️": "#FF0000", "💙": "#0000FF", "💚": "#008000", "💛": "#FFD700",
+        "🧡": "#FF8C00", "💜": "#800080", "💖": "#FF1493", "💝": "#FF69B4",
+        
+        // Activities/Objects - Various
+        "🎓": "#1A237E", "🎯": "#FF6347", "🎨": "#9C27B0", "📚": "#D2691E",
+        "📖": "#8B4513", "✏️": "#FFD93D", "📝": "#FFD700", "🖊️": "#696969",
+        
+        // Science/Space - Blue
+        "🚀": "#4169E1", "💡": "#FFD700", "🔬": "#4169E1", "🔭": "#4169E1",
+        "⚡": "#FFD700", "🌙": "#191970", "☀️": "#FFD700", "🌻": "#FFD700"
+    };
+    
+    return emojiColorMap[emoji] || "#2563eb"; // Fallback to primary color
 }
 
 /**
