@@ -167,6 +167,7 @@ function createDoughnutChart(done, partial, notDone) {
     
     const doneAngle = (donePercent / 100) * 360;
     const partialAngle = (partialPercent / 100) * 360;
+    const notDoneAngle = (notDonePercent / 100) * 360;
     
     const drawArc = (start, angle, color) => {
         const r = 40;
@@ -177,15 +178,15 @@ function createDoughnutChart(done, partial, notDone) {
         const x2 = 50 + r * Math.cos(endRad);
         const y2 = 50 + r * Math.sin(endRad);
         const largeArc = angle > 180 ? 1 : 0;
-        return `<path d="M 50 50 L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z" fill="${color}" />`;
+        return `<path d="M 50 50 L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z" fill="${color}" stroke="white" stroke-width="1"/>`;
     };
     
     const colors = { done: '#10b981', partial: '#f59e0b', notDone: '#ef4444' };
     let chartSvg = `<svg width="100" height="100" viewBox="0 0 100 100" style="margin: 0 auto;">`;
     chartSvg += drawArc(0, doneAngle, colors.done);
     chartSvg += drawArc(doneAngle, partialAngle, colors.partial);
-    chartSvg += drawArc(doneAngle + partialAngle, notDonePercent * 3.6, colors.notDone);
-    chartSvg += `<circle cx="50" cy="50" r="25" fill="white" /></svg>`;
+    chartSvg += drawArc(doneAngle + partialAngle, notDoneAngle, colors.notDone);
+    chartSvg += `<circle cx="50" cy="50" r="25" fill="white"/></svg>`;
     
     return chartSvg;
 }
