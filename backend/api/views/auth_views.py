@@ -113,7 +113,7 @@ def me(request):
 
     user_id = payload["sub"]
 
-    # PATCH = update email or password
+    # PATCH = update email, password, or avatar_emoji
     if request.method in ("PATCH", "PUT"):
         try:
             data = json.loads(request.body)
@@ -123,6 +123,8 @@ def me(request):
         updates = {}
         new_email = data.get("email", "").strip()
         new_password = data.get("password", "").strip()
+        avatar_emoji = data.get("avatar_emoji")
+        clear_avatar = data.get("clear_avatar", False)
 
         if new_email:
             updates["email"] = new_email
@@ -131,14 +133,40 @@ def me(request):
                 return JsonResponse({"message": "Password must be at least 8 characters"}, status=400)
             updates["password"] = new_password
 
-        if not updates:
+        # Handle avatar_emoji update (store in profile table)
+        if avatar_emoji is not None or clear_avatar:
+            db = ediary()
+            role, profile = _get_profile(user_id)
+            
+            if role in ("student", "teacher", "admin"):
+                table = {"student": "students", "teacher": "teachers", "admin": "admins"}[role]
+                profile_updates = {}
+                
+                if avatar_emoji:
+                    profile_updates["avatar_emoji"] = avatar_emoji
+                    # Clear profile_picture_url when emoji is set
+                    profile_updates["profile_picture_url"] = None
+                elif clear_avatar:
+                    profile_updates["avatar_emoji"] = None
+                    profile_updates["profile_picture_url"] = None
+                
+                if profile_updates:
+                    try:
+                        db.table(table).update(profile_updates).eq("id", user_id).execute()
+                    except Exception as e:
+                        logger.exception("Failed to update avatar emoji")
+                        return JsonResponse({"message": f"Failed to update avatar: {e}"}, status=400)
+
+        if not updates and not (avatar_emoji is not None or clear_avatar):
             return JsonResponse({"message": "Nothing to update"}, status=400)
 
-        try:
-            supabase_admin_auth.auth.admin.update_user_by_id(user_id, updates)
-        except Exception:
-            logger.exception("Profile update failed")
-            return JsonResponse({"message": "Failed to update profile"}, status=400)
+        # Update email/password via Supabase Auth if needed
+        if updates:
+            try:
+                supabase_admin_auth.auth.admin.update_user_by_id(user_id, updates)
+            except Exception:
+                logger.exception("Profile update failed")
+                return JsonResponse({"message": "Failed to update profile"}, status=400)
 
         return JsonResponse({"message": "Updated successfully"})
 
@@ -158,6 +186,7 @@ def me(request):
         "role": role,
         "class_name": profile.get("class_name", ""),
         "profile_picture_url": profile.get("profile_picture_url") or None,
+        "avatar_emoji": profile.get("avatar_emoji") or None,
     }
     if role == "teacher":
         resp["contact_email"] = profile.get("contact_email", "")

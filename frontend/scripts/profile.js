@@ -418,6 +418,8 @@ async function setAvatarEmoji(emoji) {
             body: JSON.stringify({ avatar_emoji: emoji }),
         });
         
+        const data = await res.json();
+        
         if (res.ok) {
             showAvatarMsg("Emoji avatar updated!", false);
             
@@ -425,7 +427,7 @@ async function setAvatarEmoji(emoji) {
             const user = getUser();
             if (user) {
                 user.avatar_emoji = emoji;
-                user.profile_picture_url = null; // Clear photo when emoji is set
+                user.profile_picture_url = data.profile_picture_url || null;
                 localStorage.setItem("user", JSON.stringify(user));
             }
             
@@ -453,15 +455,22 @@ async function setAvatarEmoji(emoji) {
             
             // Update nav
             const navAvatar = document.getElementById("navAvatar");
-            if (navAvatar) {
-                navAvatar.style.display = "none";
+            if (navAvatar && navAvatar.id === "navAvatar") {
+                // Replace with emoji avatar
+                const emojiNav = document.createElement("div");
+                emojiNav.id = "navAvatar";
+                emojiNav.className = "nav-avatar-emoji";
+                emojiNav.textContent = emoji;
+                navAvatar.replaceWith(emojiNav);
             }
         } else {
-            showAvatarMsg("Failed to save emoji", true);
+            const errorMsg = data.message || data.detail || "Failed to save emoji";
+            showAvatarMsg(errorMsg, true);
+            console.error("Avatar save error:", res.status, data);
         }
     } catch (err) {
-        showAvatarMsg("Error saving emoji", true);
-        console.error(err);
+        showAvatarMsg("Error saving emoji: " + (err.message || "Unknown error"), true);
+        console.error("Avatar save exception:", err);
     }
 }
 
@@ -473,6 +482,8 @@ async function clearAvatarAndUseInitials() {
             method: "PATCH",
             body: JSON.stringify({ avatar_emoji: null, clear_avatar: true }),
         });
+        
+        const data = await res.json();
         
         if (res.ok) {
             showAvatarMsg("Using name initials", false);
@@ -491,14 +502,24 @@ async function clearAvatarAndUseInitials() {
             // Update nav
             const navAvatar = document.getElementById("navAvatar");
             if (navAvatar) {
-                navAvatar.style.display = "none";
+                const initials = getInitialsFromName(getUser()?.full_name || "");
+                const color = getAvatarColorFromName(getUser()?.full_name || "");
+                
+                const initialsNav = document.createElement("div");
+                initialsNav.id = "navAvatar";
+                initialsNav.className = "nav-avatar-initials";
+                initialsNav.textContent = initials;
+                initialsNav.style.backgroundColor = color;
+                navAvatar.replaceWith(initialsNav);
             }
         } else {
-            showAvatarMsg("Failed to update avatar", true);
+            const errorMsg = data.message || data.detail || "Failed to update avatar";
+            showAvatarMsg(errorMsg, true);
+            console.error("Avatar clear error:", res.status, data);
         }
     } catch (err) {
-        showAvatarMsg("Error updating avatar", true);
-        console.error(err);
+        showAvatarMsg("Error updating avatar: " + (err.message || "Unknown error"), true);
+        console.error("Avatar clear exception:", err);
     }
 }
 
