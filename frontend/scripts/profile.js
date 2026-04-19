@@ -463,16 +463,14 @@ async function setAvatarEmoji(emoji) {
     
     try {
         const body = { avatar_emoji: emoji };
-        console.log("Sending avatar update:", body);
-        
+
         const res = await apiFetch("/me/", {
             method: "PATCH",
             body: JSON.stringify(body),
         });
-        
+
         const data = await res.json();
-        console.log("Avatar update response:", res.status, data);
-        
+
         if (res.ok) {
             showAvatarMsg("Emoji avatar updated!", false);
             
@@ -521,12 +519,10 @@ async function setAvatarEmoji(emoji) {
         } else {
             const errorMsg = data.message || data.detail || "Failed to save emoji";
             showAvatarMsg(errorMsg, true);
-            console.error("Avatar save error:", res.status, errorMsg, data);
         }
     } catch (err) {
         const errorMsg = "Error saving emoji: " + (err.message || "Unknown error");
         showAvatarMsg(errorMsg, true);
-        console.error("Avatar save exception:", err);
     }
 }
 
@@ -603,7 +599,7 @@ function initPaletteSelector() {
             // Show confirmation message
             const msg = document.getElementById("paletteMsg");
             if (msg) {
-                msg.textContent = "🎨 Theme updated!";
+                msg.textContent = "Theme applied";
                 msg.classList.remove("form-msg-error");
                 msg.classList.add("form-msg-success");
                 setTimeout(() => {

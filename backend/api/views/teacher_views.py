@@ -936,16 +936,47 @@ def teacher_delete_behavioral(request):
         return JsonResponse({"message": "id is required"}, status=400)
 
     db = ediary()
+    entry = (
+        db.table("behavioral_entries")
+        .select("id, teacher_id, student_id")
+        .eq("id", entry_id)
+        .limit(1)
+        .execute()
+    )
+    entry_row = (entry.data or [None])[0]
+    if not entry_row:
+        return JsonResponse({"message": "Not found"}, status=404)
+
+    allowed = entry_row.get("teacher_id") == payload["sub"]
+    if not allowed:
+        # Class teacher may delete entries for students in their homeroom
+        me = (
+            ediary().table("teachers")
+            .select("is_class_teacher, class_teacher_of_class_id")
+            .eq("id", payload["sub"]).limit(1).execute()
+        )
+        me_row = (me.data or [None])[0] or {}
+        if me_row.get("is_class_teacher") and me_row.get("class_teacher_of_class_id"):
+            stu = (
+                ediary().table("students")
+                .select("class_id")
+                .eq("id", entry_row["student_id"]).limit(1).execute()
+            )
+            stu_row = (stu.data or [None])[0] or {}
+            if stu_row.get("class_id") == me_row["class_teacher_of_class_id"]:
+                allowed = True
+
+    if not allowed:
+        return JsonResponse({"message": "Not yours and not in your homeroom"}, status=403)
+
     result = (
         db.table("behavioral_entries")
         .delete()
         .eq("id", entry_id)
-        .eq("teacher_id", payload["sub"])
         .execute()
     )
-
     if not result.data:
-        return JsonResponse({"message": "Not found or not yours"}, status=404)
+        return JsonResponse({"message": "Delete failed"}, status=500)
 
     return JsonResponse({"deleted": True})
 
@@ -2098,10 +2129,25 @@ def teacher_event_detail(request):
     try:
         db = ediary()
 
-        # Verify ownership
-        ev = db.table("events").select("created_by_teacher_id").eq("id", event_id).limit(1).execute()
-        if not ev.data or ev.data[0].get("created_by_teacher_id") != teacher_id:
-            return JsonResponse({"message": "Not found or not yours"}, status=404)
+        # Verify ownership or class-teacher override
+        ev = db.table("events").select("created_by_teacher_id, target_class_ids").eq("id", event_id).limit(1).execute()
+        if not ev.data:
+            return JsonResponse({"message": "Not found"}, status=404)
+
+        allowed = ev.data[0].get("created_by_teacher_id") == teacher_id
+        if not allowed:
+            me = (
+                ediary().table("teachers")
+                .select("is_class_teacher, class_teacher_of_class_id")
+                .eq("id", teacher_id).limit(1).execute()
+            )
+            me_row = (me.data or [None])[0] or {}
+            if me_row.get("is_class_teacher") and me_row.get("class_teacher_of_class_id"):
+                target_class_ids = ev.data[0].get("target_class_ids") or []
+                if me_row["class_teacher_of_class_id"] in target_class_ids:
+                    allowed = True
+        if not allowed:
+            return JsonResponse({"message": "Not yours and not in your homeroom"}, status=403)
 
         if request.method == "DELETE":
             db.table("events").delete().eq("id", event_id).execute()

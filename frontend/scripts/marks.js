@@ -7,6 +7,7 @@ let allGroups = [];
 let activeGroupIdx = 0;
 let editingGradeId = null;
 let activeTerm = null; // null = both, 1 or 2
+let showAllGrades = false; // default: only last 3 assessments per student
 
 // Category weights (must sum to 1.0)
 const CATEGORY_WEIGHTS = {
@@ -481,6 +482,7 @@ function renderGroup(container, group) {
         <button class="term-btn${activeTerm === null ? ' active' : ''}" data-term="">Both Terms</button>
         <button class="term-btn${activeTerm === 1 ? ' active' : ''}" data-term="1">Term 1 <small>(Sep–Dec)</small></button>
         <button class="term-btn${activeTerm === 2 ? ' active' : ''}" data-term="2">Term 2 <small>(Jan–Jun)</small></button>
+        <button class="grades-toggle-btn" id="gradesShowAllBtn">${showAllGrades ? 'Show last 3' : 'Show all grades'}</button>
     </div>`;
 
     // Filter grades by term
@@ -500,9 +502,14 @@ function renderGroup(container, group) {
             }
         }
     }
-    const assessments = Array.from(assessmentMap.entries())
+    let assessments = Array.from(assessmentMap.entries())
         .sort((a, b) => (a[1] || '').localeCompare(b[1] || '') || a[0].localeCompare(b[0]))
         .map(e => e[0]);
+    const totalAssessments = assessments.length;
+    const hiddenAssessmentCount = !showAllGrades && totalAssessments > 3 ? totalAssessments - 3 : 0;
+    if (!showAllGrades && totalAssessments > 3) {
+        assessments = assessments.slice(-3);
+    }
 
     const colCount = 5 + (assessments.length > 0 ? assessments.length : 1) + 1; // #, Student, Class, Att%, Comments, assessments, Predicted
 
@@ -581,10 +588,10 @@ function renderGroup(container, group) {
                     if (matching.length > 0) {
                         const cellHtml = matching.map(g => {
                             const pct = g.percentage != null ? ` ${g.percentage}%` : "";
-                            const commentIcon = g.comment ? ' 💬' : "";
+                            const commentMark = g.comment ? ' <span class="grade-comment-dot" title="Has comment"></span>' : "";
                             const dateLabel = matching.length > 1 && g.date ? `<small style="opacity:0.6;display:block;">${g.date}</small>` : "";
                             return `<div class="grade-item-compact grade-clickable" data-grade='${JSON.stringify(g).replace(/'/g, "&#39;")}' data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}" style="cursor:pointer;margin:2px 0;padding:2px 4px;border-radius:3px;background:var(--bg-input);font-size:0.9rem;">
-                                <span class="grade-badge ${gradeClass(g.grade_code)}" style="margin-left:4px;">${escHtml(g.grade_code)}</span>${pct}${commentIcon}${dateLabel}
+                                <span class="grade-badge ${gradeClass(g.grade_code)}" style="margin-left:4px;">${escHtml(g.grade_code)}</span>${pct}${commentMark}${dateLabel}
                             </div>`;
                         }).join("");
                         html += `<td class="grades-column" style="padding:4px;">${cellHtml}</td>`;
@@ -614,6 +621,9 @@ function renderGroup(container, group) {
         });
 
     html += `</tbody></table>`;
+    if (hiddenAssessmentCount > 0) {
+        html += `<p class="grades-hidden-note">${hiddenAssessmentCount} older assessment${hiddenAssessmentCount === 1 ? '' : 's'} hidden — click "Show all grades" to reveal.</p>`;
+    }
     container.innerHTML = html;
 
     // Wire term filter buttons
@@ -624,6 +634,15 @@ function renderGroup(container, group) {
             renderGroup(container, allGroups[activeGroupIdx]);
         });
     });
+
+    // Wire show-all grades toggle
+    const toggleBtn = container.querySelector("#gradesShowAllBtn");
+    if (toggleBtn) {
+        toggleBtn.addEventListener("click", () => {
+            showAllGrades = !showAllGrades;
+            renderGroup(container, allGroups[activeGroupIdx]);
+        });
+    }
 
     // Wire clickable grade cells
     container.querySelectorAll(".grade-clickable").forEach(cell => {
