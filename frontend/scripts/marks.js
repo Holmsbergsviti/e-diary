@@ -280,20 +280,18 @@ function buildStatsHtml(stats) {
         <div class="student-stat-card">
             <div class="student-stat-label">Behavioral</div>
             ${behTotal > 0 ? `
-            <div class="student-stat-hw">
-                <div class="stat-hw-legend">
-                    <span class="stat-hw-item">
-                        <span class="stat-hw-color" style="background:#10b981;"></span>
-                        <span>Positive: ${beh.positive || 0}</span>
-                    </span>
-                    <span class="stat-hw-item">
-                        <span class="stat-hw-color" style="background:#ef4444;"></span>
-                        <span>Negative: ${beh.negative || 0}</span>
-                    </span>
-                    <span class="stat-hw-item">
-                        <span class="stat-hw-color" style="background:#3b82f6;"></span>
-                        <span>Note: ${beh.note || 0}</span>
-                    </span>
+            <div class="beh-tile-row">
+                <div class="beh-tile beh-tile-pos">
+                    <div class="beh-tile-num">${beh.positive || 0}</div>
+                    <div class="beh-tile-label">Positive</div>
+                </div>
+                <div class="beh-tile beh-tile-neg">
+                    <div class="beh-tile-num">${beh.negative || 0}</div>
+                    <div class="beh-tile-label">Negative</div>
+                </div>
+                <div class="beh-tile beh-tile-note">
+                    <div class="beh-tile-num">${beh.note || 0}</div>
+                    <div class="beh-tile-label">Note</div>
                 </div>
             </div>` : `<div class="student-stat-empty">No entries</div>`}
         </div>

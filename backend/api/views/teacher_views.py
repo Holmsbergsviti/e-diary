@@ -445,8 +445,15 @@ def teacher_marks(request):
     db_ss = ediary()
     all_student_subjects = db_ss.table("student_subjects").select("student_id, subject_id, group_class_id").in_("student_id", student_ids).execute()
     ss_group_map = {}
+    student_class_ids_map = {}  # student_id -> set of class_ids (homeroom + any teaching group)
     for ss in (all_student_subjects.data or []):
         ss_group_map[(ss["student_id"], ss["subject_id"])] = ss.get("group_class_id")
+        gcid = ss.get("group_class_id")
+        if gcid:
+            student_class_ids_map.setdefault(ss["student_id"], set()).add(gcid)
+    for sid_, s_ in student_map.items():
+        if s_.get("class_id"):
+            student_class_ids_map.setdefault(sid_, set()).add(s_["class_id"])
 
     db5 = ediary()
     subjects_result = db5.table("subjects").select("id, name, color_code").execute()
@@ -474,10 +481,15 @@ def teacher_marks(request):
             .execute()
         ).data or []
 
+        hw_class_ids = set(relevant_class_ids)
+        if class_teacher_class_id:
+            for sid_ in student_ids:
+                if student_map.get(sid_, {}).get("class_id") == class_teacher_class_id:
+                    hw_class_ids.update(student_class_ids_map.get(sid_, set()))
         hw_all = (
             ediary().table("homework")
             .select("id, class_id, subject_id, title, due_date")
-            .in_("class_id", relevant_class_ids)
+            .in_("class_id", list(hw_class_ids))
             .execute()
         ).data or []
         hw_all_ids = [h["id"] for h in hw_all]
@@ -605,12 +617,13 @@ def teacher_marks(request):
                 student_hw_status[h.get("homework_id")] = h.get("status", "")
 
         student_class_id = student_map.get(sid, {}).get("class_id")
+        student_all_classes = student_class_ids_map.get(sid, set())
         for hw in hw_all:
             hw_class = hw.get("class_id")
             hw_subj = hw.get("subject_id")
             if class_id and hw_class != class_id:
                 continue
-            if not class_id and student_class_id and hw_class != student_class_id:
+            if not class_id and student_all_classes and hw_class not in student_all_classes:
                 continue
             if subject_id and hw_subj != subject_id:
                 continue
