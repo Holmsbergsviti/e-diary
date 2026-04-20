@@ -171,7 +171,11 @@ function createDoughnutChart(done, partial, notDone) {
     const notDoneAngle = (notDonePercent / 100) * 360;
     
     const drawArc = (start, angle, color) => {
+        if (angle <= 0) return '';
         const r = 40;
+        if (angle >= 359.99) {
+            return `<circle cx="50" cy="50" r="${r}" fill="${color}"/>`;
+        }
         const startRad = (start * Math.PI) / 180;
         const endRad = ((start + angle) * Math.PI) / 180;
         const x1 = 50 + r * Math.cos(startRad);
