@@ -4972,28 +4972,6 @@ a.lesson-teacher:hover {
     vertical-align: middle;
 }
 
-/* Show-all / show-last-3 toggle in Marks */
-.grades-toggle-btn {
-    margin-left: auto;
-    padding: 4px 12px;
-    font-size: 0.82rem;
-    font-weight: 600;
-    border: 1px solid rgba(var(--primary-blue-rgb), 0.3);
-    background: transparent;
-    color: var(--primary-blue, #2563eb);
-    border-radius: 16px;
-    cursor: pointer;
-    transition: background 0.15s;
-}
-.grades-toggle-btn:hover {
-    background: rgba(var(--primary-blue-rgb), 0.08);
-}
-.grades-hidden-note {
-    margin: 8px 4px 0;
-    font-size: 0.82rem;
-    color: var(--text-muted, #6b7280);
-    font-style: italic;
-}
 .teacher-popover-copy {
     background: none;
     border: none;
