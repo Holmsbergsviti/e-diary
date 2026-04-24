@@ -57,10 +57,11 @@ async function loadProfile() {
             }
         }
 
-        // Cache avatar URL for nav
+        // Cache avatar info for nav
         const u = getUser();
         if (u) {
             u.profile_picture_url = user.profile_picture_url || null;
+            u.avatar_emoji = user.avatar_emoji || null;
             localStorage.setItem("user", JSON.stringify(u));
         }
 

@@ -122,6 +122,7 @@ def _get_profile(user_id: str) -> tuple:
             "admin_level": a.get("admin_level", "regular"),
             "permissions": a.get("permissions") or ALL_ADMIN_PERMISSIONS,
             "profile_picture_url": a.get("profile_picture_url") or None,
+            "avatar_emoji": a.get("avatar_emoji") or None,
         }
 
     # Teacher?
@@ -152,6 +153,7 @@ def _get_profile(user_id: str) -> tuple:
             "full_name": f"{t['name']} {t['surname']}",
             "class_name": class_name,
             "profile_picture_url": t.get("profile_picture_url") or None,
+            "avatar_emoji": t.get("avatar_emoji") or None,
             "contact_email": teacher_email,
         }
 
@@ -176,6 +178,7 @@ def _get_profile(user_id: str) -> tuple:
             "full_name": f"{s['name']} {s['surname']}",
             "class_name": class_name,
             "profile_picture_url": s.get("profile_picture_url") or None,
+            "avatar_emoji": s.get("avatar_emoji") or None,
         }
 
     return None, None
