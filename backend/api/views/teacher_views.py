@@ -1152,6 +1152,7 @@ def teacher_class_stats(request):
 
         grade_values = []
         grade_count = 0
+        grade_dist = {"A*": 0, "A": 0, "B": 0, "C": 0, "D": 0, "E": 0, "U": 0}
         for g in (grades_result.data or []):
             if g["subject_id"] == subject_id and g.get("student_id") in class_enrolled:
                 grade_count += 1
@@ -1163,6 +1164,13 @@ def teacher_class_stats(request):
                     nv = GRADE_VALUES.get(gc)
                     if nv is not None:
                         grade_values.append(nv)
+                gc_raw = (g.get("grade_code") or "").strip().upper()
+                if gc_raw == "A*":
+                    grade_dist["A*"] += 1
+                else:
+                    letter = gc_raw.rstrip("+-") if gc_raw else ""
+                    if letter in grade_dist:
+                        grade_dist[letter] += 1
         grade_avg = round(sum(grade_values) / len(grade_values), 2) if grade_values else None
 
         hw_for_pair = [h_id for h_id, (sid, cid) in hw_pair_map.items() if sid == subject_id and cid == class_id]
@@ -1205,6 +1213,7 @@ def teacher_class_stats(request):
             "grades": {
                 "count": grade_count,
                 "average": grade_avg,
+                "distribution": grade_dist,
             },
             "homework": {
                 "assigned": hw_count,

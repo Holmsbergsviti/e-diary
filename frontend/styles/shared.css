@@ -2039,6 +2039,42 @@ tr:hover td {
 .stat-dot-negative { background: #f87171; }
 .stat-dot-note { background: #fbbf24; }
 
+/* Grade distribution horizontal bars */
+.grade-dist-wrap { margin-top: 10px; }
+.grade-dist {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.grade-dist-row {
+    display: grid;
+    grid-template-columns: 22px 1fr 22px;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+}
+.grade-dist-label {
+    font-weight: 700;
+    color: var(--text-primary, #0f172a);
+    text-align: right;
+}
+.grade-dist-track {
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(148, 163, 184, 0.15);
+    overflow: hidden;
+}
+.grade-dist-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+.grade-dist-count {
+    font-weight: 600;
+    color: var(--text-lighter, #64748b);
+    text-align: left;
+}
+
 /* Big number for grades */
 .stat-big {
     font-size: 1.6rem;

@@ -884,6 +884,27 @@ function generateRingSector(startPct, sizePct, color, label, percent) {
     `;
 }
 
+function generateGradeDistribution(dist) {
+    if (!dist) return '';
+    const order = ['A*', 'A', 'B', 'C', 'D', 'E', 'U'];
+    const colors = {
+        'A*': '#059669', 'A': '#10b981', 'B': '#3b82f6',
+        'C': '#fcd34d', 'D': '#f97316', 'E': '#f87171', 'U': '#71717a',
+    };
+    const total = order.reduce((s, k) => s + (dist[k] || 0), 0);
+    if (total === 0) return '';
+    const max = Math.max(...order.map(k => dist[k] || 0));
+    return `<div class="grade-dist">` + order.map(k => {
+        const v = dist[k] || 0;
+        const pct = max > 0 ? (v / max) * 100 : 0;
+        return `<div class="grade-dist-row">
+            <span class="grade-dist-label">${k}</span>
+            <div class="grade-dist-track"><div class="grade-dist-fill" style="width:${pct}%;background:${colors[k]};"></div></div>
+            <span class="grade-dist-count">${v}</span>
+        </div>`;
+    }).join('') + `</div>`;
+}
+
 function generateHomeworkRing(completed, partial, notDone) {
     const total = completed + partial + notDone;
     if (total === 0) return '<div class="stat-sub">No completions yet</div>';
@@ -998,6 +1019,7 @@ function renderClassStats(stats) {
                     <div class="stat-block-title">📊 Grades</div>
                     <div class="stat-big grade-avg-${classId}">${gradeAvg}</div>
                     <div class="stat-sub grade-count-${classId}">${s.grades.count} grade${s.grades.count !== 1 ? 's' : ''} recorded</div>
+                    <div class="grade-dist-wrap grade-dist-${classId}">${generateGradeDistribution(s.grades.distribution)}</div>
                 </div>
                 <div class="stat-block">
                     <div class="stat-block-title">📝 Homework</div>
@@ -1099,6 +1121,8 @@ function updateClassStats(stats) {
         if (gradeAvgEl) gradeAvgEl.textContent = gradeAvg;
         const gradeCountEl = card.querySelector(`.grade-count-${classId}`);
         if (gradeCountEl) gradeCountEl.textContent = `${s.grades.count} grade${s.grades.count !== 1 ? 's' : ''} recorded`;
+        const gradeDistEl = card.querySelector(`.grade-dist-${classId}`);
+        if (gradeDistEl) gradeDistEl.innerHTML = generateGradeDistribution(s.grades.distribution);
         
         // Update homework ring + numbers
         const hwAssignedEl = card.querySelector(`.hw-assigned-${classId}`);
