@@ -677,7 +677,7 @@ async function loadStudentsAndAttendance(slot, date) {
                                 </select>
                             </td>
                             <td>
-                                <input type="number" class="minutes-late-input" min="0" max="240" step="1" placeholder="min" value="${escHtml(String(minsLate))}" ${status === "Late" ? "" : "disabled"} title="Minutes late (only for Late status)">
+                                <input type="number" class="comment-input minutes-late-input" min="0" max="240" step="1" placeholder="min" value="${escHtml(String(minsLate))}" title="Minutes late (applies when status is Late)">
                             </td>
                             <td>
                                 <input type="text" class="comment-input" placeholder="Comment…" value="${escHtml(comment)}">
@@ -688,20 +688,15 @@ async function loadStudentsAndAttendance(slot, date) {
             </table>
         `;
 
-        // Update select styling on change + toggle minutes-late input
+        // Update select styling on change + clear minutes-late when not Late
         studentList.querySelectorAll(".status-select").forEach(sel => {
             updateSelectStyle(sel);
             sel.addEventListener("change", () => {
                 updateSelectStyle(sel);
-                const row = sel.closest("tr");
-                const ml = row && row.querySelector(".minutes-late-input");
-                if (ml) {
-                    if (sel.value === "Late") {
-                        ml.disabled = false;
-                    } else {
-                        ml.disabled = true;
-                        ml.value = "";
-                    }
+                if (sel.value !== "Late") {
+                    const row = sel.closest("tr");
+                    const ml = row && row.querySelector(".minutes-late-input");
+                    if (ml) ml.value = "";
                 }
             });
         });

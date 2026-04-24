@@ -1499,6 +1499,17 @@ tr:hover td {
     box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.4);
     transition: all 0.25s ease;
 }
+.minutes-late-input {
+    min-width: 70px;
+    width: 80px;
+    text-align: center;
+    -moz-appearance: textfield;
+}
+.minutes-late-input::-webkit-outer-spin-button,
+.minutes-late-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
 .comment-input:focus,
 .status-select:focus,
 .attendance-date-row input:focus {
