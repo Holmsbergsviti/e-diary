@@ -135,7 +135,7 @@ def teacher_attendance(request):
         try:
             result = (
                 db.table("attendance")
-                .select("id, student_id, status, comment, topic")
+                .select("id, student_id, status, comment, topic, minutes_late")
                 .eq("class_id", class_id)
                 .eq("subject_id", subject_id)
                 .eq("date_recorded", date)
@@ -143,15 +143,26 @@ def teacher_attendance(request):
                 .execute()
             )
         except Exception:
-            result = (
-                db.table("attendance")
-                .select("id, student_id, status, comment")
-                .eq("class_id", class_id)
-                .eq("subject_id", subject_id)
-                .eq("date_recorded", date)
-                .eq("recorded_by_teacher_id", teacher_id)
-                .execute()
-            )
+            try:
+                result = (
+                    db.table("attendance")
+                    .select("id, student_id, status, comment, topic")
+                    .eq("class_id", class_id)
+                    .eq("subject_id", subject_id)
+                    .eq("date_recorded", date)
+                    .eq("recorded_by_teacher_id", teacher_id)
+                    .execute()
+                )
+            except Exception:
+                result = (
+                    db.table("attendance")
+                    .select("id, student_id, status, comment")
+                    .eq("class_id", class_id)
+                    .eq("subject_id", subject_id)
+                    .eq("date_recorded", date)
+                    .eq("recorded_by_teacher_id", teacher_id)
+                    .execute()
+                )
         att_rows = result.data or []
         topic = att_rows[0].get("topic", "") if att_rows else ""
 
@@ -198,14 +209,23 @@ def teacher_attendance(request):
 
         rows = []
         for rec in records:
+            status = rec.get("status", "Present")
+            ml = rec.get("minutes_late")
+            try:
+                ml_val = int(ml) if ml not in (None, "", False) else None
+            except (TypeError, ValueError):
+                ml_val = None
+            if status != "Late":
+                ml_val = None
             rows.append({
                 "student_id": rec["student_id"],
                 "class_id": class_id,
                 "subject_id": subject_id,
                 "date_recorded": date,
-                "status": rec.get("status", "Present"),
+                "status": status,
                 "comment": rec.get("comment", ""),
                 "topic": topic,
+                "minutes_late": ml_val,
                 "recorded_by_teacher_id": teacher_id,
             })
 
@@ -214,8 +234,13 @@ def teacher_attendance(request):
             result = db2.table("attendance").insert(rows).execute()
         except Exception:
             for r in rows:
-                r.pop("topic", None)
-            result = db2.table("attendance").insert(rows).execute()
+                r.pop("minutes_late", None)
+            try:
+                result = db2.table("attendance").insert(rows).execute()
+            except Exception:
+                for r in rows:
+                    r.pop("topic", None)
+                result = db2.table("attendance").insert(rows).execute()
 
         return JsonResponse({"saved": len(result.data or [])}, status=201)
 

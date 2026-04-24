@@ -652,6 +652,7 @@ async function loadStudentsAndAttendance(slot, date) {
                         <th>Student</th>
                         <th>Class</th>
                         <th>Status</th>
+                        <th>Min. late</th>
                         <th>Comment</th>
                     </tr>
                 </thead>
@@ -661,6 +662,7 @@ async function loadStudentsAndAttendance(slot, date) {
                         const onEvent = eventStudentIds.includes(s.id);
                         const status = rec.status || (onEvent ? "Excused" : "Present");
                         const comment = rec.comment || (onEvent && !rec.status ? "On school event" : "");
+                        const minsLate = rec.minutes_late ?? "";
                         return `
                         <tr data-student-id="${s.id}"${onEvent ? ' class="student-on-event"' : ""}>
                             <td>${i + 1}</td>
@@ -675,6 +677,9 @@ async function loadStudentsAndAttendance(slot, date) {
                                 </select>
                             </td>
                             <td>
+                                <input type="number" class="minutes-late-input" min="0" max="240" step="1" placeholder="min" value="${escHtml(String(minsLate))}" ${status === "Late" ? "" : "disabled"} title="Minutes late (only for Late status)">
+                            </td>
+                            <td>
                                 <input type="text" class="comment-input" placeholder="Comment…" value="${escHtml(comment)}">
                             </td>
                         </tr>`;
@@ -683,10 +688,22 @@ async function loadStudentsAndAttendance(slot, date) {
             </table>
         `;
 
-        // Update select styling on change
+        // Update select styling on change + toggle minutes-late input
         studentList.querySelectorAll(".status-select").forEach(sel => {
             updateSelectStyle(sel);
-            sel.addEventListener("change", () => updateSelectStyle(sel));
+            sel.addEventListener("change", () => {
+                updateSelectStyle(sel);
+                const row = sel.closest("tr");
+                const ml = row && row.querySelector(".minutes-late-input");
+                if (ml) {
+                    if (sel.value === "Late") {
+                        ml.disabled = false;
+                    } else {
+                        ml.disabled = true;
+                        ml.value = "";
+                    }
+                }
+            });
         });
 
     } catch (err) {
@@ -716,7 +733,11 @@ async function saveAttendance() {
         const studentId = row.dataset.studentId;
         const status = row.querySelector(".status-select").value;
         const comment = row.querySelector(".comment-input").value.trim();
-        records.push({ student_id: studentId, status, comment });
+        const mlRaw = row.querySelector(".minutes-late-input")?.value.trim();
+        const minutes_late = status === "Late" && mlRaw !== "" && !isNaN(parseInt(mlRaw, 10))
+            ? parseInt(mlRaw, 10)
+            : null;
+        records.push({ student_id: studentId, status, comment, minutes_late });
     });
 
     if (records.length === 0) return;
