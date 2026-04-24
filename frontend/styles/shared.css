@@ -2237,24 +2237,6 @@ tr:hover td {
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
-/* Ring chart with centered percentage */
-.stat-chart-wrap {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-.stat-chart-center {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--text-primary, #0f172a);
-    pointer-events: none;
-}
 /* Marks page: use Dashboard-style ring animation only subtly */
 .student-stat-card .stat-ring {
     animation: none;

@@ -238,14 +238,12 @@ function buildStatsHtml(stats) {
     const beh = st.behavioral || {};
     const behTotal = (beh.positive || 0) + (beh.negative || 0) + (beh.note || 0);
 
-    const attPct = attTotal > 0 ? Math.round(((present + late) / attTotal) * 100) : null;
     const attChart = attTotal > 0 ? createDoughnutChartSegments([
         { value: present, color: '#10b981', label: 'Present' },
         { value: late,    color: '#fcd34d', label: 'Late' },
         { value: absent,  color: '#f87171', label: 'Absent' },
         { value: excused, color: '#60a5fa', label: 'Excused' },
     ]) : '';
-    const attChartWrapped = attChart ? `<div class="stat-chart-wrap">${attChart}<div class="stat-chart-center">${attPct}%</div></div>` : '';
 
     const hwChart = hwTotal > 0 ? createDoughnutChartSegments([
         { value: hw.completed || 0, color: '#10b981', label: 'Done' },
@@ -253,12 +251,14 @@ function buildStatsHtml(stats) {
         { value: hw.not_done || 0,  color: '#f87171', label: 'Missing' },
     ]) : '';
 
+    const gradeLetter = gr.average != null ? numToGrade(gr.average / 10) : null;
+
     return `<div class="student-stats-grid">
         <div class="student-stat-card">
-            <div class="student-stat-label">Attendance</div>
+            <div class="student-stat-label">📅 Attendance</div>
             ${attTotal > 0 ? `
             <div class="student-stat-hw">
-                ${attChartWrapped}
+                ${attChart}
                 <div class="stat-hw-legend">
                     <span class="stat-hw-item"><span class="stat-hw-color" style="background:#10b981;"></span><span>${present} Present</span></span>
                     <span class="stat-hw-item"><span class="stat-hw-color" style="background:#fcd34d;"></span><span>${late} Late</span></span>
@@ -268,13 +268,13 @@ function buildStatsHtml(stats) {
             </div>` : `<div class="student-stat-empty">No records</div>`}
         </div>
         <div class="student-stat-card">
-            <div class="student-stat-label">Grades</div>
+            <div class="student-stat-label">📊 Grades</div>
             ${gr.count > 0 ? `
-            ${gr.average != null ? `<div class="student-stat-big">${gr.average}%</div>` : ''}
-            <div class="student-stat-sub">Average</div>` : `<div class="student-stat-empty">No grades</div>`}
+            <div class="student-stat-big">${gradeLetter ? gradeLetter : (gr.average != null ? gr.average + '%' : '–')}</div>
+            <div class="student-stat-sub">${gr.count} grade${gr.count !== 1 ? 's' : ''} recorded</div>` : `<div class="student-stat-empty">No grades</div>`}
         </div>
         <div class="student-stat-card">
-            <div class="student-stat-label">Homework</div>
+            <div class="student-stat-label">📝 Homework</div>
             ${hwTotal > 0 ? `
             <div class="student-stat-hw">
                 ${hwChart}
@@ -287,7 +287,7 @@ function buildStatsHtml(stats) {
             ${buildHwDetailHtml(st.homework_detail)}` : `<div class="student-stat-empty">No records</div>`}
         </div>
         <div class="student-stat-card">
-            <div class="student-stat-label">Behavioral</div>
+            <div class="student-stat-label">📋 Behavioral</div>
             ${behTotal > 0 ? `
             <div class="beh-pills">
                 <div class="beh-pill beh-pill-pos"><span class="beh-pill-dot"></span><span class="beh-pill-num">${beh.positive || 0}</span><span class="beh-pill-label">Positive</span></div>
