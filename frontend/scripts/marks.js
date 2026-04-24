@@ -232,7 +232,6 @@ function buildStatsHtml(stats) {
     const absent = att.Absent || 0;
     const excused = att.Excused || 0;
 
-    const gr = st.grades || {};
     const hw = st.homework || {};
     const hwTotal = (hw.completed || 0) + (hw.partial || 0) + (hw.not_done || 0);
     const beh = st.behavioral || {};
@@ -251,8 +250,6 @@ function buildStatsHtml(stats) {
         { value: hw.not_done || 0,  color: '#f87171', label: 'Missing' },
     ]) : '';
 
-    const gradeLetter = gr.average != null ? numToGrade(gr.average / 10) : null;
-
     return `<div class="student-stats-grid">
         <div class="student-stat-card">
             <div class="student-stat-label">📅 Attendance</div>
@@ -268,17 +265,11 @@ function buildStatsHtml(stats) {
             </div>` : `<div class="student-stat-empty">No records</div>`}
         </div>
         <div class="student-stat-card">
-            <div class="student-stat-label">📊 Grades</div>
-            ${gr.count > 0 ? `
-            <div class="student-stat-big">${gradeLetter ? gradeLetter : (gr.average != null ? gr.average + '%' : '–')}</div>
-            <div class="student-stat-sub">${gr.count} grade${gr.count !== 1 ? 's' : ''} recorded</div>` : `<div class="student-stat-empty">No grades</div>`}
-        </div>
-        <div class="student-stat-card">
             <div class="student-stat-label">📝 Homework</div>
             ${hwTotal > 0 ? `
             <div class="student-stat-hw">
                 ${hwChart}
-                <div class="stat-hw-legend">
+                <div class="stat-hw-legend stat-hw-legend-vertical">
                     <span class="stat-hw-item"><span class="stat-hw-color" style="background:#10b981;"></span><span>${hw.completed || 0} Done</span></span>
                     <span class="stat-hw-item"><span class="stat-hw-color" style="background:#fcd34d;"></span><span>${hw.partial || 0} Partial</span></span>
                     <span class="stat-hw-item"><span class="stat-hw-color" style="background:#f87171;"></span><span>${hw.not_done || 0} Missing</span></span>
