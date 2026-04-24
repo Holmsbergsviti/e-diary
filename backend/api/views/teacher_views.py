@@ -25,7 +25,7 @@ GRADE_VALUES = {
 __all__ = [
     "teacher_class_students", "teacher_attendance", "teacher_marks",
     "teacher_add_grade", "teacher_edit_grade", "teacher_delete_grade",
-    "teacher_add_homework", "teacher_delete_homework",
+    "teacher_add_homework", "teacher_update_homework", "teacher_delete_homework",
     "teacher_homework_completions",
     "teacher_add_behavioral", "teacher_delete_behavioral",
     "teacher_class_stats", "teacher_student_comments", "teacher_reports",
@@ -865,6 +865,54 @@ def teacher_add_homework(request):
     }).execute()
 
     return JsonResponse({"homework": result.data[0] if result.data else {}}, status=201)
+
+
+# ------------------------------------------------------------------
+# Teacher: update existing homework
+# ------------------------------------------------------------------
+
+@csrf_exempt
+def teacher_update_homework(request):
+    payload = _verify_token(request)
+    if not payload or payload.get("role") != "teacher":
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+
+    if request.method != "POST":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"message": "Invalid JSON"}, status=400)
+
+    hw_id = (data.get("id") or "").strip()
+    if not hw_id:
+        return JsonResponse({"message": "id is required"}, status=400)
+
+    updates = {}
+    for field in ("title", "description", "due_date", "subject_id", "class_id"):
+        if field in data:
+            v = (data.get(field) or "").strip()
+            if field in ("title", "due_date", "subject_id", "class_id") and not v:
+                return JsonResponse({"message": f"{field} cannot be empty"}, status=400)
+            updates[field] = v
+
+    if not updates:
+        return JsonResponse({"message": "No fields to update"}, status=400)
+
+    db = ediary()
+    result = (
+        db.table("homework")
+        .update(updates)
+        .eq("id", hw_id)
+        .eq("teacher_id", payload["sub"])
+        .execute()
+    )
+
+    if not result.data:
+        return JsonResponse({"message": "Homework not found or not owned by you"}, status=404)
+
+    return JsonResponse({"homework": result.data[0]})
 
 
 # ------------------------------------------------------------------

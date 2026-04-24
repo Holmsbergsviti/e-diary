@@ -25,6 +25,7 @@ urlpatterns = [
     path("teacher/grades/edit/", teacher_views.teacher_edit_grade),
     path("teacher/grades/delete/", teacher_views.teacher_delete_grade),
     path("teacher/homework/add/", teacher_views.teacher_add_homework),
+    path("teacher/homework/update/", teacher_views.teacher_update_homework),
     path("teacher/homework/delete/", teacher_views.teacher_delete_homework),
     path("teacher/homework/completions/", teacher_views.teacher_homework_completions),
     path("teacher/behavioral/add/", teacher_views.teacher_add_behavioral),

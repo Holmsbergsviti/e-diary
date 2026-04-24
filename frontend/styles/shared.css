@@ -1765,8 +1765,11 @@ tr:hover td {
 .hw-item-meta { font-size: 0.82rem; color: var(--text-lighter); margin-top: 2px; }
 .hw-item-desc { font-size: 0.85rem; color: #5a6e8a; margin-top: 4px; white-space: pre-wrap; }
 .hw-past { opacity: 0.6; }
+.hw-item-actions { display: flex; gap: 4px; flex-shrink: 0; }
 .hw-delete-btn { flex-shrink: 0; font-size: 1.1rem; line-height: 1; padding: 4px 8px; cursor: pointer; color: var(--text-lighter); transition: all 0.25s ease; }
 .hw-delete-btn:hover { color: #c98080; transform: scale(1.1); }
+.hw-edit-btn { flex-shrink: 0; font-size: 0.95rem; line-height: 1; padding: 4px 8px; cursor: pointer; transition: all 0.25s ease; }
+.hw-edit-btn:hover { transform: scale(1.1); }
 
 /* Past homework collapsible section */
 .hw-past-section {

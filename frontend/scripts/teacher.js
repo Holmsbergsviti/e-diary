@@ -1227,7 +1227,10 @@ function renderHomework() {
                 </div>
                 ${hw.body ? `<div class="hw-item-desc">${escHtml(hw.body)}</div>` : ""}
             </div>
-            <button class="btn btn-danger btn-sm hw-delete-btn" data-id="${hw.id}" title="Delete">&times;</button>
+            <div class="hw-item-actions">
+                <button class="btn btn-secondary btn-sm hw-edit-btn" data-id="${hw.id}" title="Edit">✎</button>
+                <button class="btn btn-danger btn-sm hw-delete-btn" data-id="${hw.id}" title="Delete">&times;</button>
+            </div>
         </div>`;
     }).join("");
 
@@ -1249,10 +1252,18 @@ function renderHomework() {
         });
     });
 
+    container.querySelectorAll(".hw-edit-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const hw = homeworkAssignments.find(h => h.id === btn.dataset.id);
+            if (hw) openHomeworkModal(hw);
+        });
+    });
+
     // Click on a homework item opens the completion modal
     container.querySelectorAll(".hw-item").forEach(item => {
         item.addEventListener("click", (e) => {
-            if (e.target.closest(".hw-delete-btn")) return;
+            if (e.target.closest(".hw-delete-btn") || e.target.closest(".hw-edit-btn")) return;
             const hwId = item.dataset.hwId;
             const hw = homeworkAssignments.find(h => h.id === hwId);
             if (hw) openHwCompletionModal(hw);
@@ -1260,7 +1271,11 @@ function renderHomework() {
     });
 }
 
-function openHomeworkModal() {
+let _editingHwId = null;
+
+function openHomeworkModal(existing = null) {
+    _editingHwId = existing ? existing.id : null;
+
     // Populate the class/subject dropdown from schedule data
     const select = document.getElementById("hwClassSelect");
     const seen = new Set();
@@ -1272,17 +1287,38 @@ function openHomeworkModal() {
         const label = `${s.subject} – ${s.class_name || 'Year ' + s.grade_level}`;
         options.push({ key, label, subject_id: s.subject_id, class_id: s.class_id });
     }
+    // Make sure the existing hw's pair is selectable even if schedule doesn't include it
+    if (existing) {
+        const key = `${existing.subject_id}|${existing.class_id}`;
+        if (!seen.has(key)) {
+            const label = `${existing.subject || 'Subject'} – ${existing.class_name || ''}`.trim();
+            options.push({ key, label, subject_id: existing.subject_id, class_id: existing.class_id });
+        }
+    }
     options.sort((a, b) => a.label.localeCompare(b.label));
     select.innerHTML = options.map(o =>
         `<option value="${o.key}" data-subject="${o.subject_id}" data-class="${o.class_id}">${escHtml(o.label)}</option>`
     ).join("");
 
-    // Set default due date to tomorrow
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    document.getElementById("hwDueDate").value = tomorrow.toISOString().slice(0, 10);
-    document.getElementById("hwTitle").value = "";
-    document.getElementById("hwDesc").value = "";
+    const titleEl = document.getElementById("hwTitle");
+    const descEl = document.getElementById("hwDesc");
+    const dueEl = document.getElementById("hwDueDate");
+    const saveBtn = document.getElementById("hwSave");
+
+    if (existing) {
+        select.value = `${existing.subject_id}|${existing.class_id}`;
+        titleEl.value = existing.title || "";
+        descEl.value = existing.body || existing.description || "";
+        dueEl.value = existing.due_date || "";
+        if (saveBtn) saveBtn.textContent = "Update Homework";
+    } else {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        dueEl.value = tomorrow.toISOString().slice(0, 10);
+        titleEl.value = "";
+        descEl.value = "";
+        if (saveBtn) saveBtn.textContent = "Save Homework";
+    }
 
     document.getElementById("homeworkModal").style.display = "flex";
 }
@@ -1301,21 +1337,31 @@ async function saveHomework() {
 
     const btn = document.getElementById("hwSave");
     btn.disabled = true;
-    btn.textContent = "Saving…";
+    const isEdit = !!_editingHwId;
+    btn.textContent = isEdit ? "Updating…" : "Saving…";
 
     try {
-        await apiFetch("/teacher/homework/add/", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ subject_id, class_id, title, description, due_date }),
-        });
+        if (isEdit) {
+            await apiFetch("/teacher/homework/update/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: _editingHwId, subject_id, class_id, title, description, due_date }),
+            });
+        } else {
+            await apiFetch("/teacher/homework/add/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ subject_id, class_id, title, description, due_date }),
+            });
+        }
         document.getElementById("homeworkModal").style.display = "none";
+        _editingHwId = null;
         await loadHomework();
     } catch (err) {
-        showToast("Failed to save homework", "error");
+        showToast(isEdit ? "Failed to update homework" : "Failed to save homework", "error");
     } finally {
         btn.disabled = false;
-        btn.textContent = "Save Homework";
+        btn.textContent = isEdit ? "Update Homework" : "Save Homework";
     }
 }
 
