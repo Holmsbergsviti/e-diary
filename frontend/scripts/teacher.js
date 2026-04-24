@@ -884,6 +884,36 @@ function generateRingSector(startPct, sizePct, color, label, percent) {
     `;
 }
 
+function generateHomeworkRing(completed, partial, notDone) {
+    const total = completed + partial + notDone;
+    if (total === 0) return '<div class="stat-sub">No completions yet</div>';
+
+    const completedPct = Number(((completed / total) * 100).toFixed(2));
+    const partialPct = Number(((partial / total) * 100).toFixed(2));
+    const notDonePct = Number(((notDone / total) * 100).toFixed(2));
+
+    let offset = 0;
+    const sectors = [];
+    if (completed > 0) {
+        sectors.push(generateRingSector(offset, completedPct, '#10b981', 'Done', completedPct));
+        offset += completedPct;
+    }
+    if (partial > 0) {
+        sectors.push(generateRingSector(offset, partialPct, '#fcd34d', 'Partial', partialPct));
+        offset += partialPct;
+    }
+    if (notDone > 0) {
+        sectors.push(generateRingSector(offset, notDonePct, '#f87171', 'Missing', notDonePct));
+        offset += notDonePct;
+    }
+
+    return `
+        <svg class="stat-ring" viewBox="0 0 100 100" width="120" height="120">
+            ${sectors.join('')}
+        </svg>
+    `;
+}
+
 function generateBehavioralRing(positive, negative, note) {
     const total = positive + negative + note;
     if (total === 0) return '<div class="stat-sub">No behavioral data</div>';
@@ -972,13 +1002,14 @@ function renderClassStats(stats) {
                 <div class="stat-block">
                     <div class="stat-block-title">📝 Homework</div>
                     <div class="stat-sub hw-assigned-${classId}">${s.homework.assigned} assigned</div>
-                    <div class="hw-content-${classId}">
+                    <div class="stat-ring-container" id="hw-ring-${classId}">
+                        ${generateHomeworkRing(s.homework.completed, s.homework.partial, s.homework.not_done)}
+                    </div>
+                    <div class="stat-legend hw-legend-${classId}">
                         ${hwTotal > 0 ? `
-                        <div class="stat-hw-row">
-                            <span class="stat-hw-chip stat-hw-done">✅ <span class="hw-completed-${classId}">${s.homework.completed}</span></span>
-                            <span class="stat-hw-chip stat-hw-partial">⚠️ <span class="hw-partial-${classId}">${s.homework.partial}</span></span>
-                            <span class="stat-hw-chip stat-hw-not">❌ <span class="hw-not-${classId}">${s.homework.not_done}</span></span>
-                        </div>` : '<div class="stat-sub">No completions yet</div>'}
+                        <span class="stat-dot stat-dot-done"></span> <span class="hw-completed-${classId}">${s.homework.completed}</span>
+                        <span class="stat-dot stat-dot-partial"></span> <span class="hw-partial-${classId}">${s.homework.partial}</span>
+                        <span class="stat-dot stat-dot-missing"></span> <span class="hw-not-${classId}">${s.homework.not_done}</span>` : ''}
                     </div>
                 </div>
                 <div class="stat-block">
@@ -986,13 +1017,11 @@ function renderClassStats(stats) {
                     <div class="stat-ring-container" id="behav-ring-${classId}">
                         ${generateBehavioralRing(s.behavioral.positive, s.behavioral.negative, s.behavioral.note)}
                     </div>
-                    <div class="behav-legend-${classId}">
+                    <div class="stat-legend behav-legend-${classId}">
                         ${(s.behavioral.positive + s.behavioral.negative + s.behavioral.note) > 0 ? `
-                        <div style="display:flex;gap:12px;justify-content:center;margin-top:8px;flex-wrap:wrap;font-size:0.85rem;">
-                            <span><span style="display:inline-block;width:12px;height:12px;background:#10b981;border-radius:2px;margin-right:4px;"></span>👍 <span class="behav-positive-${classId}">${s.behavioral.positive}</span></span>
-                            <span><span style="display:inline-block;width:12px;height:12px;background:#f87171;border-radius:2px;margin-right:4px;"></span>👎 <span class="behav-negative-${classId}">${s.behavioral.negative}</span></span>
-                            <span><span style="display:inline-block;width:12px;height:12px;background:#fbbf24;border-radius:2px;margin-right:4px;"></span>📝 <span class="behav-note-${classId}">${s.behavioral.note}</span></span>
-                        </div>` : '<div class="stat-sub">No behavioral data</div>'}
+                        <span class="stat-dot stat-dot-positive"></span> <span class="behav-positive-${classId}">${s.behavioral.positive}</span>
+                        <span class="stat-dot stat-dot-negative"></span> <span class="behav-negative-${classId}">${s.behavioral.negative}</span>
+                        <span class="stat-dot stat-dot-note"></span> <span class="behav-note-${classId}">${s.behavioral.note}</span>` : ''}
                     </div>
                 </div>
                 </div>
@@ -1071,37 +1100,36 @@ function updateClassStats(stats) {
         const gradeCountEl = card.querySelector(`.grade-count-${classId}`);
         if (gradeCountEl) gradeCountEl.textContent = `${s.grades.count} grade${s.grades.count !== 1 ? 's' : ''} recorded`;
         
-        // Update homework numbers (with null checks)
+        // Update homework ring + numbers
         const hwAssignedEl = card.querySelector(`.hw-assigned-${classId}`);
         if (hwAssignedEl) hwAssignedEl.textContent = `${s.homework.assigned} assigned`;
-        const hwCompletedEl = card.querySelector(`.hw-completed-${classId}`);
-        if (hwCompletedEl) hwCompletedEl.textContent = s.homework.completed;
-        const hwPartialEl = card.querySelector(`.hw-partial-${classId}`);
-        if (hwPartialEl) hwPartialEl.textContent = s.homework.partial;
-        const hwNotEl = card.querySelector(`.hw-not-${classId}`);
-        if (hwNotEl) hwNotEl.textContent = s.homework.not_done;
-        
+        const hwRingContainer = card.querySelector(`#hw-ring-${classId}`);
+        if (hwRingContainer) {
+            hwRingContainer.innerHTML = generateHomeworkRing(s.homework.completed, s.homework.partial, s.homework.not_done);
+        }
+        const hwLegend = card.querySelector(`.hw-legend-${classId}`);
+        if (hwLegend) {
+            const hwTotal2 = s.homework.completed + s.homework.partial + s.homework.not_done;
+            hwLegend.innerHTML = hwTotal2 > 0 ? `
+                <span class="stat-dot stat-dot-done"></span> <span class="hw-completed-${classId}">${s.homework.completed}</span>
+                <span class="stat-dot stat-dot-partial"></span> <span class="hw-partial-${classId}">${s.homework.partial}</span>
+                <span class="stat-dot stat-dot-missing"></span> <span class="hw-not-${classId}">${s.homework.not_done}</span>` : '';
+        }
+
         // Update behavioral ring
         const behavRingContainer = card.querySelector(`#behav-ring-${classId}`);
         if (behavRingContainer) {
-            const behavTotal = s.behavioral.positive + s.behavioral.negative + s.behavioral.note;
             behavRingContainer.innerHTML = generateBehavioralRing(s.behavioral.positive, s.behavioral.negative, s.behavioral.note);
         }
-        
-        // Update behavioral numbers and visibility
+
+        // Update behavioral legend
         const behavLegend = card.querySelector(`.behav-legend-${classId}`);
         if (behavLegend) {
             const behavTotal = s.behavioral.positive + s.behavioral.negative + s.behavioral.note;
-            if (behavTotal > 0) {
-                behavLegend.innerHTML = `
-                    <div style="display:flex;gap:12px;justify-content:center;margin-top:8px;flex-wrap:wrap;font-size:0.85rem;">
-                        <span><span style="display:inline-block;width:12px;height:12px;background:#10b981;border-radius:2px;margin-right:4px;"></span>👍 <span class="behav-positive-${classId}">${s.behavioral.positive}</span></span>
-                        <span><span style="display:inline-block;width:12px;height:12px;background:#f87171;border-radius:2px;margin-right:4px;"></span>👎 <span class="behav-negative-${classId}">${s.behavioral.negative}</span></span>
-                        <span><span style="display:inline-block;width:12px;height:12px;background:#fbbf24;border-radius:2px;margin-right:4px;"></span>📝 <span class="behav-note-${classId}">${s.behavioral.note}</span></span>
-                    </div>`;
-            } else {
-                behavLegend.innerHTML = '<div class="stat-sub">No behavioral data</div>';
-            }
+            behavLegend.innerHTML = behavTotal > 0 ? `
+                <span class="stat-dot stat-dot-positive"></span> <span class="behav-positive-${classId}">${s.behavioral.positive}</span>
+                <span class="stat-dot stat-dot-negative"></span> <span class="behav-negative-${classId}">${s.behavioral.negative}</span>
+                <span class="stat-dot stat-dot-note"></span> <span class="behav-note-${classId}">${s.behavioral.note}</span>` : '';
         }
     });
 }

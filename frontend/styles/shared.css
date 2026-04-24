@@ -2032,6 +2032,12 @@ tr:hover td {
 .stat-dot-late { background: var(--stat-late); }
 .stat-dot-absent { background: var(--stat-absent); }
 .stat-dot-excused { background: var(--stat-excused); }
+.stat-dot-done { background: #10b981; }
+.stat-dot-partial { background: #fcd34d; }
+.stat-dot-missing { background: #f87171; }
+.stat-dot-positive { background: #10b981; }
+.stat-dot-negative { background: #f87171; }
+.stat-dot-note { background: #fbbf24; }
 
 /* Big number for grades */
 .stat-big {
