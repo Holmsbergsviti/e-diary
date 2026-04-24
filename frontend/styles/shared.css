@@ -3576,13 +3576,13 @@ tr:hover td {
     color: var(--text-primary, #0f172a);
 }
 .admin-tab.active {
-    background: var(--primary-color, #7c3aed);
+    background: var(--primary-blue, #2563eb);
     color: #fff;
     box-shadow: 0 4px 12px rgba(var(--primary-blue-rgb, 37, 99, 235), 0.25), 0 1px 3px rgba(0, 0, 0, 0.08);
     transform: translateY(-1px);
 }
 .admin-tab.active:hover {
-    background: var(--primary-color, #7c3aed);
+    background: var(--primary-blue, #2563eb);
     color: #fff;
 }
 
@@ -3620,13 +3620,13 @@ tr:hover td {
     color: var(--text-primary, #0f172a);
 }
 .teacher-tab.active {
-    background: var(--primary-color, #7c3aed);
+    background: var(--primary-blue, #2563eb);
     color: #fff;
     box-shadow: 0 4px 12px rgba(var(--primary-blue-rgb, 37, 99, 235), 0.25), 0 1px 3px rgba(0, 0, 0, 0.08);
     transform: translateY(-1px);
 }
 .teacher-tab.active:hover {
-    background: var(--primary-color, #7c3aed);
+    background: var(--primary-blue, #2563eb);
     color: #fff;
 }
 .teacher-tab-content {
