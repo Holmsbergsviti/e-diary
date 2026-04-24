@@ -30,7 +30,7 @@ const ALL_PERM_KEYS = [
     { key: "teachers",   label: "Teachers" },
     { key: "classes",    label: "Classes" },
     { key: "subjects",   label: "Subjects" },
-    { key: "schedule",   label: "Schedule" },
+    { key: "schedule",   label: "Timetable" },
     { key: "events",     label: "Events" },
     { key: "holidays",   label: "Holidays" },
     { key: "attendance", label: "Attendance" },
@@ -466,7 +466,7 @@ async function loadExports(container) {
             </div>
             <div class="export-card" onclick="doExport('schedule')">
                 <div class="export-card-icon">📅</div>
-                <div class="export-card-label">Schedule</div>
+                <div class="export-card-label">Timetable</div>
             </div>
             <div class="export-card" onclick="doExport('events')">
                 <div class="export-card-icon">🎉</div>
@@ -577,7 +577,7 @@ async function _fetchAndExport(type, fmt) {
                 }));
                 columns = ["day","period","teacher_name","subject_name","class_name","room"];
                 headerMap = { day:"Day", period:"Period", teacher_name:"Teacher", subject_name:"Subject", class_name:"Class", room:"Room" };
-                filename = "Schedule"; break;
+                filename = "Timetable"; break;
             }
             case "events": {
                 const res = await apiFetch("/admin/events/");
@@ -1387,7 +1387,7 @@ async function loadSchedule(container) {
     const slots = d.schedule || [];
     container.innerHTML = `
         <div class="admin-section-header">
-            <h3>Schedule</h3>
+            <h3>Timetable</h3>
             <div class="section-header-actions">
                 <button class="btn btn-primary btn-sm" onclick="openAddScheduleSlot()">+ Add Time Slot</button>
             </div>

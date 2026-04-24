@@ -230,12 +230,12 @@ function initNav() {
             links.push({ href: "teacher.html", icon: "🏠", label: "Dashboard", active: isPage(["teacher.html"]) });
             links.push({ href: "marks.html", icon: "📝", label: "Marks", active: isPage(["marks.html"]) });
             links.push({ href: "report.html", icon: "🧾", label: "Reports", active: isPage(["report.html"]) });
-            links.push({ href: "schedule.html", icon: "📅", label: "Schedule", active: isPage(["schedule.html"]) });
+            links.push({ href: "schedule.html", icon: "📅", label: "Timetable", active: isPage(["schedule.html"]) });
         } else {
             // student
             links.push({ href: "dashboard.html", icon: "🏠", label: "Dashboard", active: isPage(["dashboard.html"]) });
             links.push({ href: "grades.html", icon: "📊", label: "Grades", active: isPage(["grades.html"]) });
-            links.push({ href: "schedule.html", icon: "📅", label: "Schedule", active: isPage(["schedule.html"]) });
+            links.push({ href: "schedule.html", icon: "📅", label: "Timetable", active: isPage(["schedule.html"]) });
         }
 
         // Profile always last
