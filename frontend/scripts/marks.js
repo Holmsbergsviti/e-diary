@@ -174,7 +174,7 @@ function createDoughnutChartSegments(segments, size = 110) {
                     fill="none" stroke="${color}" stroke-width="14"
                     stroke-dasharray="${dasharray} ${circumference}"
                     stroke-dashoffset="${-offset}"
-                    stroke-linecap="round">
+                    stroke-linecap="butt">
             </circle>
             <title>${label}: ${sizePct.toFixed(1)}%</title>
         </g>`;
