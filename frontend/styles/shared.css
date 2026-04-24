@@ -2237,38 +2237,66 @@ tr:hover td {
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
-.beh-tile-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+/* Doughnut chart with centered percentage */
+.stat-chart-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.stat-chart-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary, #0f172a);
+    pointer-events: none;
+}
+
+/* Behavioral pill row */
+.beh-pills {
+    display: flex;
+    flex-direction: column;
     gap: 6px;
     margin-top: 6px;
 }
-.beh-tile {
-    text-align: center;
-    padding: 10px 4px;
-    border-radius: 8px;
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    background: var(--bg-input, #f8fafc);
+.beh-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    border: 1px solid transparent;
 }
-.beh-tile-num {
-    font-size: 1.3rem;
+.beh-pill-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.beh-pill-num {
     font-weight: 700;
-    line-height: 1;
+    font-size: 0.95rem;
+    min-width: 18px;
+    text-align: center;
 }
-.beh-tile-label {
-    font-size: 0.7rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    margin-top: 4px;
-    opacity: 0.75;
+.beh-pill-label {
+    font-weight: 500;
+    opacity: 0.85;
 }
-.beh-tile-pos { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); }
-.beh-tile-pos .beh-tile-num { color: #10b981; }
-.beh-tile-neg { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); }
-.beh-tile-neg .beh-tile-num { color: #ef4444; }
-.beh-tile-note { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.3); }
-.beh-tile-note .beh-tile-num { color: #3b82f6; }
+.beh-pill-pos  { background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.25); }
+.beh-pill-pos  .beh-pill-dot { background: #10b981; }
+.beh-pill-pos  .beh-pill-num { color: #10b981; }
+.beh-pill-neg  { background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.25); }
+.beh-pill-neg  .beh-pill-dot { background: #ef4444; }
+.beh-pill-neg  .beh-pill-num { color: #ef4444; }
+.beh-pill-note { background: rgba(59, 130, 246, 0.08); border-color: rgba(59, 130, 246, 0.25); }
+.beh-pill-note .beh-pill-dot { background: #3b82f6; }
+.beh-pill-note .beh-pill-num { color: #3b82f6; }
 
 /* ── Homework detail toggle ── */
 .hw-detail-toggle { margin-top: 8px; }
@@ -3487,34 +3515,43 @@ tr:hover td {
     padding: 0 24px 24px;
 }
 
-/* --- Teacher Tabs --- */
+/* --- Teacher Tabs (pill segmented control) --- */
 .teacher-tabs {
-    display: flex;
-    gap: 6px;
-    padding: 0 4px;
-    margin-bottom: 20px;
-    border-bottom: 2px solid var(--border-color);
-    padding-bottom: 12px;
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px;
+    margin-bottom: 22px;
+    background: var(--bg-secondary, #f1f5f9);
+    border-radius: 14px;
+    border: 1px solid rgba(var(--primary-blue-rgb, 37, 99, 235), 0.1);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 .teacher-tab {
-    padding: 10px 20px;
-    border: 1px solid var(--border-color);
-    border-radius: 8px 8px 0 0;
+    padding: 9px 20px;
+    border: none;
+    border-radius: 10px;
     background: transparent;
-    color: var(--text-lighter);
-    font-size: 0.9rem;
-    font-weight: 500;
+    color: var(--text-lighter, #64748b);
+    font-size: 0.88rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.18s ease;
+    position: relative;
 }
 .teacher-tab:hover {
-    background: var(--bg-secondary);
-    color: var(--text-primary);
+    background: rgba(var(--primary-blue-rgb, 37, 99, 235), 0.08);
+    color: var(--text-primary, #0f172a);
 }
 .teacher-tab.active {
-    background: var(--primary-color);
+    background: var(--primary-color, #7c3aed);
     color: #fff;
-    border-color: var(--primary-color);
+    box-shadow: 0 4px 12px rgba(var(--primary-blue-rgb, 37, 99, 235), 0.25), 0 1px 3px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+}
+.teacher-tab.active:hover {
+    background: var(--primary-color, #7c3aed);
+    color: #fff;
 }
 .teacher-tab-content {
     display: none;

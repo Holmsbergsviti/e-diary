@@ -156,39 +156,46 @@ function renderActiveGroup(container) {
     }
 }
 
-/* ---- Helper: create SVG doughnut chart ---- */
-function createDoughnutChart(done, partial, notDone) {
-    const total = done + partial + notDone;
+/* ---- Helper: create SVG doughnut chart from arbitrary segments ---- */
+function createDoughnutChartSegments(segments, size = 100) {
+    const total = segments.reduce((s, seg) => s + (seg.value || 0), 0);
     if (total === 0) return '';
-    
-    const donePercent = (done / total) * 100;
-    const partialPercent = (partial / total) * 100;
-    const notDonePercent = (notDone / total) * 100;
-    
-    const doneAngle = (donePercent / 100) * 360;
-    const partialAngle = (partialPercent / 100) * 360;
-    const notDoneAngle = (notDonePercent / 100) * 360;
-    
+
+    const r = 40;
+    const cx = 50, cy = 50;
     const drawArc = (start, angle, color) => {
-        const r = 40;
+        if (angle <= 0) return '';
+        if (angle >= 359.99) {
+            return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}"/>`;
+        }
         const startRad = (start * Math.PI) / 180;
         const endRad = ((start + angle) * Math.PI) / 180;
-        const x1 = 50 + r * Math.cos(startRad);
-        const y1 = 50 + r * Math.sin(startRad);
-        const x2 = 50 + r * Math.cos(endRad);
-        const y2 = 50 + r * Math.sin(endRad);
+        const x1 = cx + r * Math.cos(startRad);
+        const y1 = cy + r * Math.sin(startRad);
+        const x2 = cx + r * Math.cos(endRad);
+        const y2 = cy + r * Math.sin(endRad);
         const largeArc = angle > 180 ? 1 : 0;
-        return `<path d="M 50 50 L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z" fill="${color}" stroke="white" stroke-width="1"/>`;
+        return `<path d="M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z" fill="${color}" stroke="white" stroke-width="1"/>`;
     };
-    
-    const colors = { done: '#10b981', partial: '#f59e0b', notDone: '#ef4444' };
-    let chartSvg = `<svg width="100" height="100" viewBox="0 0 100 100" style="margin: 0 auto;">`;
-    chartSvg += drawArc(0, doneAngle, colors.done);
-    chartSvg += drawArc(doneAngle, partialAngle, colors.partial);
-    chartSvg += drawArc(doneAngle + partialAngle, notDoneAngle, colors.notDone);
-    chartSvg += `<circle cx="50" cy="50" r="25" fill="white"/></svg>`;
-    
-    return chartSvg;
+
+    let cursor = -90; // start at top
+    let svg = `<svg width="${size}" height="${size}" viewBox="0 0 100 100" style="margin: 0 auto;display:block;">`;
+    for (const seg of segments) {
+        const angle = ((seg.value || 0) / total) * 360;
+        svg += drawArc(cursor, angle, seg.color);
+        cursor += angle;
+    }
+    svg += `<circle cx="${cx}" cy="${cy}" r="25" fill="var(--bg-primary, #fff)"/></svg>`;
+    return svg;
+}
+
+/* Legacy wrapper preserved for compatibility */
+function createDoughnutChart(done, partial, notDone) {
+    return createDoughnutChartSegments([
+        { value: done,    color: '#10b981' },
+        { value: partial, color: '#f59e0b' },
+        { value: notDone, color: '#ef4444' },
+    ]);
 }
 
 /* ---- Helper: build collapsible homework detail list ---- */
@@ -228,47 +235,50 @@ function buildStatsHtml(stats) {
     const beh = st.behavioral || {};
     const behTotal = (beh.positive || 0) + (beh.negative || 0) + (beh.note || 0);
 
+    const attPct = attTotal > 0 ? Math.round(((present + late) / attTotal) * 100) : null;
+    const attChart = attTotal > 0 ? createDoughnutChartSegments([
+        { value: present, color: '#10b981' },
+        { value: late,    color: '#f59e0b' },
+        { value: absent,  color: '#ef4444' },
+        { value: excused, color: '#3b82f6' },
+    ]) : '';
+    const attChartWrapped = attChart ? `<div class="stat-chart-wrap">${attChart}<div class="stat-chart-center">${attPct}%</div></div>` : '';
+
+    const hwChart = hwTotal > 0 ? createDoughnutChartSegments([
+        { value: hw.completed || 0, color: '#10b981' },
+        { value: hw.partial || 0,   color: '#f59e0b' },
+        { value: hw.not_done || 0,  color: '#ef4444' },
+    ]) : '';
+
     return `<div class="student-stats-grid">
         <div class="student-stat-card">
             <div class="student-stat-label">Attendance</div>
             ${attTotal > 0 ? `
-            <div class="student-stat-bar">
-                <div class="stat-bar-seg stat-bar-present" style="width:${(present/attTotal*100).toFixed(1)}%" title="Present: ${present}"></div>
-                <div class="stat-bar-seg stat-bar-late" style="width:${(late/attTotal*100).toFixed(1)}%" title="Late: ${late}"></div>
-                <div class="stat-bar-seg stat-bar-absent" style="width:${(absent/attTotal*100).toFixed(1)}%" title="Absent: ${absent}"></div>
-                <div class="stat-bar-seg stat-bar-excused" style="width:${(excused/attTotal*100).toFixed(1)}%" title="Excused: ${excused}"></div>
-            </div>
-            <div class="student-stat-nums">
-                <span class="stat-present">${present} present</span>
-                <span class="stat-late">${late} late</span>
-                <span class="stat-absent">${absent} absent</span>
-                <span class="stat-excused">${excused} excused</span>
+            <div class="student-stat-hw">
+                ${attChartWrapped}
+                <div class="stat-hw-legend">
+                    <span class="stat-hw-item"><span class="stat-hw-color" style="background:#10b981;"></span><span>${present} Present</span></span>
+                    <span class="stat-hw-item"><span class="stat-hw-color" style="background:#f59e0b;"></span><span>${late} Late</span></span>
+                    <span class="stat-hw-item"><span class="stat-hw-color" style="background:#ef4444;"></span><span>${absent} Absent</span></span>
+                    <span class="stat-hw-item"><span class="stat-hw-color" style="background:#3b82f6;"></span><span>${excused} Excused</span></span>
+                </div>
             </div>` : `<div class="student-stat-empty">No records</div>`}
         </div>
         <div class="student-stat-card">
             <div class="student-stat-label">Grades</div>
             ${gr.count > 0 ? `
             ${gr.average != null ? `<div class="student-stat-big">${gr.average}%</div>` : ''}
-            <div class="student-stat-sub">${gr.count} grade${gr.count !== 1 ? 's' : ''} total</div>` : `<div class="student-stat-empty">No grades</div>`}
+            <div class="student-stat-sub">Average</div>` : `<div class="student-stat-empty">No grades</div>`}
         </div>
         <div class="student-stat-card">
             <div class="student-stat-label">Homework</div>
             ${hwTotal > 0 ? `
             <div class="student-stat-hw">
-                ${createDoughnutChart(hw.completed || 0, hw.partial || 0, hw.not_done || 0)}
+                ${hwChart}
                 <div class="stat-hw-legend">
-                    <span class="stat-hw-item">
-                        <span class="stat-hw-color" style="background:#10b981;"></span>
-                        <span>${hw.completed || 0} Done</span>
-                    </span>
-                    <span class="stat-hw-item">
-                        <span class="stat-hw-color" style="background:#f59e0b;"></span>
-                        <span>${hw.partial || 0} Partial</span>
-                    </span>
-                    <span class="stat-hw-item">
-                        <span class="stat-hw-color" style="background:#ef4444;"></span>
-                        <span>${hw.not_done || 0} Missing</span>
-                    </span>
+                    <span class="stat-hw-item"><span class="stat-hw-color" style="background:#10b981;"></span><span>${hw.completed || 0} Done</span></span>
+                    <span class="stat-hw-item"><span class="stat-hw-color" style="background:#f59e0b;"></span><span>${hw.partial || 0} Partial</span></span>
+                    <span class="stat-hw-item"><span class="stat-hw-color" style="background:#ef4444;"></span><span>${hw.not_done || 0} Missing</span></span>
                 </div>
             </div>
             ${buildHwDetailHtml(st.homework_detail)}` : `<div class="student-stat-empty">No records</div>`}
@@ -276,19 +286,10 @@ function buildStatsHtml(stats) {
         <div class="student-stat-card">
             <div class="student-stat-label">Behavioral</div>
             ${behTotal > 0 ? `
-            <div class="beh-tile-row">
-                <div class="beh-tile beh-tile-pos">
-                    <div class="beh-tile-num">${beh.positive || 0}</div>
-                    <div class="beh-tile-label">Positive</div>
-                </div>
-                <div class="beh-tile beh-tile-neg">
-                    <div class="beh-tile-num">${beh.negative || 0}</div>
-                    <div class="beh-tile-label">Negative</div>
-                </div>
-                <div class="beh-tile beh-tile-note">
-                    <div class="beh-tile-num">${beh.note || 0}</div>
-                    <div class="beh-tile-label">Note</div>
-                </div>
+            <div class="beh-pills">
+                <div class="beh-pill beh-pill-pos"><span class="beh-pill-dot"></span><span class="beh-pill-num">${beh.positive || 0}</span><span class="beh-pill-label">Positive</span></div>
+                <div class="beh-pill beh-pill-neg"><span class="beh-pill-dot"></span><span class="beh-pill-num">${beh.negative || 0}</span><span class="beh-pill-label">Negative</span></div>
+                <div class="beh-pill beh-pill-note"><span class="beh-pill-dot"></span><span class="beh-pill-num">${beh.note || 0}</span><span class="beh-pill-label">Note</span></div>
             </div>` : `<div class="student-stat-empty">No entries</div>`}
         </div>
     </div>`;
