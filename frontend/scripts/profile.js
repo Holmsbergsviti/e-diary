@@ -65,11 +65,12 @@ async function loadProfile() {
             localStorage.setItem("user", JSON.stringify(u));
         }
 
+        const classLabel = user.role === "teacher" ? "Class Teacher of" : "Class";
         const rows = [
             ["Full name", user.full_name],
             ["Email", user.email || "—"],
             ["Role", capitalize(user.role || "student")],
-            ["Class", user.class_name || "—"],
+            [classLabel, user.class_name || "—"],
         ];
         if (user.contact_email) {
             rows.push(["Contact Email", user.contact_email]);
