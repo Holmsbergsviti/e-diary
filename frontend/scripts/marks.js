@@ -259,7 +259,7 @@ function buildStatsHtml(stats) {
             ${attTotal > 0 ? `
             <div class="student-stat-hw">
                 ${attChart}
-                <div class="stat-hw-legend">
+                <div class="stat-hw-legend stat-hw-legend-vertical">
                     <span class="stat-hw-item"><span class="stat-hw-color" style="background:#10b981;"></span><span>${present} Present</span></span>
                     <span class="stat-hw-item"><span class="stat-hw-color" style="background:#fcd34d;"></span><span>${late} Late</span></span>
                     <span class="stat-hw-item"><span class="stat-hw-color" style="background:#f87171;"></span><span>${absent} Absent</span></span>

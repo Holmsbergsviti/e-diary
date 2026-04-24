@@ -2227,7 +2227,31 @@ tr:hover td {
 .student-stat-hw {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+.stat-hw-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    font-size: 0.82rem;
+}
+.stat-hw-legend-vertical {
+    flex-direction: column;
+    gap: 4px;
+}
+.stat-hw-item {
+    display: inline-flex;
+    align-items: center;
     gap: 6px;
+    white-space: nowrap;
+}
+.stat-hw-color {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
 }
 .stat-hw-pill {
     padding: 4px 10px;
