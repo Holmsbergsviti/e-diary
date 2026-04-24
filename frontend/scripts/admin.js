@@ -772,7 +772,7 @@ async function loadTeachers(container) {
             <thead><tr><th>Name</th><th>Class Teacher</th><th>Default Password</th><th>Actions</th></tr></thead>
             <tbody>${teachers.map(t => `
                 <tr>
-                    <td>${t.profile_picture_url ? `<img class="avatar-sm" src="${escHtml(t.profile_picture_url)}" alt="">` : `<span class="avatar-sm-initials">${escHtml((t.name||'')[0]||'')}${escHtml((t.surname||'')[0]||'')}</span>`}${escHtml(t.surname)} ${escHtml(t.name)}</td>
+                    <td>${studentAvatarHtml(t)}${escHtml(t.surname)} ${escHtml(t.name)}</td>
                     <td>${t.is_class_teacher ? `✓ ${escHtml(t.class_teacher_class_name || "")}` : "—"}</td>
                     <td>${t.default_password ? `<code class="default-pw pw-hidden" onclick="this.classList.toggle('pw-hidden')" title="Click to reveal">${escHtml(t.default_password)}</code>` : '<span style="color:#94a3b8;">—</span>'}</td>
                     <td class="admin-actions">
@@ -950,7 +950,7 @@ async function loadStudents(container) {
             <thead><tr><th>Name</th><th>Class</th><th>Default Password</th><th>Actions</th></tr></thead>
             <tbody>${students.map(s => `
                 <tr>
-                    <td>${s.profile_picture_url ? `<img class="avatar-sm" src="${escHtml(s.profile_picture_url)}" alt="">` : `<span class="avatar-sm-initials">${escHtml((s.name||'')[0]||'')}${escHtml((s.surname||'')[0]||'')}</span>`}${escHtml(s.surname)} ${escHtml(s.name)}</td>
+                    <td>${studentAvatarHtml(s)}${escHtml(s.surname)} ${escHtml(s.name)}</td>
                     <td>${escHtml(s.class_name || "—")}</td>
                     <td>${s.default_password ? `<code class="default-pw pw-hidden" onclick="this.classList.toggle('pw-hidden')" title="Click to reveal">${escHtml(s.default_password)}</code>` : '<span style="color:#94a3b8;">—</span>'}</td>
                     <td class="admin-actions">

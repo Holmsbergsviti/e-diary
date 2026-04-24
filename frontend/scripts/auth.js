@@ -540,6 +540,12 @@ function studentAvatarHtml(student) {
     if (student.profile_picture_url) {
         return `<img class="avatar-sm" src="${student.profile_picture_url}" alt="">`;
     }
+    if (student.avatar_emoji) {
+        const bg = typeof getEmojiBackgroundColor === "function"
+            ? getEmojiBackgroundColor(student.avatar_emoji)
+            : "#1E3A8A";
+        return `<span class="avatar-sm avatar-sm-emoji" style="background:${bg};">${student.avatar_emoji}</span>`;
+    }
     const initials = ((student.name || "")[0] || "") + ((student.surname || "")[0] || "");
     return `<span class="avatar-sm-initials">${initials.toUpperCase()}</span>`;
 }
