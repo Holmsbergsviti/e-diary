@@ -90,6 +90,7 @@ def login(request):
             "role": role,
             "class_name": profile.get("class_name", ""),
             "profile_picture_url": profile.get("profile_picture_url") or None,
+            "avatar_emoji": profile.get("avatar_emoji") or None,
         },
     }
     if role == "admin":
