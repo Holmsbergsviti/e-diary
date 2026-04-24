@@ -579,10 +579,10 @@ function renderGroup(container, group) {
                     if (matching.length > 0) {
                         const cellHtml = matching.map(g => {
                             const pct = g.percentage != null ? ` ${g.percentage}%` : "";
-                            const commentMark = g.comment ? ' <span class="grade-comment-dot" title="Has comment"></span>' : "";
+                            const commentIcon = g.comment ? ' 💬' : "";
                             const dateLabel = matching.length > 1 && g.date ? `<small style="opacity:0.6;display:block;">${g.date}</small>` : "";
                             return `<div class="grade-item-compact grade-clickable" data-grade='${JSON.stringify(g).replace(/'/g, "&#39;")}' data-student-name="${escHtml(s.surname)} ${escHtml(s.name)}" style="cursor:pointer;margin:2px 0;padding:2px 4px;border-radius:3px;background:var(--bg-input);font-size:0.9rem;">
-                                <span class="grade-badge ${gradeClass(g.grade_code)}" style="margin-left:4px;">${escHtml(g.grade_code)}</span>${pct}${commentMark}${dateLabel}
+                                <span class="grade-badge ${gradeClass(g.grade_code)}" style="margin-left:4px;">${escHtml(g.grade_code)}</span>${pct}${commentIcon}${dateLabel}
                             </div>`;
                         }).join("");
                         html += `<td class="grades-column" style="padding:4px;">${cellHtml}</td>`;
@@ -622,7 +622,6 @@ function renderGroup(container, group) {
             renderGroup(container, allGroups[activeGroupIdx]);
         });
     });
-
 
     // Wire clickable grade cells
     container.querySelectorAll(".grade-clickable").forEach(cell => {

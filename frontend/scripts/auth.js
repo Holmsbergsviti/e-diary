@@ -1,61 +1,6 @@
 // Shared authentication utilities
 const API_BASE = "https://e-diary-backend-qsly.onrender.com/api";
 
-// ════════════════════════════════════════════════════════════
-// DATEPICKER: upgrade native date inputs to flatpickr
-// ════════════════════════════════════════════════════════════
-(function loadFlatpickr() {
-    if (window._fpLoaded || document.getElementById("fp-css")) return;
-    window._fpLoaded = true;
-    const css = document.createElement("link");
-    css.id = "fp-css";
-    css.rel = "stylesheet";
-    css.href = "https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css";
-    document.head.appendChild(css);
-
-    const themeCss = document.createElement("link");
-    themeCss.rel = "stylesheet";
-    themeCss.href = "https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/themes/airbnb.css";
-    document.head.appendChild(themeCss);
-
-    const js = document.createElement("script");
-    js.src = "https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js";
-    js.onload = () => {
-        initDatePickers(document);
-        // Re-init for date inputs added dynamically (modals etc.)
-        const obs = new MutationObserver(muts => {
-            for (const m of muts) {
-                for (const node of m.addedNodes) {
-                    if (node.nodeType !== 1) continue;
-                    initDatePickers(node);
-                }
-            }
-        });
-        obs.observe(document.body, { childList: true, subtree: true });
-    };
-    document.head.appendChild(js);
-})();
-
-function initDatePickers(root) {
-    if (!window.flatpickr) return;
-    const attach = inp => {
-        if (inp.classList.contains("fp-done")) return;
-        inp.classList.add("fp-done");
-        window.flatpickr(inp, {
-            dateFormat: "Y-m-d",
-            allowInput: true,
-            disableMobile: false,
-            position: "auto",
-        });
-    };
-    if (root && root.matches && root.matches('input[type="date"]')) {
-        attach(root);
-        return;
-    }
-    const scope = root && root.querySelectorAll ? root : document;
-    scope.querySelectorAll('input[type="date"]:not(.fp-done)').forEach(attach);
-}
-
 function getToken() {
     return localStorage.getItem("token");
 }
@@ -115,87 +60,42 @@ function requireAuth() {
 }
 
 const _apiCache = {};
-const API_CACHE_TTL = 30000; // 30 seconds (in-memory, per-page)
-const SS_CACHE_PREFIX = "apiCache:";
-const SS_CACHE_TTL = 60000; // 60 seconds across navigations
-// In-flight GET promises (de-dupe concurrent callers)
-const _apiInflight = {};
-
-function _readSsCache(path) {
-    try {
-        const raw = sessionStorage.getItem(SS_CACHE_PREFIX + path);
-        if (!raw) return null;
-        const { ts, body, status } = JSON.parse(raw);
-        if (Date.now() - ts > SS_CACHE_TTL) return null;
-        return new Response(body, { status, headers: { "Content-Type": "application/json" } });
-    } catch { return null; }
-}
-function _writeSsCache(path, bodyText, status) {
-    try {
-        sessionStorage.setItem(SS_CACHE_PREFIX + path, JSON.stringify({ ts: Date.now(), body: bodyText, status }));
-    } catch { /* quota */ }
-}
-function _clearSsCache() {
-    try {
-        for (let i = sessionStorage.length - 1; i >= 0; i--) {
-            const k = sessionStorage.key(i);
-            if (k && k.startsWith(SS_CACHE_PREFIX)) sessionStorage.removeItem(k);
-        }
-    } catch { /* ignore */ }
-}
+const API_CACHE_TTL = 30000; // 30 seconds
 
 async function apiFetch(path, options = {}) {
     const token = getToken();
     const method = (options.method || "GET").toUpperCase();
 
-    // Serve GET requests from in-memory cache first, then sessionStorage cache
+    // Serve GET requests from short-lived cache
     if (method === "GET") {
-        const cached = _apiCache[path];
+        const cacheKey = path;
+        const cached = _apiCache[cacheKey];
         if (cached && Date.now() - cached.ts < API_CACHE_TTL) {
             return cached.response.clone();
         }
-        const ssRes = _readSsCache(path);
-        if (ssRes) {
-            _apiCache[path] = { ts: Date.now(), response: ssRes.clone() };
-            return ssRes.clone();
-        }
-        // De-dupe concurrent GETs
-        if (_apiInflight[path]) {
-            const sharedRes = await _apiInflight[path];
-            return sharedRes.clone();
-        }
     }
 
-    // Mutations invalidate both caches so subsequent reloads see fresh data
+    // Mutations invalidate the entire GET cache so subsequent reloads see fresh data
     if (method !== "GET") {
         for (const key of Object.keys(_apiCache)) delete _apiCache[key];
-        _clearSsCache();
     }
 
-    const fetchPromise = fetch(`${API_BASE}${path}`, {
+    const res = await fetch(`${API_BASE}${path}`, {
         ...options,
         headers: {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
             ...(options.headers || {}),
         },
-    }).then(async (res) => {
-        if (method === "GET" && res.ok) {
-            const text = await res.clone().text();
-            _apiCache[path] = { ts: Date.now(), response: new Response(text, { status: res.status, headers: { "Content-Type": "application/json" } }) };
-            _writeSsCache(path, text, res.status);
-            return new Response(text, { status: res.status, headers: { "Content-Type": "application/json" } });
-        }
-        return res;
     });
-    if (method === "GET") {
-        _apiInflight[path] = fetchPromise;
-        fetchPromise.finally(() => { delete _apiInflight[path]; });
-    }
-    const res = await fetchPromise;
     if (res.status === 401) {
         logout();
         throw new Error("Session expired");
+    }
+
+    // Cache successful GET responses
+    if (method === "GET" && res.ok) {
+        _apiCache[path] = { ts: Date.now(), response: res.clone() };
     }
 
     return res;
@@ -207,16 +107,8 @@ function invalidateApiCache(pathPrefix) {
         for (const key of Object.keys(_apiCache)) {
             if (key.startsWith(pathPrefix)) delete _apiCache[key];
         }
-        try {
-            const ssKey = SS_CACHE_PREFIX + pathPrefix;
-            for (let i = sessionStorage.length - 1; i >= 0; i--) {
-                const k = sessionStorage.key(i);
-                if (k && k.startsWith(ssKey)) sessionStorage.removeItem(k);
-            }
-        } catch { /* ignore */ }
     } else {
         for (const key of Object.keys(_apiCache)) delete _apiCache[key];
-        _clearSsCache();
     }
 }
 
@@ -563,7 +455,7 @@ function showTeacherPopover(teacher, anchor) {
 
     const emailHtml = teacher.email
         ? `<div class="teacher-popover-email">
-            <span class="teacher-popover-email-text" title="${escHtml(teacher.email)} — click to copy">${escHtml(teacher.email)}</span>
+            <span class="teacher-popover-email-text" title="Click to copy">${escHtml(teacher.email)}</span>
             <button class="teacher-popover-copy" title="Copy email">📋</button>
            </div>`
         : "";

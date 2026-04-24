@@ -598,12 +598,8 @@ tr:last-child td {
     border-bottom: none;
 }
 
-tbody tr:hover > td {
-    background: rgba(var(--primary-blue-rgb), 0.06);
-}
-tbody tr.student-stats-row:hover > td,
-tbody tr.student-stats-row > td {
-    background: transparent;
+tr:hover td {
+    background: linear-gradient(90deg, rgba(var(--primary-blue-rgb), 0.05), transparent);
 }
 
 /* ---- Grades page: align all grade badges in one column ---- */
@@ -3493,54 +3489,32 @@ tbody tr.student-stats-row > td {
 
 /* --- Teacher Tabs --- */
 .teacher-tabs {
-    display: inline-flex;
-    gap: 4px;
-    padding: 4px;
+    display: flex;
+    gap: 6px;
+    padding: 0 4px;
     margin-bottom: 20px;
-    background: var(--bg-secondary, #f1f5f9);
-    border-radius: 14px;
-    border: 1px solid rgba(var(--primary-blue-rgb), 0.08);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 12px;
 }
 .teacher-tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 9px 18px;
-    border: none;
-    border-radius: 10px;
+    padding: 10px 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px 8px 0 0;
     background: transparent;
-    color: var(--text-muted, #64748b);
+    color: var(--text-lighter);
     font-size: 0.9rem;
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
-    transition: color 0.18s ease, background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
-    position: relative;
-}
-.teacher-tab .teacher-tab-icon {
-    display: inline-flex;
-    opacity: 0.75;
-    transition: opacity 0.18s ease, transform 0.18s ease;
+    transition: all 0.2s ease;
 }
 .teacher-tab:hover {
-    color: var(--primary-blue, #2563eb);
-    background: rgba(var(--primary-blue-rgb), 0.08);
-}
-.teacher-tab:hover .teacher-tab-icon {
-    opacity: 1;
-    transform: translateY(-1px);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
 }
 .teacher-tab.active {
-    background: var(--bg-card, #fff);
-    color: var(--primary-blue, #2563eb);
-    box-shadow: 0 2px 6px rgba(var(--primary-blue-rgb), 0.12), 0 0 0 1px rgba(var(--primary-blue-rgb), 0.15);
-}
-.teacher-tab.active .teacher-tab-icon {
-    opacity: 1;
-}
-@media (max-width: 600px) {
-    .teacher-tab-label { display: none; }
-    .teacher-tab { padding: 9px 14px; }
+    background: var(--primary-color);
+    color: #fff;
+    border-color: var(--primary-color);
 }
 .teacher-tab-content {
     display: none;
@@ -4897,8 +4871,7 @@ a.lesson-teacher:hover {
 .teacher-popover {
     position: fixed;
     z-index: 9999;
-    width: 340px;
-    max-width: calc(100vw - 24px);
+    width: 280px;
     background: var(--bg-card, #fff);
     border-radius: 12px;
     box-shadow: 0 8px 30px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
@@ -4977,13 +4950,10 @@ a.lesson-teacher:hover {
 }
 .teacher-popover-email-text {
     flex: 1;
-    min-width: 0;
     font-size: 0.82rem;
     color: var(--primary, #2563eb);
     cursor: pointer;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    word-break: break-all;
     font-weight: 500;
     transition: color 0.15s;
 }
@@ -4993,18 +4963,6 @@ a.lesson-teacher:hover {
 .teacher-popover-email-text.copied {
     color: #10b981;
 }
-
-/* Small dot to indicate a grade has a comment (replaces 💬 emoji) */
-.grade-comment-dot {
-    display: inline-block;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--primary-blue, #2563eb);
-    margin-left: 4px;
-    vertical-align: middle;
-}
-
 .teacher-popover-copy {
     background: none;
     border: none;

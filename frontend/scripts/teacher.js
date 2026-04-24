@@ -884,39 +884,6 @@ function generateRingSector(startPct, sizePct, color, label, percent) {
     `;
 }
 
-function generateHomeworkRing(completed, partial, notDone) {
-    const total = completed + partial + notDone;
-    if (total === 0) return '<div class="stat-sub">No completions yet</div>';
-
-    const donePct = Number(((completed / total) * 100).toFixed(2));
-    const partialPct = Number(((partial / total) * 100).toFixed(2));
-    const notDonePct = Number(((notDone / total) * 100).toFixed(2));
-
-    let offset = 0;
-    const sectors = [];
-    if (completed > 0) {
-        sectors.push(generateRingSector(offset, donePct, '#10b981', 'Done', donePct));
-        offset += donePct;
-    }
-    if (partial > 0) {
-        sectors.push(generateRingSector(offset, partialPct, '#fbbf24', 'Partial', partialPct));
-        offset += partialPct;
-    }
-    if (notDone > 0) {
-        sectors.push(generateRingSector(offset, notDonePct, '#f87171', 'Missing', notDonePct));
-        offset += notDonePct;
-    }
-
-    const donePercent = Math.round(donePct);
-    return `
-        <svg class="stat-ring" viewBox="0 0 100 100" width="120" height="120">
-            ${sectors.join('')}
-            <text x="50" y="48" text-anchor="middle" font-size="18" font-weight="700" fill="currentColor">${donePercent}%</text>
-            <text x="50" y="62" text-anchor="middle" font-size="8" fill="currentColor" opacity="0.6">done</text>
-        </svg>
-    `;
-}
-
 function generateBehavioralRing(positive, negative, note) {
     const total = positive + negative + note;
     if (total === 0) return '<div class="stat-sub">No behavioral data</div>';
@@ -1005,15 +972,14 @@ function renderClassStats(stats) {
                 <div class="stat-block">
                     <div class="stat-block-title">📝 Homework</div>
                     <div class="stat-sub hw-assigned-${classId}">${s.homework.assigned} assigned</div>
-                    <div class="stat-ring-container hw-content-${classId}" id="hw-ring-${classId}">
-                        ${generateHomeworkRing(s.homework.completed, s.homework.partial, s.homework.not_done)}
+                    <div class="hw-content-${classId}">
+                        ${hwTotal > 0 ? `
+                        <div class="stat-hw-row">
+                            <span class="stat-hw-chip stat-hw-done">✅ <span class="hw-completed-${classId}">${s.homework.completed}</span></span>
+                            <span class="stat-hw-chip stat-hw-partial">⚠️ <span class="hw-partial-${classId}">${s.homework.partial}</span></span>
+                            <span class="stat-hw-chip stat-hw-not">❌ <span class="hw-not-${classId}">${s.homework.not_done}</span></span>
+                        </div>` : '<div class="stat-sub">No completions yet</div>'}
                     </div>
-                    ${hwTotal > 0 ? `
-                    <div class="stat-legend">
-                        <span class="stat-dot" style="background:#10b981;"></span> <span class="hw-completed-${classId}">${s.homework.completed}</span> Done
-                        <span class="stat-dot" style="background:#fbbf24;"></span> <span class="hw-partial-${classId}">${s.homework.partial}</span> Partial
-                        <span class="stat-dot" style="background:#f87171;"></span> <span class="hw-not-${classId}">${s.homework.not_done}</span> Missing
-                    </div>` : ''}
                 </div>
                 <div class="stat-block">
                     <div class="stat-block-title">📋 Behavioral</div>
@@ -1114,12 +1080,6 @@ function updateClassStats(stats) {
         if (hwPartialEl) hwPartialEl.textContent = s.homework.partial;
         const hwNotEl = card.querySelector(`.hw-not-${classId}`);
         if (hwNotEl) hwNotEl.textContent = s.homework.not_done;
-
-        // Update homework ring
-        const hwRingEl = card.querySelector(`#hw-ring-${classId}`);
-        if (hwRingEl) {
-            hwRingEl.innerHTML = generateHomeworkRing(s.homework.completed, s.homework.partial, s.homework.not_done);
-        }
         
         // Update behavioral ring
         const behavRingContainer = card.querySelector(`#behav-ring-${classId}`);

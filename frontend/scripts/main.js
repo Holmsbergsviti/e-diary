@@ -1,14 +1,5 @@
 const API_BASE = "https://e-diary-backend-qsly.onrender.com/api";
 
-// Render warmup: kick the API as soon as the login page loads so the
-// backend is already awake by the time the user submits credentials.
-// Ignored on failure — purely an opportunistic speed-up.
-(function warmUpBackend() {
-    try {
-        fetch(`${API_BASE}/login/`, { method: "OPTIONS", mode: "cors" }).catch(() => {});
-    } catch { /* ignore */ }
-})();
-
 document.getElementById("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
 
