@@ -200,18 +200,29 @@ def teacher_attendance(request):
             return JsonResponse({"message": "records, class_id, subject_id, and date required"}, status=400)
 
         db = ediary()
-        del_q = (db.table("attendance").delete()
-                 .eq("class_id", class_id)
-                 .eq("subject_id", subject_id)
-                 .eq("date_recorded", date)
-                 .eq("recorded_by_teacher_id", teacher_id))
-        try:
-            if period_val is not None:
-                del_q.eq("period", period_val).execute()
-            else:
-                del_q.execute()
-        except Exception:
-            del_q.execute()
+
+        def _base_delete():
+            return (db.table("attendance").delete()
+                    .eq("class_id", class_id)
+                    .eq("subject_id", subject_id)
+                    .eq("date_recorded", date)
+                    .eq("recorded_by_teacher_id", teacher_id))
+
+        if period_val is not None:
+            try:
+                # Wipe matching-period rows
+                _base_delete().eq("period", period_val).execute()
+                # Also wipe legacy rows with NULL period (pre-migration data
+                # that would otherwise leak into sibling-period cells).
+                try:
+                    _base_delete().is_("period", "null").execute()
+                except Exception:
+                    pass
+            except Exception:
+                # period column missing — fall back to full wipe
+                _base_delete().execute()
+        else:
+            _base_delete().execute()
 
         rows = []
         for rec in records:
