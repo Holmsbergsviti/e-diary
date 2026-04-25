@@ -213,13 +213,31 @@ def attendance(request):
         return JsonResponse({"message": "Unauthorized"}, status=401)
 
     db = ediary()
-    result = (
-        db.table("attendance")
-        .select("id, date_recorded, status, class_id, subject_id, comment")
-        .eq("student_id", payload["sub"])
-        .order("date_recorded", desc=True)
-        .execute()
-    )
+    try:
+        result = (
+            db.table("attendance")
+            .select("id, date_recorded, status, class_id, subject_id, comment, period, minutes_late")
+            .eq("student_id", payload["sub"])
+            .order("date_recorded", desc=True)
+            .execute()
+        )
+    except Exception:
+        try:
+            result = (
+                db.table("attendance")
+                .select("id, date_recorded, status, class_id, subject_id, comment, period")
+                .eq("student_id", payload["sub"])
+                .order("date_recorded", desc=True)
+                .execute()
+            )
+        except Exception:
+            result = (
+                db.table("attendance")
+                .select("id, date_recorded, status, class_id, subject_id, comment")
+                .eq("student_id", payload["sub"])
+                .order("date_recorded", desc=True)
+                .execute()
+            )
 
     # Build subject lookup
     subj_result = ediary().table("subjects").select("id, name").execute()
@@ -235,6 +253,8 @@ def attendance(request):
             "subject_id": r.get("subject_id", ""),
             "subject": subj_map.get(r.get("subject_id"), ""),
             "comment": r.get("comment", ""),
+            "period": r.get("period"),
+            "minutes_late": r.get("minutes_late"),
         }
         rows.append(row)
 

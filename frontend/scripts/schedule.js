@@ -186,14 +186,21 @@ function renderSchedule() {
         }
     }
 
-    // Build attendance lookup for students: "YYYY-MM-DD|subject_id" -> status
-    const attLookup = {};
+    // Build attendance lookup for students.
+    // Two maps so we can look up per-period when available, but still
+    // fall back to the date+subject roll-up if the record has no period
+    // (older rows or pre-migration schema).
+    const attLookup = {};         // "YYYY-MM-DD|subject_id" -> worst status (fallback)
+    const attLookupPeriod = {};   // "YYYY-MM-DD|subject_id|period" -> status
     if (isStudent && studentAttendance.length > 0) {
         for (const a of studentAttendance) {
-            const key = `${a.date_recorded}|${a.subject_id || ''}`;
-            const prev = attLookup[key];
+            const baseKey = `${a.date_recorded}|${a.subject_id || ''}`;
+            const prev = attLookup[baseKey];
             if (!prev || a.status === "Absent" || (a.status === "Late" && prev !== "Absent")) {
-                attLookup[key] = a.status;
+                attLookup[baseKey] = a.status;
+            }
+            if (a.period != null && a.period !== "") {
+                attLookupPeriod[`${baseKey}|${a.period}`] = a.status;
             }
         }
     }
@@ -357,8 +364,17 @@ function renderSchedule() {
                 let attClass = "";
                 let attBadge = "";
                 if (isStudent && cellDate <= today) {
-                    const attKey = `${cellDateStr}|${slot.subject_id || ''}`;
-                    const attStatus = attLookup[attKey];
+                    const baseKey = `${cellDateStr}|${slot.subject_id || ''}`;
+                    const periodKey = `${baseKey}|${slot.period}`;
+                    // Prefer the period-scoped record; only fall back to the
+                    // subject roll-up when no per-period record exists for
+                    // this slot. Otherwise a sibling period of the same
+                    // subject could leak its status onto this cell.
+                    const attStatus = (periodKey in attLookupPeriod)
+                        ? attLookupPeriod[periodKey]
+                        : (Object.keys(attLookupPeriod).some(k => k.startsWith(baseKey + "|"))
+                            ? undefined
+                            : attLookup[baseKey]);
                     if (attStatus === "Absent") {
                         attClass = " lesson-absent";
                         attBadge = '<span class="att-badge att-badge-absent" title="Absent">✗</span>';
