@@ -128,41 +128,36 @@ def teacher_attendance(request):
         class_id = request.GET.get("class_id")
         subject_id = request.GET.get("subject_id")
         date = request.GET.get("date")
+        period_raw = request.GET.get("period")
         if not class_id or not subject_id or not date:
             return JsonResponse({"message": "class_id, subject_id, and date required"}, status=400)
+        try:
+            period_val = int(period_raw) if period_raw not in (None, "", "null") else None
+        except (TypeError, ValueError):
+            period_val = None
 
         db = ediary()
+
+        def _build(query):
+            q = (query
+                 .eq("class_id", class_id)
+                 .eq("subject_id", subject_id)
+                 .eq("date_recorded", date)
+                 .eq("recorded_by_teacher_id", teacher_id))
+            if period_val is not None:
+                q = q.eq("period", period_val)
+            return q
+
         try:
-            result = (
-                db.table("attendance")
-                .select("id, student_id, status, comment, topic, minutes_late")
-                .eq("class_id", class_id)
-                .eq("subject_id", subject_id)
-                .eq("date_recorded", date)
-                .eq("recorded_by_teacher_id", teacher_id)
-                .execute()
-            )
+            result = _build(db.table("attendance").select("id, student_id, status, comment, topic, minutes_late, period")).execute()
         except Exception:
             try:
-                result = (
-                    db.table("attendance")
-                    .select("id, student_id, status, comment, topic")
-                    .eq("class_id", class_id)
-                    .eq("subject_id", subject_id)
-                    .eq("date_recorded", date)
-                    .eq("recorded_by_teacher_id", teacher_id)
-                    .execute()
-                )
+                result = _build(db.table("attendance").select("id, student_id, status, comment, topic, minutes_late")).execute()
             except Exception:
-                result = (
-                    db.table("attendance")
-                    .select("id, student_id, status, comment")
-                    .eq("class_id", class_id)
-                    .eq("subject_id", subject_id)
-                    .eq("date_recorded", date)
-                    .eq("recorded_by_teacher_id", teacher_id)
-                    .execute()
-                )
+                try:
+                    result = _build(db.table("attendance").select("id, student_id, status, comment, topic")).execute()
+                except Exception:
+                    result = _build(db.table("attendance").select("id, student_id, status, comment")).execute()
         att_rows = result.data or []
         topic = att_rows[0].get("topic", "") if att_rows else ""
 
@@ -195,17 +190,28 @@ def teacher_attendance(request):
         subject_id = data.get("subject_id")
         date = data.get("date")
         topic = data.get("topic", "").strip()
+        period_raw = data.get("period")
+        try:
+            period_val = int(period_raw) if period_raw not in (None, "", "null", False) else None
+        except (TypeError, ValueError):
+            period_val = None
 
         if not records or not class_id or not subject_id or not date:
             return JsonResponse({"message": "records, class_id, subject_id, and date required"}, status=400)
 
         db = ediary()
-        db.table("attendance").delete()\
-            .eq("class_id", class_id)\
-            .eq("subject_id", subject_id)\
-            .eq("date_recorded", date)\
-            .eq("recorded_by_teacher_id", teacher_id)\
-            .execute()
+        del_q = (db.table("attendance").delete()
+                 .eq("class_id", class_id)
+                 .eq("subject_id", subject_id)
+                 .eq("date_recorded", date)
+                 .eq("recorded_by_teacher_id", teacher_id))
+        try:
+            if period_val is not None:
+                del_q.eq("period", period_val).execute()
+            else:
+                del_q.execute()
+        except Exception:
+            del_q.execute()
 
         rows = []
         for rec in records:
@@ -226,21 +232,23 @@ def teacher_attendance(request):
                 "comment": rec.get("comment", ""),
                 "topic": topic,
                 "minutes_late": ml_val,
+                "period": period_val,
                 "recorded_by_teacher_id": teacher_id,
             })
 
         db2 = ediary()
-        try:
-            result = db2.table("attendance").insert(rows).execute()
-        except Exception:
-            for r in rows:
-                r.pop("minutes_late", None)
+        result = None
+        for drop in [None, "period", "minutes_late", "topic"]:
+            if drop:
+                for r in rows:
+                    r.pop(drop, None)
             try:
                 result = db2.table("attendance").insert(rows).execute()
+                break
             except Exception:
-                for r in rows:
-                    r.pop("topic", None)
-                result = db2.table("attendance").insert(rows).execute()
+                continue
+        if result is None:
+            return JsonResponse({"message": "Failed to save attendance"}, status=500)
 
         return JsonResponse({"saved": len(result.data or [])}, status=201)
 

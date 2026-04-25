@@ -616,7 +616,7 @@ async function loadStudentsAndAttendance(slot, date) {
         // Load students and existing attendance in parallel
         const [studentsRes, attendanceRes] = await Promise.all([
             apiFetch(`/teacher/class-students/?class_id=${slot.class_id}&subject_id=${slot.subject_id}`),
-            apiFetch(`/teacher/attendance/?class_id=${slot.class_id}&subject_id=${slot.subject_id}&date=${date}`),
+            apiFetch(`/teacher/attendance/?class_id=${slot.class_id}&subject_id=${slot.subject_id}&date=${date}&period=${slot.period ?? ""}`),
         ]);
         const studentsData = await studentsRes.json();
         const attendanceData = await attendanceRes.json();
@@ -677,7 +677,7 @@ async function loadStudentsAndAttendance(slot, date) {
                                 </select>
                             </td>
                             <td>
-                                <input type="number" class="comment-input minutes-late-input" min="0" max="240" step="1" placeholder="min" value="${escHtml(String(minsLate))}" title="Minutes late (applies when status is Late)">
+                                <input type="number" class="comment-input minutes-late-input" min="0" max="240" step="1" placeholder="min" value="${escHtml(String(minsLate))}" ${status === "Late" ? "" : "disabled"} title="Minutes late (only when status is Late)">
                             </td>
                             <td>
                                 <input type="text" class="comment-input" placeholder="Comment…" value="${escHtml(comment)}">
@@ -688,15 +688,20 @@ async function loadStudentsAndAttendance(slot, date) {
             </table>
         `;
 
-        // Update select styling on change + clear minutes-late when not Late
+        // Update select styling on change + toggle minutes-late input
         studentList.querySelectorAll(".status-select").forEach(sel => {
             updateSelectStyle(sel);
             sel.addEventListener("change", () => {
                 updateSelectStyle(sel);
-                if (sel.value !== "Late") {
-                    const row = sel.closest("tr");
-                    const ml = row && row.querySelector(".minutes-late-input");
-                    if (ml) ml.value = "";
+                const row = sel.closest("tr");
+                const ml = row && row.querySelector(".minutes-late-input");
+                if (ml) {
+                    if (sel.value === "Late") {
+                        ml.disabled = false;
+                    } else {
+                        ml.disabled = true;
+                        ml.value = "";
+                    }
                 }
             });
         });
@@ -749,6 +754,7 @@ async function saveAttendance() {
                 class_id: currentSlot.class_id,
                 subject_id: currentSlot.subject_id,
                 date: date,
+                period: currentSlot.period ?? null,
                 topic: topic,
                 records: records,
             }),

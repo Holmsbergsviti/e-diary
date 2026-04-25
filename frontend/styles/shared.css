@@ -1505,6 +1505,12 @@ tr:hover td {
     text-align: center;
     -moz-appearance: textfield;
 }
+.minutes-late-input:disabled {
+    background: rgba(148, 163, 184, 0.08);
+    color: var(--text-lighter, #94a3b8);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
 .minutes-late-input::-webkit-outer-spin-button,
 .minutes-late-input::-webkit-inner-spin-button {
     -webkit-appearance: none;
