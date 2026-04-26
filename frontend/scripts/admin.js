@@ -646,7 +646,6 @@ async function loadClasses(container) {
                     <td>${c.grade_level}</td>
                     <td class="admin-actions">
                         <button class="btn btn-sm btn-secondary" onclick='editClass(${JSON.stringify(c)})'>Edit</button>
-                        <button class="btn btn-sm btn-secondary" onclick="downloadClassCredentials('${c.id}','${escHtml(c.class_name)}')" title="Download login letters for parents">📄 Credentials</button>
                         <button class="btn btn-sm btn-danger" onclick="deleteClass('${c.id}')">Delete</button>
                     </td>
                 </tr>
@@ -811,7 +810,9 @@ async function loadTeachers(container) {
             <tbody>${teachers.map(t => `
                 <tr>
                     <td>${studentAvatarHtml(t)}${escHtml(t.surname)} ${escHtml(t.name)}</td>
-                    <td>${t.is_class_teacher ? `✓ ${escHtml(t.class_teacher_class_name || "")}` : "—"}</td>
+                    <td>${t.is_class_teacher
+                        ? `✓ ${escHtml(t.class_teacher_class_name || "")} <button class="btn btn-sm btn-secondary" style="margin-left:6px;" onclick="downloadClassCredentials('${t.class_teacher_of_class_id}','${escHtml(t.class_teacher_class_name || "")}')" title="Download login letters for parents">📄 Credentials</button>`
+                        : "—"}</td>
                     <td>${t.default_password ? `<code class="default-pw pw-hidden" onclick="this.classList.toggle('pw-hidden')" title="Click to reveal">${escHtml(t.default_password)}</code>` : '<span style="color:#94a3b8;">—</span>'}</td>
                     <td class="admin-actions">
                         ${_hasPerm("impersonate") ? `<button class="btn btn-sm btn-impersonate" onclick="impersonateUser('${t.id}')" title="Login as this teacher">Login as</button>` : ""}

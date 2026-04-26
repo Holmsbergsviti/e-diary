@@ -65,6 +65,7 @@ Should you have any problem logging in, do not hesitate to contact me.
 Please confirm that you received this email.
 
 Kind regards,
+{teacher_name}
 """
 
 
@@ -1508,6 +1509,23 @@ def admin_class_credentials(request):
         return JsonResponse({"message": "Class not found"}, status=404)
     class_name = cls.data[0].get("class_name", "")
 
+    # Resolve the class teacher's name for the sign-off line
+    teacher_name = ""
+    try:
+        ct_rows = (
+            db.table("teachers")
+            .select("name, surname")
+            .eq("is_class_teacher", True)
+            .eq("class_teacher_of_class_id", class_id)
+            .limit(1)
+            .execute()
+        ).data or []
+        if ct_rows:
+            t = ct_rows[0]
+            teacher_name = f"{t.get('name', '')} {t.get('surname', '')}".strip()
+    except Exception:
+        teacher_name = ""
+
     students = (
         db.table("students")
         .select("id, name, surname, default_password")
@@ -1530,7 +1548,11 @@ def admin_class_credentials(request):
         full_name = f"{s.get('surname', '')} {s.get('name', '')}".strip()
         password = s.get("default_password") or "(not available)"
         header = f"=== {full_name} ===\n\n"
-        body = CREDENTIALS_TEMPLATE.format(email=email or "(no email)", password=password)
+        body = CREDENTIALS_TEMPLATE.format(
+            email=email or "(no email)",
+            password=password,
+            teacher_name=teacher_name or "",
+        )
         parts.append(header + body)
 
     content = "\n\n".join(parts)
