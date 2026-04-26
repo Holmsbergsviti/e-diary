@@ -99,28 +99,41 @@ function bindAdminTabs() {
 }
 
 /* ───── Cache helpers ───── */
+function _byPersonName(a, b) {
+    return (`${a.surname || ''} ${a.name || ''}`)
+        .localeCompare(`${b.surname || ''} ${b.name || ''}`, undefined, { sensitivity: "base" });
+}
+function _byClassName(a, b) {
+    const ga = a.grade_level || 0, gb = b.grade_level || 0;
+    if (ga !== gb) return ga - gb;
+    return (a.class_name || "").localeCompare(b.class_name || "", undefined, { sensitivity: "base" });
+}
+function _byName(a, b) {
+    return (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
+}
+
 async function fetchClasses() {
     const res = await apiFetch("/admin/classes/");
     const d = await res.json();
-    cachedClasses = d.classes || [];
+    cachedClasses = (d.classes || []).slice().sort(_byClassName);
     return cachedClasses;
 }
 async function fetchSubjects() {
     const res = await apiFetch("/admin/subjects/");
     const d = await res.json();
-    cachedSubjects = d.subjects || [];
+    cachedSubjects = (d.subjects || []).slice().sort(_byName);
     return cachedSubjects;
 }
 async function fetchTeachers() {
     const res = await apiFetch("/admin/users/?role=teacher");
     const d = await res.json();
-    cachedTeachers = d.users || [];
+    cachedTeachers = (d.users || []).slice().sort(_byPersonName);
     return cachedTeachers;
 }
 async function fetchStudents() {
     const res = await apiFetch("/admin/users/?role=student");
     const d = await res.json();
-    cachedStudents = d.users || [];
+    cachedStudents = (d.users || []).slice().sort(_byPersonName);
     return cachedStudents;
 }
 
@@ -537,7 +550,7 @@ async function _fetchAndExport(type, fmt) {
             case "admins": {
                 const res = await apiFetch("/admin/users/?role=admin");
                 const d = await res.json();
-                const admins = (d.users || []).filter(a => a.admin_level !== "super");
+                const admins = (d.users || []).filter(a => a.admin_level !== "super").sort(_byPersonName);
                 rows = admins.map(a => {
                     const perms = a.permissions || {};
                     const permStr = (a.admin_level === "master") ? "All" : ALL_PERM_KEYS.filter(p => perms[p.key]).map(p => p.label).join(", ") || "None";
@@ -1143,7 +1156,7 @@ async function loadAdmins(container) {
     const res = await apiFetch("/admin/users/?role=admin");
     const d = await res.json();
     // Filter out super admins on the client side too (safety net)
-    const admins = (d.users || []).filter(a => a.admin_level !== "super");
+    const admins = (d.users || []).filter(a => a.admin_level !== "super").sort(_byPersonName);
     const isSuperAdmin = _adminLevel() === "super";
     container.innerHTML = `
         <div class="admin-section-header">
@@ -1267,7 +1280,11 @@ async function loadAssignments(container) {
     await Promise.all([fetchClasses(), fetchSubjects(), fetchTeachers()]);
     const res = await apiFetch("/admin/teacher-assignments/");
     const d = await res.json();
-    const assignments = d.assignments || [];
+    const assignments = (d.assignments || []).slice().sort((a, b) =>
+        (a.teacher_name || "").localeCompare(b.teacher_name || "", undefined, { sensitivity: "base" }) ||
+        (a.subject_name || "").localeCompare(b.subject_name || "", undefined, { sensitivity: "base" }) ||
+        (a.class_name || "").localeCompare(b.class_name || "", undefined, { sensitivity: "base" })
+    );
     container.innerHTML = `
         <div class="admin-section-header">
             <h3>Teacher Assignments</h3>
@@ -1325,7 +1342,10 @@ async function loadEnrollments(container) {
     await Promise.all([fetchClasses(), fetchSubjects(), fetchStudents()]);
     const res = await apiFetch("/admin/student-subjects/");
     const d = await res.json();
-    const enrollments = d.enrollments || [];
+    const enrollments = (d.enrollments || []).slice().sort((a, b) =>
+        (a.student_name || "").localeCompare(b.student_name || "", undefined, { sensitivity: "base" }) ||
+        (a.subject_name || "").localeCompare(b.subject_name || "", undefined, { sensitivity: "base" })
+    );
     container.innerHTML = `
         <div class="admin-section-header">
             <h3>Student Subject Enrolments</h3>

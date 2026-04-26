@@ -19,6 +19,11 @@ let statsLoaded = false;   // lazy flag for statistics tab
 let exportsLoaded = false; // lazy flag for exports tab
 let teacherSubstitutes = []; // substitute lessons from schedule API
 
+function _byPersonName(a, b) {
+    return (`${a.surname || ''} ${a.name || ''}`)
+        .localeCompare(`${b.surname || ''} ${b.name || ''}`, undefined, { sensitivity: "base" });
+}
+
 // Numeric value → letter grade (mirrors marks.js)
 function _numToGrade(val) {
     if (val == null) return "–";
@@ -537,7 +542,7 @@ async function viewSubstituteDetail(sub) {
         if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || `HTTP ${res.status}`); }
         const data = await res.json();
         const info = data.substitute;
-        const students = data.students || [];
+        const students = (data.students || []).slice().sort(_byPersonName);
         const readOnly = data.is_read_only;
 
         let html = '<div class="sub-detail-info">';
@@ -621,7 +626,7 @@ async function loadStudentsAndAttendance(slot, date) {
         const studentsData = await studentsRes.json();
         const attendanceData = await attendanceRes.json();
 
-        const students = studentsData.students || [];
+        const students = (studentsData.students || []).slice().sort(_byPersonName);
         const existing = attendanceData.attendance || [];
         const eventStudentIds = attendanceData.event_student_ids || [];
 
@@ -1401,7 +1406,7 @@ async function openHwCompletionModal(hw) {
         const studentsData = await studentsRes.json();
         const compData = await compRes.json();
 
-        const students = studentsData.students || [];
+        const students = (studentsData.students || []).slice().sort(_byPersonName);
         const completions = compData.completions || [];
         const compMap = {};
         for (const c of completions) compMap[c.student_id] = c.status;
@@ -1659,7 +1664,7 @@ async function loadStudentsForBehavioral() {
     try {
         const res = await apiFetch(`/teacher/class-students/?subject_id=${subject_id}&class_id=${class_id}`);
         const data = await res.json();
-        const students = data.students || [];
+        const students = (data.students || []).slice().sort(_byPersonName);
         if (students.length === 0) {
             stuSelect.innerHTML = '<option value="">No students</option>';
             return;
@@ -1849,7 +1854,7 @@ async function fetchFreeStudents(date, period) {
             throw new Error(err.message || `HTTP ${res.status}`);
         }
         const data = await res.json();
-        const students = data.students || [];
+        const students = (data.students || []).slice().sort(_byPersonName);
         const existing = data.attendance || [];
 
         if (students.length === 0) {
@@ -2104,7 +2109,7 @@ async function _loadSubstituteStudents(classId, subjectId, date) {
         ]);
         const studentsData = await studentsRes.json();
         const attendanceData = await attendanceRes.json();
-        const students = studentsData.students || [];
+        const students = (studentsData.students || []).slice().sort(_byPersonName);
         const existing = attendanceData.attendance || [];
 
         // Build lookup
