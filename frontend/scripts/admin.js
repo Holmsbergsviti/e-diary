@@ -885,9 +885,9 @@ function openBulkImportTeachers() {
     const overlay = document.getElementById("adminModal");
     document.getElementById("adminModalTitle").textContent = "Bulk Import Teachers";
     document.getElementById("adminModalBody").innerHTML = `
-        <p style="color:var(--text-light);margin-bottom:12px;">Upload a <strong>CSV</strong> file with columns: <code>name</code>, <code>surname</code>.<br>
+        <p style="color:var(--text-light);margin-bottom:12px;">Upload a <strong>CSV</strong> or <strong>Excel (.xlsx)</strong> file with columns: <code>name</code>, <code>surname</code>.<br>
         Email and password will be <strong>generated automatically</strong>.</p>
-        <input type="file" id="bulkFile" accept=".csv" class="form-input">
+        <input type="file" id="bulkFile" accept=".csv,.xlsx,.xls" class="form-input">
         <div id="bulkPreview" style="margin-top:12px;"></div>
         <div id="bulkResult" style="margin-top:12px;"></div>
     `;
@@ -900,24 +900,15 @@ function openBulkImportTeachers() {
 
     let parsedRows = [];
 
-    document.getElementById("bulkFile").addEventListener("change", () => {
+    document.getElementById("bulkFile").addEventListener("change", async () => {
         const file = document.getElementById("bulkFile").files[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const lines = e.target.result.split(/\r?\n/).filter(l => l.trim());
-            if (lines.length < 2) { showToast("CSV must have header + data rows", "warning"); return; }
-            const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
-            parsedRows = [];
-            for (let i = 1; i < lines.length; i++) {
-                const vals = parseCSVLine(lines[i]);
-                const row = {};
-                headers.forEach((h, idx) => { row[h] = (vals[idx] || "").trim(); });
-                if (row.name || row.surname) parsedRows.push(row);
-            }
+        try {
+            const parsed = await parseTabularFile(file);
+            parsedRows = parsed.rows.filter(r => r.name || r.surname);
             const cols = ['name', 'surname'];
             const preview = document.getElementById("bulkPreview");
-            if (parsedRows.length === 0) { preview.innerHTML = '<p class="empty-state">No valid rows found.</p>'; return; }
+            if (parsedRows.length === 0) { preview.innerHTML = '<p class="empty-state">No valid rows found.</p>'; saveBtn.disabled = true; return; }
             preview.innerHTML = `
                 <p><strong>${parsedRows.length}</strong> teachers to import:</p>
                 <table class="admin-table" style="font-size:0.85rem;">
@@ -928,9 +919,10 @@ function openBulkImportTeachers() {
                     </tbody>
                 </table>
             `;
-            saveBtn.disabled = parsedRows.length === 0;
-        };
-        reader.readAsText(file);
+            saveBtn.disabled = false;
+        } catch (err) {
+            showToast("Failed to read file: " + err.message, "error");
+        }
     });
 
     modalSaveCallback = async () => {
@@ -1073,30 +1065,16 @@ function openBulkImportStudents() {
 
     let parsedRows = [];
 
-    document.getElementById("bulkFile").addEventListener("change", () => {
+    document.getElementById("bulkFile").addEventListener("change", async () => {
         const file = document.getElementById("bulkFile").files[0];
         if (!file) return;
-        const ext = file.name.split('.').pop().toLowerCase();
-
-        if (ext === 'csv') {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const lines = e.target.result.split(/\r?\n/).filter(l => l.trim());
-                if (lines.length < 2) { showToast("CSV must have header + data rows", "warning"); return; }
-                const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
-                parsedRows = [];
-                for (let i = 1; i < lines.length; i++) {
-                    const vals = parseCSVLine(lines[i]);
-                    const row = {};
-                    headers.forEach((h, idx) => { row[h] = (vals[idx] || "").trim(); });
-                    if (row.name || row.surname) parsedRows.push(row);
-                }
-                showBulkPreview(parsedRows, headers);
-                saveBtn.disabled = parsedRows.length === 0;
-            };
-            reader.readAsText(file);
-        } else if (ext === 'xlsx' || ext === 'xls') {
-            showToast("Excel support: please save as CSV first", "warning");
+        try {
+            const parsed = await parseTabularFile(file);
+            parsedRows = parsed.rows.filter(r => r.name || r.surname);
+            showBulkPreview(parsedRows, parsed.headers);
+            saveBtn.disabled = parsedRows.length === 0;
+        } catch (err) {
+            showToast("Failed to read file: " + err.message, "error");
         }
     });
 
@@ -1918,13 +1896,13 @@ async function fetchAttendanceFlags() {
     }
 }
 
-/* ═══════════════ CSV IMPORT ═══════════════ */
+/* ═══════════════ CSV / EXCEL IMPORT ═══════════════ */
 function renderImportSection(container) {
     container.innerHTML = `
         <div class="admin-section-header">
-            <h3>CSV Bulk Import</h3>
+            <h3>Bulk Import (CSV / Excel)</h3>
         </div>
-        <p class="import-instructions">Upload a CSV file to bulk-import data. The first row must be the header row with column names.</p>
+        <p class="import-instructions">Upload a CSV or Excel (.xlsx) file to bulk-import data. The first row must be the header row with column names.</p>
         <div class="import-grid">
             <div class="import-card">
                 <h4>Import Type</h4>
@@ -1940,8 +1918,8 @@ function renderImportSection(container) {
                 </select>
             </div>
             <div class="import-card">
-                <h4>CSV File</h4>
-                <input type="file" id="csvFile" accept=".csv" class="form-input">
+                <h4>File</h4>
+                <input type="file" id="csvFile" accept=".csv,.xlsx,.xls" class="form-input">
             </div>
         </div>
         <div id="csvPreview" class="csv-preview"></div>
@@ -1955,38 +1933,70 @@ function renderImportSection(container) {
 
 let csvParsedRows = [];
 
-function previewCSV() {
+async function previewCSV() {
     const file = document.getElementById("csvFile").files[0];
-    if (!file) { showToast("Select a CSV file first", "warning"); return; }
+    if (!file) { showToast("Select a CSV or Excel file first", "warning"); return; }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const text = e.target.result;
-        const lines = text.split(/\r?\n/).filter(l => l.trim());
-        if (lines.length < 2) { showToast("CSV must have a header row and at least one data row", "warning"); return; }
-
-        const headers = parseCSVLine(lines[0]);
-        csvParsedRows = [];
-        for (let i = 1; i < lines.length; i++) {
-            const values = parseCSVLine(lines[i]);
-            const row = {};
-            headers.forEach((h, idx) => { row[h.trim()] = (values[idx] || "").trim(); });
-            csvParsedRows.push(row);
-        }
+    try {
+        const parsed = await parseTabularFile(file);
+        if (parsed.rows.length === 0) { showToast("No data rows found", "warning"); return; }
+        csvParsedRows = parsed.rows;
+        const headers = parsed.headers;
 
         const preview = document.getElementById("csvPreview");
         preview.innerHTML = `
-            <p><strong>${csvParsedRows.length} rows</strong> parsed. Columns: ${headers.map(h => `<code>${escHtml(h.trim())}</code>`).join(", ")}</p>
+            <p><strong>${csvParsedRows.length} rows</strong> parsed. Columns: ${headers.map(h => `<code>${escHtml(h)}</code>`).join(", ")}</p>
             <table class="admin-table">
-                <thead><tr>${headers.map(h => `<th>${escHtml(h.trim())}</th>`).join("")}</tr></thead>
-                <tbody>${csvParsedRows.slice(0, 5).map(r => `<tr>${headers.map(h => `<td>${escHtml(r[h.trim()] || "")}</td>`).join("")}</tr>`).join("")}
+                <thead><tr>${headers.map(h => `<th>${escHtml(h)}</th>`).join("")}</tr></thead>
+                <tbody>${csvParsedRows.slice(0, 5).map(r => `<tr>${headers.map(h => `<td>${escHtml(r[h] || "")}</td>`).join("")}</tr>`).join("")}
                 ${csvParsedRows.length > 5 ? `<tr><td colspan="${headers.length}" style="text-align:center;color:var(--text-lighter)">… and ${csvParsedRows.length - 5} more rows</td></tr>` : ""}
                 </tbody>
             </table>
         `;
         document.getElementById("csvImportBtn").disabled = false;
-    };
-    reader.readAsText(file);
+    } catch (err) {
+        showToast("Failed to read file: " + err.message, "error");
+    }
+}
+
+/* Parse a tabular file (.csv / .xlsx / .xls) into an array of
+   {headerLowercase: cellString} row objects. Uses SheetJS for Excel.
+   Returns { headers, rows }. */
+async function parseTabularFile(file) {
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    if (ext === 'xlsx' || ext === 'xls') {
+        if (typeof XLSX === 'undefined') {
+            throw new Error("Excel parser not loaded");
+        }
+        const data = await file.arrayBuffer();
+        const wb = XLSX.read(data, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const matrix = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false, defval: "" });
+        if (!matrix.length) return { headers: [], rows: [] };
+        const headers = matrix[0].map(h => String(h || '').trim().toLowerCase());
+        const rows = [];
+        for (let i = 1; i < matrix.length; i++) {
+            const vals = matrix[i] || [];
+            if (!vals.length) continue;
+            const row = {};
+            headers.forEach((h, idx) => { row[h] = String(vals[idx] ?? '').trim(); });
+            if (Object.values(row).some(v => v)) rows.push(row);
+        }
+        return { headers, rows };
+    }
+    // CSV path
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 1) return { headers: [], rows: [] };
+    const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+        const vals = parseCSVLine(lines[i]);
+        const row = {};
+        headers.forEach((h, idx) => { row[h] = (vals[idx] || '').trim(); });
+        if (Object.values(row).some(v => v)) rows.push(row);
+    }
+    return { headers, rows };
 }
 
 function parseCSVLine(line) {
