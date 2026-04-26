@@ -34,7 +34,7 @@ const ALL_PERM_KEYS = [
     { key: "events",     label: "Events" },
     { key: "holidays",   label: "Holidays" },
     { key: "attendance", label: "Attendance" },
-    { key: "import",     label: "CSV Import" },
+    { key: "import",     label: "Import" },
     { key: "exports",    label: "Exports" },
     { key: "impersonate", label: "Impersonate" },
 ];
