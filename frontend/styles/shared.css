@@ -2058,6 +2058,8 @@ tr:hover td {
 .stat-dot-positive { background: #10b981; }
 .stat-dot-negative { background: #f87171; }
 .stat-dot-note { background: #fbbf24; }
+.stat-dot-detention { background: #f97316; }
+.stat-dot-suspension { background: #7f1d1d; }
 
 /* Grade distribution horizontal bars */
 .grade-dist-wrap { margin-top: 10px; }
@@ -2374,6 +2376,12 @@ tr:hover td {
 .beh-pill-note { background: rgba(59, 130, 246, 0.08); border-color: rgba(59, 130, 246, 0.25); }
 .beh-pill-note .beh-pill-dot { background: #3b82f6; }
 .beh-pill-note .beh-pill-num { color: #3b82f6; }
+.beh-pill-detention { background: rgba(249, 115, 22, 0.08); border-color: rgba(249, 115, 22, 0.25); }
+.beh-pill-detention .beh-pill-dot { background: #f97316; }
+.beh-pill-detention .beh-pill-num { color: #f97316; }
+.beh-pill-suspension { background: rgba(127, 29, 29, 0.08); border-color: rgba(127, 29, 29, 0.3); }
+.beh-pill-suspension .beh-pill-dot { background: #7f1d1d; }
+.beh-pill-suspension .beh-pill-num { color: #7f1d1d; }
 
 /* ── Homework detail toggle ── */
 .hw-detail-toggle { margin-top: 8px; }

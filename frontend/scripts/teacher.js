@@ -823,11 +823,13 @@ async function loadClassStats() {
                 beh_positive: s.behavioral.positive,
                 beh_negative: s.behavioral.negative,
                 beh_note: s.behavioral.note,
+                beh_detention: s.behavioral.detention || 0,
+                beh_suspension: s.behavioral.suspension || 0,
             };
         });
         _registerExport("expClassStats", statsRows,
-            ["subject", "class_name", "student_count", "att_present", "att_late", "att_absent", "att_excused", "att_rate", "grade_avg", "grade_count", "hw_assigned", "hw_completed", "hw_partial", "hw_not_done", "beh_positive", "beh_negative", "beh_note"],
-            { subject: "Subject", class_name: "Class", student_count: "Students", att_present: "Present", att_late: "Late", att_absent: "Absent", att_excused: "Excused", att_rate: "Att. Rate", grade_avg: "Grade Avg", grade_count: "Grades", hw_assigned: "HW Assigned", hw_completed: "HW Done", hw_partial: "HW Partial", hw_not_done: "HW Not Done", beh_positive: "Positive", beh_negative: "Negative", beh_note: "Notes" },
+            ["subject", "class_name", "student_count", "att_present", "att_late", "att_absent", "att_excused", "att_rate", "grade_avg", "grade_count", "hw_assigned", "hw_completed", "hw_partial", "hw_not_done", "beh_positive", "beh_negative", "beh_note", "beh_detention", "beh_suspension"],
+            { subject: "Subject", class_name: "Class", student_count: "Students", att_present: "Present", att_late: "Late", att_absent: "Absent", att_excused: "Excused", att_rate: "Att. Rate", grade_avg: "Grade Avg", grade_count: "Grades", hw_assigned: "HW Assigned", hw_completed: "HW Done", hw_partial: "HW Partial", hw_not_done: "HW Not Done", beh_positive: "Positive", beh_negative: "Negative", beh_note: "Notes", beh_detention: "Detention", beh_suspension: "Suspension" },
             "class_statistics");
     } catch (err) {
         container.innerHTML = '<p class="empty-state">Failed to load statistics.</p>';
@@ -962,33 +964,28 @@ function generateHomeworkRing(completed, partial, notDone) {
     `;
 }
 
-function generateBehavioralRing(positive, negative, note) {
-    const total = positive + negative + note;
+function generateBehavioralRing(positive, negative, note, detention = 0, suspension = 0) {
+    const total = positive + negative + note + detention + suspension;
     if (total === 0) return '<div class="stat-sub">No behavioral data</div>';
-    
-    const positivePct = (positive / total) * 100;
-    const negativePct = (negative / total) * 100;
-    const notePct = (note / total) * 100;
-    
-    const positiveExact = Number(positivePct.toFixed(2));
-    const negativeExact = Number(negativePct.toFixed(2));
-    const noteExact = Number(notePct.toFixed(2));
-    
+
+    const segs = [
+        { v: positive,   color: '#10b981', label: 'Positive' },
+        { v: negative,   color: '#f87171', label: 'Negative' },
+        { v: note,       color: '#fbbf24', label: 'Note' },
+        { v: detention,  color: '#f97316', label: 'Detention' },
+        { v: suspension, color: '#7f1d1d', label: 'Suspension' },
+    ];
+
     let offset = 0;
     const sectors = [];
-    if (positive > 0) {
-        sectors.push(generateRingSector(offset, positiveExact, '#10b981', 'Positive', positiveExact));
-        offset += positiveExact;
+    for (const s of segs) {
+        if (s.v > 0) {
+            const pct = Number(((s.v / total) * 100).toFixed(2));
+            sectors.push(generateRingSector(offset, pct, s.color, s.label, pct));
+            offset += pct;
+        }
     }
-    if (negative > 0) {
-        sectors.push(generateRingSector(offset, negativeExact, '#f87171', 'Negative', negativeExact));
-        offset += negativeExact;
-    }
-    if (note > 0) {
-        sectors.push(generateRingSector(offset, noteExact, '#fbbf24', 'Note', noteExact));
-        offset += noteExact;
-    }
-    
+
     return `
         <svg class="stat-ring" viewBox="0 0 100 100" width="120" height="120">
             ${sectors.join('')}
@@ -1064,13 +1061,15 @@ function renderClassStats(stats) {
                 <div class="stat-block">
                     <div class="stat-block-title">📋 Behavioral</div>
                     <div class="stat-ring-container" id="behav-ring-${classId}">
-                        ${generateBehavioralRing(s.behavioral.positive, s.behavioral.negative, s.behavioral.note)}
+                        ${generateBehavioralRing(s.behavioral.positive, s.behavioral.negative, s.behavioral.note, s.behavioral.detention || 0, s.behavioral.suspension || 0)}
                     </div>
                     <div class="stat-legend behav-legend-${classId}">
-                        ${(s.behavioral.positive + s.behavioral.negative + s.behavioral.note) > 0 ? `
+                        ${(s.behavioral.positive + s.behavioral.negative + s.behavioral.note + (s.behavioral.detention || 0) + (s.behavioral.suspension || 0)) > 0 ? `
                         <span class="stat-dot stat-dot-positive"></span> <span class="behav-positive-${classId}">${s.behavioral.positive}</span>
                         <span class="stat-dot stat-dot-negative"></span> <span class="behav-negative-${classId}">${s.behavioral.negative}</span>
-                        <span class="stat-dot stat-dot-note"></span> <span class="behav-note-${classId}">${s.behavioral.note}</span>` : ''}
+                        <span class="stat-dot stat-dot-note"></span> <span class="behav-note-${classId}">${s.behavioral.note}</span>
+                        <span class="stat-dot stat-dot-detention"></span> <span class="behav-detention-${classId}">${s.behavioral.detention || 0}</span>
+                        <span class="stat-dot stat-dot-suspension"></span> <span class="behav-suspension-${classId}">${s.behavioral.suspension || 0}</span>` : ''}
                     </div>
                 </div>
                 </div>
@@ -1170,17 +1169,19 @@ function updateClassStats(stats) {
         // Update behavioral ring
         const behavRingContainer = card.querySelector(`#behav-ring-${classId}`);
         if (behavRingContainer) {
-            behavRingContainer.innerHTML = generateBehavioralRing(s.behavioral.positive, s.behavioral.negative, s.behavioral.note);
+            behavRingContainer.innerHTML = generateBehavioralRing(s.behavioral.positive, s.behavioral.negative, s.behavioral.note, s.behavioral.detention || 0, s.behavioral.suspension || 0);
         }
 
         // Update behavioral legend
         const behavLegend = card.querySelector(`.behav-legend-${classId}`);
         if (behavLegend) {
-            const behavTotal = s.behavioral.positive + s.behavioral.negative + s.behavioral.note;
+            const behavTotal = s.behavioral.positive + s.behavioral.negative + s.behavioral.note + (s.behavioral.detention || 0) + (s.behavioral.suspension || 0);
             behavLegend.innerHTML = behavTotal > 0 ? `
                 <span class="stat-dot stat-dot-positive"></span> <span class="behav-positive-${classId}">${s.behavioral.positive}</span>
                 <span class="stat-dot stat-dot-negative"></span> <span class="behav-negative-${classId}">${s.behavioral.negative}</span>
-                <span class="stat-dot stat-dot-note"></span> <span class="behav-note-${classId}">${s.behavioral.note}</span>` : '';
+                <span class="stat-dot stat-dot-note"></span> <span class="behav-note-${classId}">${s.behavioral.note}</span>
+                <span class="stat-dot stat-dot-detention"></span> <span class="behav-detention-${classId}">${s.behavioral.detention || 0}</span>
+                <span class="stat-dot stat-dot-suspension"></span> <span class="behav-suspension-${classId}">${s.behavioral.suspension || 0}</span>` : '';
         }
     });
 }
@@ -1523,7 +1524,7 @@ async function loadBehavioral() {
     }
 }
 
-const TYPE_ICONS = { positive: "👍", negative: "👎", note: "📝" };
+const TYPE_ICONS = { positive: "👍", negative: "👎", note: "📝", detention: "🕒", suspension: "⛔" };
 const SEVERITY_LABELS = { low: "Low", medium: "Medium", high: "High" };
 
 function renderBehavioral() {

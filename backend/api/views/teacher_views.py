@@ -685,7 +685,7 @@ def teacher_marks(request):
             })
         hw_detail.sort(key=lambda x: x.get("due_date") or "", reverse=True)
 
-        beh_c = {"positive": 0, "negative": 0, "note": 0}
+        beh_c = {"positive": 0, "negative": 0, "note": 0, "detention": 0, "suspension": 0}
         for b in beh_data:
             if b["student_id"] == sid:
                 bt = b.get("entry_type", "note")
@@ -1282,7 +1282,7 @@ def teacher_class_stats(request):
                 if (h_id, sid) not in hwc_seen:
                     hwc_counts["not_done"] += 1
 
-        beh_counts = {"positive": 0, "negative": 0, "note": 0}
+        beh_counts = {"positive": 0, "negative": 0, "note": 0, "detention": 0, "suspension": 0}
         for b in (beh_result.data or []):
             if b.get("subject_id") == subject_id and b.get("class_id") == class_id and b.get("student_id") in class_enrolled:
                 bt = b.get("entry_type", "note")

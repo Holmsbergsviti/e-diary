@@ -235,7 +235,7 @@ function buildStatsHtml(stats) {
     const hw = st.homework || {};
     const hwTotal = (hw.completed || 0) + (hw.partial || 0) + (hw.not_done || 0);
     const beh = st.behavioral || {};
-    const behTotal = (beh.positive || 0) + (beh.negative || 0) + (beh.note || 0);
+    const behTotal = (beh.positive || 0) + (beh.negative || 0) + (beh.note || 0) + (beh.detention || 0) + (beh.suspension || 0);
 
     const attChart = attTotal > 0 ? createDoughnutChartSegments([
         { value: present, color: '#10b981', label: 'Present' },
@@ -284,6 +284,8 @@ function buildStatsHtml(stats) {
                 <div class="beh-pill beh-pill-pos"><span class="beh-pill-dot"></span><span class="beh-pill-num">${beh.positive || 0}</span><span class="beh-pill-label">Positive</span></div>
                 <div class="beh-pill beh-pill-neg"><span class="beh-pill-dot"></span><span class="beh-pill-num">${beh.negative || 0}</span><span class="beh-pill-label">Negative</span></div>
                 <div class="beh-pill beh-pill-note"><span class="beh-pill-dot"></span><span class="beh-pill-num">${beh.note || 0}</span><span class="beh-pill-label">Note</span></div>
+                <div class="beh-pill beh-pill-detention"><span class="beh-pill-dot"></span><span class="beh-pill-num">${beh.detention || 0}</span><span class="beh-pill-label">Detention</span></div>
+                <div class="beh-pill beh-pill-suspension"><span class="beh-pill-dot"></span><span class="beh-pill-num">${beh.suspension || 0}</span><span class="beh-pill-label">Suspension</span></div>
             </div>` : `<div class="student-stat-empty">No entries</div>`}
         </div>
     </div>`;

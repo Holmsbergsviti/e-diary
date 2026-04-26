@@ -165,7 +165,7 @@ async function loadRecentGrades() {
     }
 }
 
-const BEH_TYPE_ICONS = { positive: "👍", negative: "👎", note: "📝" };
+const BEH_TYPE_ICONS = { positive: "👍", negative: "👎", note: "📝", detention: "🕒", suspension: "⛔" };
 const BEH_SEVERITY_LABELS = { low: "Low", medium: "Medium", high: "High" };
 
 async function loadBehavioral() {
