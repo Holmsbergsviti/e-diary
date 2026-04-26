@@ -646,6 +646,7 @@ async function loadClasses(container) {
                     <td>${c.grade_level}</td>
                     <td class="admin-actions">
                         <button class="btn btn-sm btn-secondary" onclick='editClass(${JSON.stringify(c)})'>Edit</button>
+                        <button class="btn btn-sm btn-secondary" onclick="downloadClassCredentials('${c.id}','${escHtml(c.class_name)}')" title="Download login letters for parents">📄 Credentials</button>
                         <button class="btn btn-sm btn-danger" onclick="deleteClass('${c.id}')">Delete</button>
                     </td>
                 </tr>
@@ -684,6 +685,30 @@ function editClass(c) {
         showToast("Class updated", "success");
         await loadSection("classes");
     });
+}
+
+async function downloadClassCredentials(classId, className) {
+    try {
+        const res = await apiFetch(`/admin/classes/credentials/?class_id=${encodeURIComponent(classId)}`);
+        if (!res.ok) {
+            const d = await res.json().catch(() => ({}));
+            showToast(d.message || "Failed to download credentials", "error");
+            return;
+        }
+        const blob = await res.blob();
+        const safe = (className || "class").replace(/[\\/:*?"<>|\s]/g, "_");
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `credentials_${safe}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        showToast("Credentials downloaded", "success");
+    } catch (err) {
+        showToast("Error: " + err.message, "error");
+    }
 }
 
 async function deleteClass(id) {

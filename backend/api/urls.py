@@ -63,4 +63,5 @@ urlpatterns = [
     path("admin/holidays/detail/", admin_views.admin_holiday_detail),
     path("admin/attendance-flags/", admin_views.admin_attendance_flags),
     path("admin/student-lookup/", admin_views.admin_student_lookup),
+    path("admin/classes/credentials/", admin_views.admin_class_credentials),
 ]

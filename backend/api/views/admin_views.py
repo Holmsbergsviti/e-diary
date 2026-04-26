@@ -4,7 +4,7 @@ import io
 from datetime import date as _date, timedelta
 from collections import defaultdict
 
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from ..utils import (
@@ -37,7 +37,35 @@ __all__ = [
     "admin_events", "admin_event_detail",
     "admin_holidays", "admin_holiday_detail",
     "admin_attendance_flags", "admin_student_lookup",
+    "admin_class_credentials",
 ]
+
+
+CREDENTIALS_TEMPLATE = """Dear Parents,
+
+The Chartwell electronic diary will be operational for your child. The teachers will add their classes and all important information regarding your child's work and progress.
+
+Every day after 4.30 pm, you will be able to log in.
+This email contains the necessary details to log into the school's online administration system.
+
+The website address is https://www.online.chartwell.edu.rs/login/
+
+Your child's log-in details are:
+
+Username: {email}
+
+Password: {password}
+
+
+The password was randomly generated and isn't very user-friendly.
+However, after logging in, you will be able to change it to one of your own preferences by changing it in "profile."
+
+Should you have any problem logging in, do not hesitate to contact me.
+
+Please confirm that you received this email.
+
+Kind regards,
+"""
 
 
 # ------------------------------------------------------------------
@@ -1450,3 +1478,65 @@ def admin_student_lookup(request):
             "records": beh_records,
         },
     })
+
+
+# ------------------------------------------------------------------
+# Admin: download class credentials text file
+# ------------------------------------------------------------------
+
+@csrf_exempt
+def admin_class_credentials(request):
+    """
+    Return a plain-text file with one parent letter per student in the
+    given class, filled with each student's email and default password.
+    """
+    payload = _require_admin(request)
+    if not payload:
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+    if not _admin_has_perm(payload, "students"):
+        return JsonResponse({"message": "No permission"}, status=403)
+    if request.method != "GET":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+
+    class_id = request.GET.get("class_id", "").strip()
+    if not class_id:
+        return JsonResponse({"message": "class_id required"}, status=400)
+
+    db = ediary()
+    cls = db.table("classes").select("id, class_name").eq("id", class_id).limit(1).execute()
+    if not cls.data:
+        return JsonResponse({"message": "Class not found"}, status=404)
+    class_name = cls.data[0].get("class_name", "")
+
+    students = (
+        db.table("students")
+        .select("id, name, surname, default_password")
+        .eq("class_id", class_id)
+        .order("surname")
+        .order("name")
+        .execute()
+    ).data or []
+
+    if not students:
+        return JsonResponse({"message": "No students in this class"}, status=404)
+
+    parts = []
+    for s in students:
+        try:
+            auth_u = supabase_admin_auth.auth.admin.get_user_by_id(s["id"])
+            email = auth_u.user.email if auth_u and auth_u.user else ""
+        except Exception:
+            email = ""
+        full_name = f"{s.get('surname', '')} {s.get('name', '')}".strip()
+        password = s.get("default_password") or "(not available)"
+        header = f"=== {full_name} ===\n\n"
+        body = CREDENTIALS_TEMPLATE.format(email=email or "(no email)", password=password)
+        parts.append(header + body)
+
+    content = "\n\n".join(parts)
+    safe_class = (class_name or "class").replace("/", "_").replace(" ", "_")
+    filename = f"credentials_{safe_class}.txt"
+
+    resp = HttpResponse(content, content_type="text/plain; charset=utf-8")
+    resp["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return resp
