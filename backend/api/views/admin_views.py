@@ -349,10 +349,12 @@ def admin_users(request):
             admin_rows = db.table("admins").select("id").execute()
             admin_ids = {a["id"] for a in (admin_rows.data or [])}
             students = [s for s in students if s["id"] not in admin_ids]
-            classes = db.table("classes").select("id, class_name").execute()
-            cls_map = {c["id"]: c["class_name"] for c in (classes.data or [])}
+            classes = db.table("classes").select("id, class_name, grade_level").execute()
+            cls_map = {c["id"]: c for c in (classes.data or [])}
             for s in students:
-                s["class_name"] = cls_map.get(s.get("class_id"), "")
+                cls = cls_map.get(s.get("class_id")) or {}
+                s["class_name"] = cls.get("class_name", "")
+                s["grade_level"] = cls.get("grade_level", 0)
             return JsonResponse({"users": students})
 
     if request.method == "POST":

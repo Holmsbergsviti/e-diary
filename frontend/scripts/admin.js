@@ -133,7 +133,13 @@ async function fetchTeachers() {
 async function fetchStudents() {
     const res = await apiFetch("/admin/users/?role=student");
     const d = await res.json();
-    cachedStudents = (d.users || []).slice().sort(_byPersonName);
+    cachedStudents = (d.users || []).slice().sort((a, b) => {
+        const ga = a.grade_level || 0, gb = b.grade_level || 0;
+        if (ga !== gb) return ga - gb;
+        const cn = (a.class_name || "").localeCompare(b.class_name || "", undefined, { sensitivity: "base" });
+        if (cn !== 0) return cn;
+        return _byPersonName(a, b);
+    });
     return cachedStudents;
 }
 
