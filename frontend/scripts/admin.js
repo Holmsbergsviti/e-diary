@@ -1234,10 +1234,14 @@ async function openDedupeStudents() {
     saveBtn.onclick = async (ev) => {
         ev?.preventDefault?.();
         ev?.stopPropagation?.();
+        console.log("[dedupe] delete clicked", preview);
 
-        const ids = (preview && preview.duplicate_ids) || [];
-        const total = ids.length;
-        if (total === 0) { closeAdminModal(); return; }
+        let total = (preview && (preview.duplicate_count || (preview.duplicate_ids || []).length)) || 0;
+        if (total === 0) {
+            showToast("Nothing to delete", "info");
+            closeAdminModal();
+            return;
+        }
 
         saveBtn.disabled = true;
         const body = document.getElementById("adminModalBody");
@@ -1251,21 +1255,42 @@ async function openDedupeStudents() {
         const fillEl = body.querySelector(".dedupe-progress-fill");
         const textEl = body.querySelector(".dedupe-progress-text");
 
-        const CHUNK = 30;
+        // Poll the POST endpoint repeatedly. Each call deletes up to 50
+        // duplicates and reports `remaining`; loop until remaining is 0
+        // or we've made too many round-trips. This keeps working even
+        // when the GET response did not include duplicate_ids (older
+        // backend) because the backend itself picks ids each call.
         let totalDeleted = 0;
         let chunkErrors = 0;
-        for (let i = 0; i < ids.length; i += CHUNK) {
-            const slice = ids.slice(i, i + CHUNK);
-            saveBtn.textContent = `Deleting… ${Math.min(i + slice.length, total)}/${total}`;
+        let remaining = total;
+        const MAX_ROUNDS = Math.max(1, Math.ceil(total / 50) + 5);
+        for (let round = 0; round < MAX_ROUNDS && remaining > 0; round++) {
+            saveBtn.textContent = `Deleting… ${totalDeleted}/${total}`;
             try {
                 const res = await apiFetch("/admin/dedupe-students/", {
                     method: "POST",
-                    body: JSON.stringify({ ids: slice }),
+                    body: JSON.stringify({}),
                 });
+                if (!res.ok) {
+                    chunkErrors++;
+                    const txt = await res.text().catch(() => "");
+                    console.error("[dedupe] batch failed", res.status, txt);
+                    if (chunkErrors >= 3) break;
+                    continue;
+                }
                 const d = await res.json();
-                totalDeleted += d.deleted || 0;
+                const justNow = d.deleted || 0;
+                totalDeleted += justNow;
+                if (typeof d.remaining === "number") {
+                    remaining = d.remaining;
+                } else {
+                    remaining = Math.max(0, remaining - justNow);
+                }
+                if (justNow === 0) break;
             } catch (err) {
                 chunkErrors++;
+                console.error("[dedupe] batch error", err);
+                if (chunkErrors >= 3) break;
             }
             const pct = Math.min(100, Math.round((totalDeleted / total) * 100));
             if (fillEl) fillEl.style.width = pct + "%";
@@ -1277,7 +1302,7 @@ async function openDedupeStudents() {
             showToast(`${totalDeleted} duplicates removed${chunkErrors ? ` (${chunkErrors} batches failed)` : ""}`,
                 chunkErrors ? "warning" : "success");
         } else if (chunkErrors > 0) {
-            showToast("Dedupe failed for all batches — try again", "error");
+            showToast("Dedupe failed — try again", "error");
         }
         cachedStudents = null;
         saveBtn.textContent = "Close";
