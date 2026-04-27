@@ -910,6 +910,17 @@ def admin_csv_import(request):
                 errors.append({"row": i + 1, "error": "name, surname required"})
                 continue
 
+            class_name = r.get("class_name", "").strip()
+            class_id = None
+            if import_type == "students":
+                if not class_name:
+                    errors.append({"row": i + 1, "error": f"class_name required for {name} {surname}"})
+                    continue
+                class_id = cls_map.get(class_name)
+                if class_id is None:
+                    errors.append({"row": i + 1, "error": f"unknown class '{class_name}' for {name} {surname}"})
+                    continue
+
             generated_password = None
             if import_type == "students":
                 if not password:
@@ -930,19 +941,35 @@ def admin_csv_import(request):
                 if not password:
                     password = "changeme"
 
-            try:
-                auth_response = supabase_admin_auth.auth.admin.create_user({
-                    "email": email, "password": password, "email_confirm": True,
-                })
-                uid = str(auth_response.user.id)
-            except Exception:
-                errors.append({"row": i + 1, "error": "Account creation failed"})
+            # Auth create with retry on email-already-exists (suffix counter)
+            uid = None
+            attempt_email = email
+            collision_counter = 1
+            last_error = ""
+            for _attempt in range(8):
+                try:
+                    auth_response = supabase_admin_auth.auth.admin.create_user({
+                        "email": attempt_email, "password": password, "email_confirm": True,
+                    })
+                    uid = str(auth_response.user.id)
+                    email = attempt_email
+                    existing_emails.add(email)
+                    break
+                except Exception as exc:
+                    last_error = str(exc)[:200]
+                    msg = last_error.lower()
+                    if "already" in msg or "exist" in msg or "duplicate" in msg or "registered" in msg:
+                        collision_counter += 1
+                        local, _, domain = email.partition("@")
+                        attempt_email = f"{local}{collision_counter}@{domain}"
+                        continue
+                    break
+            if uid is None:
+                errors.append({"row": i + 1, "error": f"Account creation failed: {last_error or 'unknown'}"})
                 continue
 
             try:
                 if import_type == "students":
-                    class_name = r.get("class_name", "").strip()
-                    class_id = cls_map.get(class_name)
                     row_data = {"id": uid, "name": name, "surname": surname, "class_id": class_id}
                     if generated_password:
                         row_data["default_password"] = generated_password

@@ -98,6 +98,46 @@ function bindAdminTabs() {
     });
 }
 
+/* ───── Chunked import helper ─────
+   Sends `rows` to /admin/csv-import/ in batches so a single request
+   never holds open long enough for Render to time out. Returns
+   { created, errors, credentials } aggregated across batches. */
+async function chunkedImport({ type, rows, chunkSize = 40, onProgress }) {
+    const allErrors = [];
+    const allCreds = [];
+    let created = 0;
+    for (let i = 0; i < rows.length; i += chunkSize) {
+        const slice = rows.slice(i, i + chunkSize);
+        if (typeof onProgress === "function") {
+            onProgress({ done: i, total: rows.length });
+        }
+        let d;
+        try {
+            const res = await apiFetch("/admin/csv-import/", {
+                method: "POST",
+                body: JSON.stringify({ type, rows: slice }),
+            });
+            d = await res.json();
+        } catch (err) {
+            for (let j = 0; j < slice.length; j++) {
+                allErrors.push({ row: i + j + 1, error: "Network error: " + err.message });
+            }
+            continue;
+        }
+        created += d.created || 0;
+        if (Array.isArray(d.errors)) {
+            for (const e of d.errors) {
+                allErrors.push({ row: i + (e.row || 0), error: e.error });
+            }
+        }
+        if (Array.isArray(d.credentials)) allCreds.push(...d.credentials);
+    }
+    if (typeof onProgress === "function") {
+        onProgress({ done: rows.length, total: rows.length });
+    }
+    return { created, errors: allErrors, credentials: allCreds };
+}
+
 /* ───── Bulk-select helper ─────
    Decorates an admin-table inside `container` with a leading checkbox
    column + a floating action bar. Rows must carry data-bulk-id="…".
@@ -1051,22 +1091,24 @@ function openBulkImportTeachers() {
     modalSaveCallback = async () => {
         if (parsedRows.length === 0) { showToast("No data to import", "warning"); return; }
         saveBtn.disabled = true;
-        saveBtn.textContent = "Importing…";
+        const resultDiv = document.getElementById("bulkResult");
         try {
-            const res = await apiFetch("/admin/csv-import/", {
-                method: "POST",
-                body: JSON.stringify({ type: "teachers", rows: parsedRows }),
+            const d = await chunkedImport({
+                type: "teachers",
+                rows: parsedRows,
+                onProgress: ({ done, total }) => {
+                    saveBtn.textContent = `Importing… ${done}/${total}`;
+                    resultDiv.innerHTML = `<p style="color:var(--text-light);">Imported ${done} of ${total}…</p>`;
+                },
             });
-            const d = await res.json();
-            const resultDiv = document.getElementById("bulkResult");
-            let html = `<div class="import-result ${d.errors?.length ? 'import-result-partial' : 'import-result-success'}">
-                <p><strong>${d.created || 0}</strong> teachers imported.</p>`;
-            if (d.errors?.length) {
+            let html = `<div class="import-result ${d.errors.length ? 'import-result-partial' : 'import-result-success'}">
+                <p><strong>${d.created}</strong> teachers imported.</p>`;
+            if (d.errors.length) {
                 html += `<p><strong>${d.errors.length}</strong> rows failed:</p>
-                <ul>${d.errors.slice(0, 10).map(e => `<li>Row ${e.row}: ${escHtml(e.error)}</li>`).join("")}</ul>`;
+                <ul>${d.errors.slice(0, 20).map(e => `<li>Row ${e.row}: ${escHtml(e.error)}</li>`).join("")}${d.errors.length > 20 ? `<li>… and ${d.errors.length - 20} more</li>` : ""}</ul>`;
             }
             html += '</div>';
-            if (d.credentials && d.credentials.length > 0) {
+            if (d.credentials.length > 0) {
                 html += `<button class="btn btn-primary" style="margin-top:12px;" onclick="downloadCredentials(window._bulkCredentials)">⬇ Download Credentials CSV</button>`;
                 window._bulkCredentials = d.credentials;
             }
@@ -1279,22 +1321,24 @@ function openBulkImportStudents() {
     modalSaveCallback = async () => {
         if (parsedRows.length === 0) { showToast("No data to import", "warning"); return; }
         saveBtn.disabled = true;
-        saveBtn.textContent = "Importing…";
+        const resultDiv = document.getElementById("bulkResult");
         try {
-            const res = await apiFetch("/admin/csv-import/", {
-                method: "POST",
-                body: JSON.stringify({ type: "students", rows: parsedRows }),
+            const d = await chunkedImport({
+                type: "students",
+                rows: parsedRows,
+                onProgress: ({ done, total }) => {
+                    saveBtn.textContent = `Importing… ${done}/${total}`;
+                    resultDiv.innerHTML = `<p style="color:var(--text-light);">Imported ${done} of ${total}…</p>`;
+                },
             });
-            const d = await res.json();
-            const resultDiv = document.getElementById("bulkResult");
-            let html = `<div class="import-result ${d.errors?.length ? 'import-result-partial' : 'import-result-success'}">
-                <p><strong>${d.created || 0}</strong> students imported.</p>`;
-            if (d.errors?.length) {
+            let html = `<div class="import-result ${d.errors.length ? 'import-result-partial' : 'import-result-success'}">
+                <p><strong>${d.created}</strong> students imported.</p>`;
+            if (d.errors.length) {
                 html += `<p><strong>${d.errors.length}</strong> rows failed:</p>
-                <ul>${d.errors.slice(0, 10).map(e => `<li>Row ${e.row}: ${escHtml(e.error)}</li>`).join("")}</ul>`;
+                <ul>${d.errors.slice(0, 20).map(e => `<li>Row ${e.row}: ${escHtml(e.error)}</li>`).join("")}${d.errors.length > 20 ? `<li>… and ${d.errors.length - 20} more</li>` : ""}</ul>`;
             }
             html += '</div>';
-            if (d.credentials && d.credentials.length > 0) {
+            if (d.credentials.length > 0) {
                 html += `<button class="btn btn-primary" style="margin-top:12px;" onclick="downloadCredentials(window._bulkCredentials)">⬇ Download Credentials CSV</button>`;
                 window._bulkCredentials = d.credentials;
             }
@@ -2221,27 +2265,29 @@ async function executeCSVImport() {
     if (csvParsedRows.length === 0) { showToast("No data to import", "warning"); return; }
     const importType = document.getElementById("csvType").value;
     const btn = document.getElementById("csvImportBtn");
+    const resultDiv = document.getElementById("csvResult");
     btn.disabled = true;
-    btn.textContent = "Importing…";
 
     try {
-        const res = await apiFetch("/admin/csv-import/", {
-            method: "POST",
-            body: JSON.stringify({ type: importType, rows: csvParsedRows }),
+        const d = await chunkedImport({
+            type: importType,
+            rows: csvParsedRows,
+            onProgress: ({ done, total }) => {
+                btn.textContent = `Importing… ${done}/${total}`;
+                resultDiv.innerHTML = `<p style="color:var(--text-light);">Imported ${done} of ${total}…</p>`;
+            },
         });
-        const d = await res.json();
-        const resultDiv = document.getElementById("csvResult");
         let resultHtml = `
-            <div class="import-result ${d.errors && d.errors.length ? "import-result-partial" : "import-result-success"}">
-                <p><strong>${d.created || 0}</strong> rows imported successfully.</p>
-                ${d.errors && d.errors.length ? `
+            <div class="import-result ${d.errors.length ? "import-result-partial" : "import-result-success"}">
+                <p><strong>${d.created}</strong> rows imported successfully.</p>
+                ${d.errors.length ? `
                 <p><strong>${d.errors.length}</strong> rows failed:</p>
                 <ul>${d.errors.slice(0, 20).map(e => `<li>Row ${e.row}: ${escHtml(e.error)}</li>`).join("")}
                 ${d.errors.length > 20 ? `<li>… and ${d.errors.length - 20} more errors</li>` : ""}
                 </ul>` : ""}
             </div>
         `;
-        if (d.credentials && d.credentials.length > 0) {
+        if (d.credentials.length > 0) {
             resultHtml += `<button class="btn btn-primary" style="margin-top:12px;" onclick="downloadCredentials(window._bulkCredentials)">⬇ Download Credentials CSV</button>`;
             window._bulkCredentials = d.credentials;
         }
@@ -2250,7 +2296,7 @@ async function executeCSVImport() {
             showToast(`${d.created} rows imported`, "success");
             if (importType === "students") cachedStudents = null;
         }
-        if (d.errors && d.errors.length) showToast(`${d.errors.length} rows failed`, "warning");
+        if (d.errors.length) showToast(`${d.errors.length} rows failed`, "warning");
     } catch (err) {
         showToast("Import failed: " + err.message, "error");
     } finally {
