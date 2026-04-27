@@ -1171,9 +1171,15 @@ async function loadStudents(container) {
 }
 
 async function openDedupeStudents() {
+    console.log("[dedupe] click");
+    showToast("Scanning for duplicates…", "info");
     const overlay = document.getElementById("adminModal");
+    if (!overlay) {
+        showToast("Admin modal not found on page", "error");
+        return;
+    }
     document.getElementById("adminModalTitle").textContent = "Remove Duplicate Students";
-    document.getElementById("adminModalBody").innerHTML = '<p class="loading">Scanning…</p>';
+    document.getElementById("adminModalBody").innerHTML = '<p class="loading">Scanning… (this can take up to 30 s on the first request after the backend wakes up)</p>';
     overlay.style.display = "flex";
     overlay.onclick = (e) => { if (e.target === overlay) closeAdminModal(); };
     const saveBtn = document.getElementById("adminModalSave");
@@ -1183,9 +1189,17 @@ async function openDedupeStudents() {
     let preview = null;
     try {
         const res = await apiFetch("/admin/dedupe-students/");
+        if (!res.ok) {
+            const txt = await res.text().catch(() => "");
+            document.getElementById("adminModalBody").innerHTML =
+                `<p class="empty-state">Scan failed (HTTP ${res.status}). ${escHtml(txt.slice(0, 200))}</p>`;
+            showToast(`Scan failed: HTTP ${res.status}`, "error");
+            return;
+        }
         preview = await res.json();
     } catch (err) {
         document.getElementById("adminModalBody").innerHTML = `<p class="empty-state">Failed to scan: ${escHtml(err.message)}</p>`;
+        showToast("Scan failed: " + err.message, "error");
         return;
     }
 
@@ -1193,6 +1207,7 @@ async function openDedupeStudents() {
     const total = preview.duplicate_count || 0;
     if (groups.length === 0) {
         document.getElementById("adminModalBody").innerHTML = '<p class="empty-state">No duplicates found.</p>';
+        showToast("No duplicates found", "success");
         return;
     }
 
