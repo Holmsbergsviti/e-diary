@@ -98,6 +98,96 @@ function bindAdminTabs() {
     });
 }
 
+/* ───── Bulk-select helper ─────
+   Decorates an admin-table inside `container` with a leading checkbox
+   column + a floating action bar. Rows must carry data-bulk-id="…".
+   `deleteOne(rowEl)` is awaited per selected row. */
+function installBulkSelect(container, { label = "items", deleteOne, onDone }) {
+    const table = container.querySelector("table.admin-table");
+    if (!table) return;
+    const headRow = table.querySelector("thead tr");
+    const bodyRows = table.querySelectorAll("tbody tr[data-bulk-id]");
+    if (!headRow || bodyRows.length === 0) return;
+
+    // Prepend master checkbox header
+    const masterTh = document.createElement("th");
+    masterTh.style.width = "32px";
+    masterTh.innerHTML = `<input type="checkbox" class="bulk-master" title="Select all">`;
+    headRow.insertBefore(masterTh, headRow.firstChild);
+
+    // Prepend per-row checkboxes
+    bodyRows.forEach(tr => {
+        const td = document.createElement("td");
+        td.innerHTML = `<input type="checkbox" class="bulk-row">`;
+        tr.insertBefore(td, tr.firstChild);
+    });
+
+    // Toolbar above table
+    const bar = document.createElement("div");
+    bar.className = "bulk-bar";
+    bar.style.cssText = "display:none;align-items:center;gap:10px;padding:8px 12px;margin:0 0 10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:8px;";
+    bar.innerHTML = `
+        <span class="bulk-bar-count" style="font-weight:600;color:#b91c1c;"></span>
+        <button class="btn btn-sm btn-danger bulk-delete-btn" type="button">Delete selected</button>
+        <button class="btn btn-sm btn-secondary bulk-clear-btn" type="button">Clear</button>
+    `;
+    table.parentNode.insertBefore(bar, table);
+
+    const countEl = bar.querySelector(".bulk-bar-count");
+    const master = headRow.querySelector(".bulk-master");
+    const rowBoxes = () => container.querySelectorAll("tbody tr[data-bulk-id] .bulk-row");
+
+    function refresh() {
+        const boxes = rowBoxes();
+        const checked = Array.from(boxes).filter(b => b.checked);
+        const n = checked.length;
+        bar.style.display = n > 0 ? "flex" : "none";
+        countEl.textContent = `${n} ${label} selected`;
+        master.checked = n > 0 && n === boxes.length;
+        master.indeterminate = n > 0 && n < boxes.length;
+    }
+
+    master.addEventListener("change", () => {
+        rowBoxes().forEach(b => { b.checked = master.checked; });
+        refresh();
+    });
+    container.addEventListener("change", e => {
+        if (e.target.classList && e.target.classList.contains("bulk-row")) refresh();
+    });
+    bar.querySelector(".bulk-clear-btn").addEventListener("click", () => {
+        rowBoxes().forEach(b => { b.checked = false; });
+        refresh();
+    });
+    bar.querySelector(".bulk-delete-btn").addEventListener("click", async () => {
+        const checked = Array.from(rowBoxes()).filter(b => b.checked);
+        if (checked.length === 0) return;
+        const ok = await showConfirm(
+            `Delete ${checked.length} ${label}? This cannot be undone.`,
+            { title: `Delete ${checked.length} ${label}`, confirmText: "Delete all" }
+        );
+        if (!ok) return;
+        const btn = bar.querySelector(".bulk-delete-btn");
+        btn.disabled = true;
+        btn.textContent = "Deleting…";
+        let ok_count = 0, fail_count = 0;
+        for (const box of checked) {
+            const tr = box.closest("tr");
+            try {
+                const res = await deleteOne(tr);
+                if (res === false) fail_count++;
+                else ok_count++;
+            } catch (err) {
+                fail_count++;
+            }
+        }
+        if (ok_count > 0) showToast(`${ok_count} ${label} deleted${fail_count ? `, ${fail_count} failed` : ""}`, fail_count ? "warning" : "success");
+        else if (fail_count > 0) showToast(`Failed to delete ${fail_count} ${label}`, "error");
+        if (typeof onDone === "function") await onDone();
+    });
+
+    refresh();
+}
+
 /* ───── Cache helpers ───── */
 function _byPersonName(a, b) {
     return (`${a.surname || ''} ${a.name || ''}`)
@@ -647,7 +737,7 @@ async function loadClasses(container) {
         <table class="admin-table">
             <thead><tr><th>Class Name</th><th>Year Level</th><th>Actions</th></tr></thead>
             <tbody>${classes.map(c => `
-                <tr>
+                <tr data-bulk-id="${c.id}">
                     <td>${escHtml(c.class_name)}</td>
                     <td>${c.grade_level}</td>
                     <td class="admin-actions">
@@ -658,6 +748,15 @@ async function loadClasses(container) {
             `).join("")}</tbody>
         </table>`}
     `;
+    installBulkSelect(container, {
+        label: "classes",
+        deleteOne: async (tr) => {
+            const id = tr.dataset.bulkId;
+            const res = await apiFetch(`/admin/classes/detail/?id=${id}`, { method: "DELETE" });
+            return res.ok;
+        },
+        onDone: () => loadSection("classes"),
+    });
 }
 
 function openAddClass() {
@@ -741,7 +840,7 @@ async function loadSubjects(container) {
         <table class="admin-table">
             <thead><tr><th>Subject Name</th><th>Color</th><th>Actions</th></tr></thead>
             <tbody>${subjects.map(s => `
-                <tr>
+                <tr data-bulk-id="${s.id}">
                     <td>${escHtml(s.name)}</td>
                     <td>${s.color_code ? `<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${s.color_code};vertical-align:middle;"></span> ${escHtml(s.color_code)}` : "—"}</td>
                     <td class="admin-actions">
@@ -752,6 +851,15 @@ async function loadSubjects(container) {
             `).join("")}</tbody>
         </table>`}
     `;
+    installBulkSelect(container, {
+        label: "subjects",
+        deleteOne: async (tr) => {
+            const id = tr.dataset.bulkId;
+            const res = await apiFetch(`/admin/subjects/detail/?id=${id}`, { method: "DELETE" });
+            return res.ok;
+        },
+        onDone: () => loadSection("subjects"),
+    });
 }
 
 function openAddSubject() {
@@ -814,7 +922,7 @@ async function loadTeachers(container) {
         <table class="admin-table">
             <thead><tr><th>Name</th><th>Class Teacher</th><th>Default Password</th><th>Actions</th></tr></thead>
             <tbody>${teachers.map(t => `
-                <tr>
+                <tr data-bulk-id="${t.id}">
                     <td>${studentAvatarHtml(t)}${escHtml(t.surname)} ${escHtml(t.name)}</td>
                     <td>${t.is_class_teacher
                         ? `✓ ${escHtml(t.class_teacher_class_name || "")} <button class="btn btn-sm btn-secondary" style="margin-left:6px;" onclick="downloadClassCredentials('${t.class_teacher_of_class_id}','${escHtml(t.class_teacher_class_name || "")}')" title="Download login letters for parents">📄 Credentials</button>`
@@ -829,6 +937,15 @@ async function loadTeachers(container) {
             `).join("")}</tbody>
         </table>`}
     `;
+    installBulkSelect(container, {
+        label: "teachers",
+        deleteOne: async (tr) => {
+            const id = tr.dataset.bulkId;
+            const res = await apiFetch(`/admin/users/detail/?id=${id}&role=teacher`, { method: "DELETE" });
+            return res.ok;
+        },
+        onDone: () => loadSection("teachers"),
+    });
 }
 
 function openAddTeacher() {
@@ -978,6 +1095,7 @@ async function loadStudents(container) {
         <div class="admin-section-header">
             <h3>Students</h3>
             <div class="section-header-actions">
+                <button class="btn btn-secondary btn-sm" onclick="openDedupeStudents()" title="Find and remove duplicate students">🧹 Remove Duplicates</button>
                 <button class="btn btn-secondary btn-sm" onclick="openBulkImportStudents()">⬆ Bulk Import</button>
                 <button class="btn btn-primary btn-sm" onclick="openAddStudent()">+ Add Student</button>
             </div>
@@ -986,7 +1104,7 @@ async function loadStudents(container) {
         <table class="admin-table">
             <thead><tr><th>Name</th><th>Class</th><th>Default Password</th><th>Actions</th></tr></thead>
             <tbody>${students.map(s => `
-                <tr>
+                <tr data-bulk-id="${s.id}">
                     <td>${studentAvatarHtml(s)}${escHtml(s.surname)} ${escHtml(s.name)}</td>
                     <td>${escHtml(s.class_name || "—")}</td>
                     <td>${s.default_password ? `<code class="default-pw pw-hidden" onclick="this.classList.toggle('pw-hidden')" title="Click to reveal">${escHtml(s.default_password)}</code>` : '<span style="color:#94a3b8;">—</span>'}</td>
@@ -999,6 +1117,80 @@ async function loadStudents(container) {
             `).join("")}</tbody>
         </table>`}
     `;
+    installBulkSelect(container, {
+        label: "students",
+        deleteOne: async (tr) => {
+            const id = tr.dataset.bulkId;
+            const res = await apiFetch(`/admin/users/detail/?id=${id}&role=student`, { method: "DELETE" });
+            return res.ok;
+        },
+        onDone: () => loadSection("students"),
+    });
+}
+
+async function openDedupeStudents() {
+    const overlay = document.getElementById("adminModal");
+    document.getElementById("adminModalTitle").textContent = "Remove Duplicate Students";
+    document.getElementById("adminModalBody").innerHTML = '<p class="loading">Scanning…</p>';
+    overlay.style.display = "flex";
+    overlay.onclick = (e) => { if (e.target === overlay) closeAdminModal(); };
+    const saveBtn = document.getElementById("adminModalSave");
+    saveBtn.textContent = "Delete duplicates";
+    saveBtn.disabled = true;
+
+    let preview = null;
+    try {
+        const res = await apiFetch("/admin/dedupe-students/");
+        preview = await res.json();
+    } catch (err) {
+        document.getElementById("adminModalBody").innerHTML = `<p class="empty-state">Failed to scan: ${escHtml(err.message)}</p>`;
+        return;
+    }
+
+    const groups = preview.groups || [];
+    const total = preview.duplicate_count || 0;
+    if (groups.length === 0) {
+        document.getElementById("adminModalBody").innerHTML = '<p class="empty-state">No duplicates found.</p>';
+        return;
+    }
+
+    document.getElementById("adminModalBody").innerHTML = `
+        <p style="margin-bottom:10px;">Found <strong>${groups.length}</strong> name+class groups with duplicates. <strong>${total}</strong> rows will be deleted (oldest record kept in each group).</p>
+        <table class="admin-table" style="font-size:0.85rem;">
+            <thead><tr><th>Name</th><th>Class</th><th>Total rows</th><th>Will delete</th></tr></thead>
+            <tbody>
+                ${groups.map(g => `<tr>
+                    <td>${escHtml(g.surname || "")} ${escHtml(g.name || "")}</td>
+                    <td>${escHtml(g.class_name || "—")}</td>
+                    <td>${g.count}</td>
+                    <td>${g.duplicate_ids.length}</td>
+                </tr>`).join("")}
+            </tbody>
+        </table>
+    `;
+    saveBtn.disabled = false;
+
+    modalSaveCallback = async () => {
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Deleting…";
+        try {
+            const res = await apiFetch("/admin/dedupe-students/", { method: "POST" });
+            const d = await res.json();
+            showToast(`${d.deleted || 0} duplicates removed`, "success");
+            cachedStudents = null;
+            closeAdminModal();
+            await loadSection("students");
+        } catch (err) {
+            showToast("Dedupe failed: " + err.message, "error");
+        } finally {
+            saveBtn.textContent = "Delete duplicates";
+            saveBtn.disabled = false;
+        }
+    };
+    saveBtn.onclick = async () => {
+        try { await modalSaveCallback(); }
+        catch (err) { showToast(err.message || "Error", "error"); }
+    };
 }
 
 function openAddStudent() {

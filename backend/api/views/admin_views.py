@@ -38,6 +38,7 @@ __all__ = [
     "admin_holidays", "admin_holiday_detail",
     "admin_attendance_flags", "admin_student_lookup",
     "admin_class_credentials",
+    "admin_dedupe_students",
 ]
 
 
@@ -1600,3 +1601,88 @@ def admin_class_credentials(request):
     resp = HttpResponse(content, content_type="text/plain; charset=utf-8")
     resp["Content-Disposition"] = f'attachment; filename="{filename}"'
     return resp
+
+
+# ------------------------------------------------------------------
+# Admin: dedupe students (preview + delete)
+# ------------------------------------------------------------------
+
+@csrf_exempt
+def admin_dedupe_students(request):
+    """
+    GET  → preview groups of students that share name+surname (and class
+           when both rows have one).
+    POST → delete every duplicate row except the oldest in each group
+           (keeps id with the smallest created_at if available, else
+           lexicographically smallest id).
+    """
+    payload = _require_admin(request)
+    if not payload:
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+    if not _admin_has_perm(payload, "students"):
+        return JsonResponse({"message": "No permission"}, status=403)
+
+    db = ediary()
+    rows = (
+        db.table("students")
+        .select("id, name, surname, class_id, created_at")
+        .execute()
+    ).data or []
+
+    classes = db.table("classes").select("id, class_name").execute().data or []
+    cls_map = {c["id"]: c["class_name"] for c in classes}
+
+    # Group by (lower name, lower surname, class_id)
+    groups = {}
+    for r in rows:
+        key = (
+            (r.get("name") or "").strip().lower(),
+            (r.get("surname") or "").strip().lower(),
+            r.get("class_id") or "",
+        )
+        groups.setdefault(key, []).append(r)
+
+    dup_groups = []
+    deletable_ids = []
+    for key, members in groups.items():
+        if len(members) < 2:
+            continue
+        # Keep oldest (smallest created_at, falling back to id)
+        members.sort(key=lambda x: (x.get("created_at") or "", x.get("id") or ""))
+        keep = members[0]
+        rest = members[1:]
+        dup_groups.append({
+            "name": keep.get("name", ""),
+            "surname": keep.get("surname", ""),
+            "class_name": cls_map.get(keep.get("class_id"), ""),
+            "kept_id": keep.get("id"),
+            "duplicate_ids": [m["id"] for m in rest],
+            "count": len(members),
+        })
+        deletable_ids.extend(m["id"] for m in rest)
+
+    if request.method == "GET":
+        return JsonResponse({
+            "groups": dup_groups,
+            "duplicate_count": len(deletable_ids),
+        })
+
+    if request.method == "POST":
+        if not deletable_ids:
+            return JsonResponse({"deleted": 0, "groups": []})
+        deleted = 0
+        for uid in deletable_ids:
+            try:
+                # Remove DB row first (cascades may handle related data)
+                db.table("students").delete().eq("id", uid).execute()
+                deleted += 1
+                # Best-effort: also remove the auth user
+                try:
+                    supabase_admin_auth.auth.admin.delete_user(uid)
+                except Exception:
+                    pass
+            except Exception:
+                continue
+        return JsonResponse({"deleted": deleted, "groups": dup_groups})
+
+    return JsonResponse({"message": "Method not allowed"}, status=405)
