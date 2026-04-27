@@ -1,4 +1,5 @@
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+const DAYS_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 const PERIOD_TIMES = [
     "08:30–09:10",   // Period 1
     "09:15–10:00",   // Period 2
@@ -240,7 +241,7 @@ function renderSchedule() {
         if (dayEvs.length > 0) {
             headerExtra += `<br><span class="schedule-event-badge" title="${dayEvs.map(e => e.title).join(', ')}">🎉 ${dayEvs.length === 1 ? escHtml(dayEvs[0].title) : dayEvs.length + " events"}</span>`;
         }
-        html += `<th${holiday ? ' class="schedule-holiday-col"' : ""}>${DAYS[d]}<br><small class="day-date">${shortDate(dayDate)}</small>${headerExtra}</th>`;
+        html += `<th${holiday ? ' class="schedule-holiday-col"' : ""}><span class="day-name-full">${DAYS[d]}</span><span class="day-name-short">${DAYS_SHORT[d]}</span><br><small class="day-date">${shortDate(dayDate)}</small>${headerExtra}</th>`;
     }
     html += "</tr></thead><tbody>";
 

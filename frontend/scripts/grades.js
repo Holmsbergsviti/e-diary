@@ -139,9 +139,9 @@ function renderGrades() {
                                 <tr>
                                     <td>${escHtml(g.assessment || "\u2013")}</td>
                                     <td><span class="grade-badge ${gradeClass(g.grade_code)}">${escHtml(g.grade_code || "\u2013")}</span></td>
-                                    <td>${g.percentage != null ? g.percentage + "%" : "\u2013"}</td>
+                                    <td class="${g.percentage != null ? '' : 'cell-empty'}">${g.percentage != null ? g.percentage + "%" : "\u2013"}</td>
                                     <td>${formatDate(g.date)}</td>
-                                    <td>${g.comment ? escHtml(g.comment) : "\u2013"}</td>
+                                    <td class="${g.comment ? '' : 'cell-empty'}">${g.comment ? escHtml(g.comment) : "\u2013"}</td>
                                 </tr>
                             `).join("")}
                         </tbody>
