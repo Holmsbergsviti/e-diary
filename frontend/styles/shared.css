@@ -2879,8 +2879,8 @@ tr:hover td {
     .grades-page tbody { display: block; width: 100%; }
     .grades-page tbody tr {
         display: grid;
-        grid-template-columns: 1fr auto auto;
-        column-gap: 10px;
+        grid-template-columns: minmax(0, 1fr) 78px 36px 52px;
+        column-gap: 6px;
         row-gap: 2px;
         align-items: center;
         padding: 8px 0;
@@ -2899,12 +2899,14 @@ tr:hover td {
         min-width: 0 !important;
         background: transparent !important;
     }
-    .grades-page tbody td.cell-empty { display: none; }
     .grades-page tbody td:nth-child(1) { font-weight: 600; grid-column: 1; grid-row: 1; }
-    .grades-page tbody td:nth-child(2) { grid-column: 2; grid-row: 1; text-align: center; }
-    .grades-page tbody td:nth-child(3) { grid-column: 3; grid-row: 1; text-align: right; font-size: 0.78rem; color: var(--text-light); white-space: nowrap; }
-    .grades-page tbody td:nth-child(4) { grid-column: 1; grid-row: 2; font-size: 0.72rem; color: var(--text-lighter); white-space: nowrap; }
-    .grades-page tbody td:nth-child(5) { grid-column: 2 / -1; grid-row: 2; font-size: 0.75rem; color: var(--text-light); font-style: italic; text-align: right; }
+    .grades-page tbody td:nth-child(4) { grid-column: 2; grid-row: 1; font-size: 0.7rem; color: var(--text-lighter); white-space: nowrap; text-align: right; }
+    .grades-page tbody td:nth-child(2) { grid-column: 3; grid-row: 1; text-align: center; }
+    .grades-page tbody td:nth-child(3) { grid-column: 4; grid-row: 1; text-align: right; font-size: 0.75rem; color: var(--text-light); white-space: nowrap; }
+    .grades-page tbody td:nth-child(5) { grid-column: 1 / -1; grid-row: 2; font-size: 0.75rem; color: var(--text-light); font-style: italic; }
+    /* Reserve space for empty %/grade cells so columns stay aligned, but fully hide empty comment row */
+    .grades-page tbody td:nth-child(3).cell-empty { display: block; visibility: hidden; }
+    .grades-page tbody td:nth-child(5).cell-empty { display: none; }
     .grades-page .grade-badge { width: 30px; height: 30px; line-height: 30px; font-size: 0.75rem; margin: 0 auto; }
     /* Marks table: horizontal scroll on mobile */
     .marks-page .card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
