@@ -414,6 +414,38 @@ def admin_users(request):
         if password and len(password) < 8:
             return JsonResponse({"message": "Password must be at least 8 characters"}, status=400)
 
+        # Duplicate-check before creating
+        if role == "student":
+            class_id_in = (data.get("class_id") or "").strip() or None
+            try:
+                dup_q = (
+                    db.table("students")
+                    .select("id")
+                    .ilike("name", name)
+                    .ilike("surname", surname)
+                )
+                if class_id_in:
+                    dup_q = dup_q.eq("class_id", class_id_in)
+                else:
+                    dup_q = dup_q.is_("class_id", "null")
+                if (dup_q.execute().data or []):
+                    return JsonResponse({"message": f"{name} {surname} already exists in that class"}, status=409)
+            except Exception:
+                pass
+        elif role == "teacher":
+            try:
+                dup = (
+                    db.table("teachers")
+                    .select("id")
+                    .ilike("name", name)
+                    .ilike("surname", surname)
+                    .execute()
+                ).data or []
+                if dup:
+                    return JsonResponse({"message": f"Teacher {name} {surname} already exists"}, status=409)
+            except Exception:
+                pass
+
         generated_password = None
         if role == "student":
             if not password:
@@ -901,9 +933,31 @@ def admin_csv_import(request):
     elif import_type in ("students", "teachers", "admins"):
         cls_map = {}
         existing_emails = set()
+        existing_students = set()  # (lower-name, lower-surname, class_id)
+        existing_teachers = set()  # (lower-name, lower-surname)
         if import_type == "students":
             classes = db.table("classes").select("id, class_name").execute()
             cls_map = {c["class_name"]: c["id"] for c in (classes.data or [])}
+            try:
+                existing = db.table("students").select("name, surname, class_id").execute().data or []
+                for s in existing:
+                    existing_students.add((
+                        (s.get("name") or "").strip().lower(),
+                        (s.get("surname") or "").strip().lower(),
+                        s.get("class_id") or "",
+                    ))
+            except Exception:
+                pass
+        elif import_type == "teachers":
+            try:
+                existing = db.table("teachers").select("name, surname").execute().data or []
+                for t in existing:
+                    existing_teachers.add((
+                        (t.get("name") or "").strip().lower(),
+                        (t.get("surname") or "").strip().lower(),
+                    ))
+            except Exception:
+                pass
 
         credentials = []
 
@@ -926,6 +980,17 @@ def admin_csv_import(request):
                 if class_id is None:
                     errors.append({"row": i + 1, "error": f"unknown class '{class_name}' for {name} {surname}"})
                     continue
+                key = (name.lower(), surname.lower(), class_id)
+                if key in existing_students:
+                    errors.append({"row": i + 1, "error": f"duplicate: {name} {surname} already in {class_name}"})
+                    continue
+                existing_students.add(key)
+            elif import_type == "teachers":
+                key = (name.lower(), surname.lower())
+                if key in existing_teachers:
+                    errors.append({"row": i + 1, "error": f"duplicate: teacher {name} {surname} already exists"})
+                    continue
+                existing_teachers.add(key)
 
             generated_password = None
             if import_type == "students":
