@@ -378,6 +378,10 @@ def admin_users(request):
             admins_list = [a for a in admins_list if a.get("admin_level") != "super" and not _is_super_admin_id(a["id"])]
             if caller_level != "super":
                 admins_list = [a for a in admins_list if not _is_master_admin_id(a["id"])]
+            # Hide the caller from their own admins list
+            caller_id = payload.get("sub")
+            if caller_id:
+                admins_list = [a for a in admins_list if a.get("id") != caller_id]
             for a in admins_list:
                 try:
                     auth_u = supabase_admin_auth.auth.admin.get_user_by_id(a["id"])
@@ -1729,6 +1733,18 @@ def admin_dedupe_students(request):
         .execute()
     ).data or []
 
+    # Exclude admin and teacher ids — they may share the id space with
+    # the students table and must never be touched by a student dedupe.
+    try:
+        admin_ids = {a["id"] for a in (db.table("admins").select("id").execute().data or [])}
+    except Exception:
+        admin_ids = set()
+    try:
+        teacher_ids = {t["id"] for t in (db.table("teachers").select("id").execute().data or [])}
+    except Exception:
+        teacher_ids = set()
+    rows = [r for r in rows if r.get("id") not in admin_ids and r.get("id") not in teacher_ids]
+
     classes = db.table("classes").select("id, class_name").execute().data or []
     cls_map = {c["id"]: c["class_name"] for c in classes}
 
@@ -1787,6 +1803,8 @@ def admin_dedupe_students(request):
 
         if not ids:
             return JsonResponse({"deleted": 0, "groups": [], "remaining": len(deletable_ids)})
+        # Hard safeguard: never delete admin or teacher accounts here.
+        ids = [i for i in ids if i not in admin_ids and i not in teacher_ids]
         deleted = 0
         for uid in ids:
             try:
