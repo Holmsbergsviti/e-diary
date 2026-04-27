@@ -1227,12 +1227,17 @@ async function openDedupeStudents() {
     `;
     saveBtn.disabled = false;
 
-    modalSaveCallback = async () => {
-        saveBtn.disabled = true;
+    // Bind directly so we don't share the openAdminModal save handler
+    // (which auto-resets the button text and could swallow our progress).
+    saveBtn.onclick = async (ev) => {
+        ev?.preventDefault?.();
+        ev?.stopPropagation?.();
+
         const ids = (preview && preview.duplicate_ids) || [];
         const total = ids.length;
         if (total === 0) { closeAdminModal(); return; }
 
+        saveBtn.disabled = true;
         const body = document.getElementById("adminModalBody");
         body.innerHTML = `
             <p style="margin-bottom:10px;font-weight:600;">Deleting duplicates…</p>
@@ -1275,7 +1280,8 @@ async function openDedupeStudents() {
         cachedStudents = null;
         saveBtn.textContent = "Close";
         saveBtn.disabled = false;
-        saveBtn.onclick = async () => {
+        saveBtn.onclick = async (e) => {
+            e?.preventDefault?.();
             closeAdminModal();
             await loadSection("students");
         };
