@@ -90,6 +90,12 @@ def admin_stats(request):
     students = db.table("students").select("id,class_id").execute().data or []
     admins_raw = db.table("admins").select("id").execute().data or []
 
+    # Match the Students-tab filter: any row that also lives in the admins
+    # table is an admin masquerading as a student row, so exclude it from
+    # the Students count to keep the Overview consistent with the list.
+    admin_id_set = {a["id"] for a in admins_raw}
+    students = [s for s in students if s["id"] not in admin_id_set]
+
     caller_level = _admin_level(payload)
     admins = [a for a in admins_raw if not _is_super_admin_id(a["id"])]
     if caller_level != "super":
