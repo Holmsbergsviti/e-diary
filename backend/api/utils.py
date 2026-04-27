@@ -241,42 +241,42 @@ def _admin_has_perm(payload, perm_key):
     return perms.get(perm_key, False)
 
 
-# Cache for super/master admin IDs (resolved once per process lifetime)
-_super_admin_id_cache = None
-_master_admin_id_cache = None
-
-
 def _is_super_admin_id(uid):
-    """Check if a user ID belongs to the super admin."""
-    global _super_admin_id_cache
-    if _super_admin_id_cache is None:
-        try:
-            from .supabase_client import supabase_admin_auth as _saa
-            users = _saa.auth.admin.list_users()
-            for u in users:
-                if u.email and u.email.lower() == SUPER_ADMIN_EMAIL:
-                    _super_admin_id_cache = str(u.id)
-                    break
-            if _super_admin_id_cache is None:
-                _super_admin_id_cache = ""
-        except Exception:
-            _super_admin_id_cache = ""
-    return uid == _super_admin_id_cache and _super_admin_id_cache != ""
+    """Any admin with admin_level == 'super' (or the legacy hard-coded
+    SUPER_ADMIN_EMAIL) is treated as a super-super admin."""
+    if not uid:
+        return False
+    try:
+        row = ediary().table("admins").select("admin_level").eq("id", uid).limit(1).execute()
+        if row.data and (row.data[0].get("admin_level") or "").lower() == "super":
+            return True
+    except Exception:
+        pass
+    try:
+        from .supabase_client import supabase_admin_auth as _saa
+        u = _saa.auth.admin.get_user_by_id(uid)
+        if u and u.user and (u.user.email or "").lower() == SUPER_ADMIN_EMAIL:
+            return True
+    except Exception:
+        pass
+    return False
 
 
 def _is_master_admin_id(uid):
-    """Check if a user ID belongs to the master admin."""
-    global _master_admin_id_cache
-    if _master_admin_id_cache is None:
-        try:
-            from .supabase_client import supabase_admin_auth as _saa
-            users = _saa.auth.admin.list_users()
-            for u in users:
-                if u.email and u.email.lower() == MASTER_ADMIN_EMAIL:
-                    _master_admin_id_cache = str(u.id)
-                    break
-            if _master_admin_id_cache is None:
-                _master_admin_id_cache = ""
-        except Exception:
-            _master_admin_id_cache = ""
-    return uid == _master_admin_id_cache and _master_admin_id_cache != ""
+    """Any admin with admin_level == 'master' (or MASTER_ADMIN_EMAIL)."""
+    if not uid:
+        return False
+    try:
+        row = ediary().table("admins").select("admin_level").eq("id", uid).limit(1).execute()
+        if row.data and (row.data[0].get("admin_level") or "").lower() == "master":
+            return True
+    except Exception:
+        pass
+    try:
+        from .supabase_client import supabase_admin_auth as _saa
+        u = _saa.auth.admin.get_user_by_id(uid)
+        if u and u.user and (u.user.email or "").lower() == MASTER_ADMIN_EMAIL:
+            return True
+    except Exception:
+        pass
+    return False
