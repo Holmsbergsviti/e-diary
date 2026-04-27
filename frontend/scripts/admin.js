@@ -1,4 +1,5 @@
-/* ===== Admin Panel – E-Diary ===== */
+// Chartwell E-Diary — Admin panel
+// Authors: Vladislav Salii, Stepan Atroshkin
 
 let currentSection = "overview";
 let cachedClasses = [];
@@ -277,6 +278,13 @@ function classOptions(selectedId) {
     return cachedClasses.map(c =>
         `<option value="${c.id}" ${c.id === selectedId ? "selected" : ""}>${escHtml(c.class_name)} (Year ${c.grade_level})</option>`
     ).join("");
+}
+function homeroomOptions(selectedId) {
+    const re = /^\d{1,2}[A-Za-z]$/;
+    return cachedClasses
+        .filter(c => re.test((c.class_name || "").trim()))
+        .map(c => `<option value="${c.id}" ${c.id === selectedId ? "selected" : ""}>${escHtml(c.class_name)} (Year ${c.grade_level})</option>`)
+        .join("");
 }
 function subjectOptions(selectedId) {
     return cachedSubjects.map(s =>
@@ -994,13 +1002,13 @@ function openAddTeacher() {
         <label>Surname <input class="form-input" id="mSurname" placeholder="Last name"></label>
         <label>Email <input class="form-input" id="mEmail" type="email" placeholder="Auto-generated if empty"></label>
         <label>Password <input class="form-input" id="mPassword" type="text" placeholder="Auto-generated if empty"></label>
-        <label><input type="checkbox" id="mIsClassTeacher"> Class Teacher</label>
-        <label>Class Teacher Of <select class="form-input" id="mClassTeacherOf"><option value="">— None —</option>${classOptions()}</select></label>
+        <label>Class Teacher Of <select class="form-input" id="mClassTeacherOf"><option value="">— None —</option>${homeroomOptions()}</select></label>
     `, async () => {
+        const ctClass = gv("mClassTeacherOf");
         const body = {
             role: "teacher", name: gv("mName"), surname: gv("mSurname"),
-            is_class_teacher: document.getElementById("mIsClassTeacher").checked,
-            class_teacher_of_class_id: gv("mClassTeacherOf"),
+            is_class_teacher: !!ctClass,
+            class_teacher_of_class_id: ctClass,
         };
         const email = gv("mEmail"); if (email) body.email = email;
         const pw = gv("mPassword"); if (pw) body.password = pw;
@@ -1024,13 +1032,13 @@ function editTeacher(t) {
         <label>Surname <input class="form-input" id="mSurname" value="${escHtml(t.surname)}"></label>
         <label>New Email <input class="form-input" id="mEmail" placeholder="Leave blank to keep"></label>
         <label>New Password <input class="form-input" id="mPassword" placeholder="Leave blank to keep"></label>
-        <label><input type="checkbox" id="mIsClassTeacher" ${t.is_class_teacher ? "checked" : ""}> Class Teacher</label>
-        <label>Class Teacher Of <select class="form-input" id="mClassTeacherOf"><option value="">— None —</option>${classOptions(t.class_teacher_of_class_id)}</select></label>
+        <label>Class Teacher Of <select class="form-input" id="mClassTeacherOf"><option value="">— None —</option>${homeroomOptions(t.class_teacher_of_class_id)}</select></label>
     `, async () => {
+        const ctClass = gv("mClassTeacherOf");
         const body = {
             id: t.id, role: "teacher", name: gv("mName"), surname: gv("mSurname"),
-            is_class_teacher: document.getElementById("mIsClassTeacher").checked,
-            class_teacher_of_class_id: gv("mClassTeacherOf"),
+            is_class_teacher: !!ctClass,
+            class_teacher_of_class_id: ctClass,
         };
         const email = gv("mEmail"); if (email) body.email = email;
         const pw = gv("mPassword"); if (pw) body.password = pw;
@@ -1227,11 +1235,15 @@ async function openDedupeStudents() {
             </tbody>
         </table>
     `;
-    saveBtn.disabled = false;
+    // Replace the Save button with a clone so any stale listeners
+    // (from a prior openAdminModal call) are detached cleanly.
+    const freshSave = saveBtn.cloneNode(true);
+    saveBtn.parentNode.replaceChild(freshSave, saveBtn);
+    const saveBtnRef = freshSave;
+    saveBtnRef.textContent = "Delete duplicates";
+    saveBtnRef.disabled = false;
 
-    // Bind directly so we don't share the openAdminModal save handler
-    // (which auto-resets the button text and could swallow our progress).
-    saveBtn.onclick = async (ev) => {
+    saveBtnRef.addEventListener("click", async (ev) => {
         ev?.preventDefault?.();
         ev?.stopPropagation?.();
         console.log("[dedupe] delete clicked", preview);
@@ -1243,7 +1255,7 @@ async function openDedupeStudents() {
             return;
         }
 
-        saveBtn.disabled = true;
+        saveBtnRef.disabled = true;
         const body = document.getElementById("adminModalBody");
         body.innerHTML = `
             <p style="margin-bottom:10px;font-weight:600;">Deleting duplicates…</p>
@@ -1265,7 +1277,7 @@ async function openDedupeStudents() {
         let remaining = total;
         const MAX_ROUNDS = Math.max(1, Math.ceil(total / 50) + 5);
         for (let round = 0; round < MAX_ROUNDS && remaining > 0; round++) {
-            saveBtn.textContent = `Deleting… ${totalDeleted}/${total}`;
+            saveBtnRef.textContent = `Deleting… ${totalDeleted}/${total}`;
             try {
                 const res = await apiFetch("/admin/dedupe-students/", {
                     method: "POST",
@@ -1305,18 +1317,16 @@ async function openDedupeStudents() {
             showToast("Dedupe failed — try again", "error");
         }
         cachedStudents = null;
-        saveBtn.textContent = "Close";
-        saveBtn.disabled = false;
-        saveBtn.onclick = async (e) => {
+        saveBtnRef.textContent = "Close";
+        saveBtnRef.disabled = false;
+        const closeAfter = async (e) => {
             e?.preventDefault?.();
             closeAdminModal();
             await loadSection("students");
         };
-    };
-    saveBtn.onclick = async () => {
-        try { await modalSaveCallback(); }
-        catch (err) { showToast(err.message || "Error", "error"); }
-    };
+        saveBtnRef.replaceWith(saveBtnRef.cloneNode(true));
+        document.getElementById("adminModalSave").addEventListener("click", closeAfter);
+    });
 }
 
 function openAddStudent() {

@@ -1,6 +1,5 @@
-/* ================================================================
-   teacher.js – Teacher dashboard: schedule + attendance
-   ================================================================ */
+// Chartwell E-Diary — Teacher dashboard
+// Authors: Vladislav Salii, Stepan Atroshkin
 
 const DAYS  = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const PERIOD_TIMES = [

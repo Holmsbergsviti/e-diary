@@ -1,4 +1,6 @@
-// Shared authentication utilities
+// Chartwell E-Diary — shared auth + API utilities
+// Authors: Vladislav Salii, Stepan Atroshkin
+
 const API_BASE = "https://e-diary-backend-qsly.onrender.com/api";
 
 // Swallow uncaught runtime errors so end-users don't see browser-level

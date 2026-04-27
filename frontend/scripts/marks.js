@@ -1,7 +1,5 @@
-/* ================================================================
-   marks.js – Teacher marks view: see, add, edit, delete grades
-   with category weights, term filtering, and predicted grades
-   ================================================================ */
+// Chartwell E-Diary — Teacher marks
+// Authors: Vladislav Salii, Stepan Atroshkin
 
 let allGroups = [];
 let activeGroupIdx = 0;

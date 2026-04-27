@@ -1,3 +1,5 @@
+# Chartwell E-Diary — admin API
+# Authors: Vladislav Salii, Stepan Atroshkin
 import json
 import csv
 import io

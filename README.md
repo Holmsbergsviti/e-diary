@@ -3,7 +3,8 @@
 </p>
 
 <h1 align="center">Chartwell E-Diary</h1>
-<p align="center"><strong>A full-stack school management system built as a personal project</strong></p>
+<p align="center"><strong>A full-stack school management system</strong></p>
+<p align="center"><em>by Vladislav Salii and Stepan Atroshkin</em></p>
 
 ## What this is
 
@@ -13,14 +14,12 @@ Chartwell E-Diary is a full-stack school platform with a separated frontend and 
 - **Backend:** Django API on Render
 - **Database/Auth/Storage:** Supabase
 
-The goal of the project was to build a system, not just a UI: role-based access, timetable management, attendance, grading, homework, reports, substitutes, study hall, events, and admin tooling.
+Role-based access, timetable management, attendance, grading, homework, reports, substitutes, study hall, events, admin tooling.
 
 ## Demo
 
 - Frontend: <https://chartwell-e-diary.netlify.app/>
 - Backend API: <https://e-diary-backend-qsly.onrender.com/api>
-
-> Demo video / screenshots are still missing and should be the next presentation upgrade.
 
 ## Core features
 
@@ -31,8 +30,6 @@ The goal of the project was to build a system, not just a UI: role-based access,
 - **UX polish:** toast notifications, styled confirmations, theme support, responsive layout
 
 ## Architecture
-
-This is the strongest part of the project and the README now puts it first:
 
 ```text
 Frontend (Netlify, vanilla JS)
@@ -88,9 +85,10 @@ Deploy or serve the `frontend/` folder and point `API_BASE` in the frontend scri
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — roles, features, security, data model, project structure
 - [docs/API.md](docs/API.md) — endpoint reference
 
-## Current codebase note
+## Authors
 
-The project has already started moving away from a single oversized API module. Auth and student endpoints now live in dedicated files, but the teacher/admin split is still incomplete and remains an obvious next refactor.
+- Vladislav Salii
+- Stepan Atroshkin
 
 ## License
 

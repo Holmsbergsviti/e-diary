@@ -1,3 +1,5 @@
+# Chartwell E-Diary — teacher API
+# Authors: Vladislav Salii, Stepan Atroshkin
 import json
 from datetime import datetime, timedelta
 
