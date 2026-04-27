@@ -206,15 +206,15 @@ async function loadOverview(container) {
         container.innerHTML = '<p class="empty-state">Could not load overview. The backend may still be deploying.</p>';
         return;
     }
+    const attRate = stats.att_rate_week == null ? "–" : `${stats.att_rate_week}%`;
     container.innerHTML = `
         <div class="admin-section-header"><h3>School Overview</h3></div>
         <div class="stats-grid">
             <div class="stat-card"><div class="stat-number">${stats.total_classes || 0}</div><div class="stat-label">Classes</div></div>
-            <div class="stat-card"><div class="stat-number">${stats.total_subjects || 0}</div><div class="stat-label">Subjects</div></div>
             <div class="stat-card"><div class="stat-number">${stats.total_teachers || 0}</div><div class="stat-label">Teachers</div></div>
             <div class="stat-card"><div class="stat-number">${stats.total_students || 0}</div><div class="stat-label">Students</div></div>
-            <div class="stat-card"><div class="stat-number">${stats.total_admins || 0}</div><div class="stat-label">Admins</div></div>
-            <div class="stat-card"><div class="stat-number">${stats.total_schedule_slots || 0}</div><div class="stat-label">Schedule Slots</div></div>
+            <div class="stat-card"><div class="stat-number">${attRate}</div><div class="stat-label">Attendance This Week</div></div>
+            <div class="stat-card"><div class="stat-number">${stats.pending_events_week || 0}</div><div class="stat-label">Events This Week</div></div>
         </div>
     `;
 }

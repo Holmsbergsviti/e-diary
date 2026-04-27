@@ -112,6 +112,40 @@ def admin_stats(request):
             "student_count": class_student_count.get(c["id"], 0),
         })
 
+    # ── Attendance rate this week (Mon → today) ──
+    today = _date.today()
+    week_start = today - timedelta(days=today.weekday())  # Monday
+    att_rate_week = None
+    try:
+        att_rows = (
+            db.table("attendance")
+            .select("status,date_recorded")
+            .gte("date_recorded", week_start.isoformat())
+            .lte("date_recorded", today.isoformat())
+            .execute()
+        ).data or []
+        total = len(att_rows)
+        attended = sum(1 for a in att_rows if a.get("status") in ("Present", "Late"))
+        if total > 0:
+            att_rate_week = round((attended / total) * 100, 1)
+    except Exception:
+        att_rate_week = None
+
+    # ── Pending events: today through next 7 days ──
+    week_ahead = today + timedelta(days=7)
+    pending_events = 0
+    try:
+        ev_rows = (
+            db.table("events")
+            .select("id,event_date,event_end_date")
+            .gte("event_date", today.isoformat())
+            .lte("event_date", week_ahead.isoformat())
+            .execute()
+        ).data or []
+        pending_events = len(ev_rows)
+    except Exception:
+        pending_events = 0
+
     return JsonResponse({
         "total_classes": len(classes),
         "total_subjects": len(subjects),
@@ -122,6 +156,8 @@ def admin_stats(request):
         "total_enrollments": len(enrollments),
         "total_schedule_slots": len(schedule_slots),
         "classes_breakdown": classes_breakdown,
+        "att_rate_week": att_rate_week,
+        "pending_events_week": pending_events,
     })
 
 
