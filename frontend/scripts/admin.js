@@ -1233,6 +1233,17 @@ async function openDedupeStudents() {
         const total = ids.length;
         if (total === 0) { closeAdminModal(); return; }
 
+        const body = document.getElementById("adminModalBody");
+        body.innerHTML = `
+            <p style="margin-bottom:10px;font-weight:600;">Deleting duplicates…</p>
+            <div class="dedupe-progress" style="background:rgba(148,163,184,0.15);border-radius:6px;height:14px;overflow:hidden;margin-bottom:8px;">
+                <div class="dedupe-progress-fill" style="background:var(--primary-blue,#2563eb);height:100%;width:0%;transition:width 0.25s ease;"></div>
+            </div>
+            <p class="dedupe-progress-text" style="font-size:0.9rem;color:var(--text-light);">0 of ${total} removed…</p>
+        `;
+        const fillEl = body.querySelector(".dedupe-progress-fill");
+        const textEl = body.querySelector(".dedupe-progress-text");
+
         const CHUNK = 30;
         let totalDeleted = 0;
         let chunkErrors = 0;
@@ -1249,7 +1260,12 @@ async function openDedupeStudents() {
             } catch (err) {
                 chunkErrors++;
             }
+            const pct = Math.min(100, Math.round((totalDeleted / total) * 100));
+            if (fillEl) fillEl.style.width = pct + "%";
+            if (textEl) textEl.textContent = `${totalDeleted} of ${total} removed${chunkErrors ? ` · ${chunkErrors} batches failed` : ""}`;
         }
+        if (textEl) textEl.textContent = `Done — ${totalDeleted} of ${total} removed${chunkErrors ? `, ${chunkErrors} batches failed` : ""}.`;
+        if (fillEl) fillEl.style.width = "100%";
         if (totalDeleted > 0) {
             showToast(`${totalDeleted} duplicates removed${chunkErrors ? ` (${chunkErrors} batches failed)` : ""}`,
                 chunkErrors ? "warning" : "success");
@@ -1257,10 +1273,12 @@ async function openDedupeStudents() {
             showToast("Dedupe failed for all batches — try again", "error");
         }
         cachedStudents = null;
-        saveBtn.textContent = "Delete duplicates";
+        saveBtn.textContent = "Close";
         saveBtn.disabled = false;
-        closeAdminModal();
-        await loadSection("students");
+        saveBtn.onclick = async () => {
+            closeAdminModal();
+            await loadSection("students");
+        };
     };
     saveBtn.onclick = async () => {
         try { await modalSaveCallback(); }
