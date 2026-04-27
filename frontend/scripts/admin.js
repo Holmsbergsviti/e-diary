@@ -1214,20 +1214,38 @@ async function openDedupeStudents() {
 
     modalSaveCallback = async () => {
         saveBtn.disabled = true;
-        saveBtn.textContent = "Deleting…";
-        try {
-            const res = await apiFetch("/admin/dedupe-students/", { method: "POST" });
-            const d = await res.json();
-            showToast(`${d.deleted || 0} duplicates removed`, "success");
-            cachedStudents = null;
-            closeAdminModal();
-            await loadSection("students");
-        } catch (err) {
-            showToast("Dedupe failed: " + err.message, "error");
-        } finally {
-            saveBtn.textContent = "Delete duplicates";
-            saveBtn.disabled = false;
+        const ids = (preview && preview.duplicate_ids) || [];
+        const total = ids.length;
+        if (total === 0) { closeAdminModal(); return; }
+
+        const CHUNK = 30;
+        let totalDeleted = 0;
+        let chunkErrors = 0;
+        for (let i = 0; i < ids.length; i += CHUNK) {
+            const slice = ids.slice(i, i + CHUNK);
+            saveBtn.textContent = `Deleting… ${Math.min(i + slice.length, total)}/${total}`;
+            try {
+                const res = await apiFetch("/admin/dedupe-students/", {
+                    method: "POST",
+                    body: JSON.stringify({ ids: slice }),
+                });
+                const d = await res.json();
+                totalDeleted += d.deleted || 0;
+            } catch (err) {
+                chunkErrors++;
+            }
         }
+        if (totalDeleted > 0) {
+            showToast(`${totalDeleted} duplicates removed${chunkErrors ? ` (${chunkErrors} batches failed)` : ""}`,
+                chunkErrors ? "warning" : "success");
+        } else if (chunkErrors > 0) {
+            showToast("Dedupe failed for all batches — try again", "error");
+        }
+        cachedStudents = null;
+        saveBtn.textContent = "Delete duplicates";
+        saveBtn.disabled = false;
+        closeAdminModal();
+        await loadSection("students");
     };
     saveBtn.onclick = async () => {
         try { await modalSaveCallback(); }

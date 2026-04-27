@@ -1,6 +1,18 @@
 // Shared authentication utilities
 const API_BASE = "https://e-diary-backend-qsly.onrender.com/api";
 
+// Swallow uncaught runtime errors so end-users don't see browser-level
+// "Script error" alerts or debugger overlays. Errors still hit the
+// console for diagnosis but don't bubble up as a UI disruption.
+window.addEventListener("unhandledrejection", (e) => {
+    console.error("[unhandled rejection]", e.reason);
+    e.preventDefault();
+});
+window.addEventListener("error", (e) => {
+    console.error("[uncaught error]", e.error || e.message);
+    e.preventDefault();
+});
+
 function getToken() {
     return localStorage.getItem("token");
 }

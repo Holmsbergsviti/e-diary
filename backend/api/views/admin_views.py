@@ -1763,24 +1763,43 @@ def admin_dedupe_students(request):
         return JsonResponse({
             "groups": dup_groups,
             "duplicate_count": len(deletable_ids),
+            "duplicate_ids": deletable_ids,
         })
 
     if request.method == "POST":
-        if not deletable_ids:
-            return JsonResponse({"deleted": 0, "groups": []})
+        # Caller may supply a chunk of ids to delete; otherwise delete all
+        # detected duplicates. Either way, never let the request run away:
+        # cap one POST at 50 ids so the response always returns under
+        # Render's per-request timeout.
+        body = {}
+        try:
+            body = json.loads(request.body or "{}")
+        except Exception:
+            body = {}
+        ids = body.get("ids")
+        if ids is None:
+            ids = deletable_ids
+        else:
+            ids = [i for i in ids if i in set(deletable_ids)]
+        ids = ids[:50]
+
+        if not ids:
+            return JsonResponse({"deleted": 0, "groups": [], "remaining": len(deletable_ids)})
         deleted = 0
-        for uid in deletable_ids:
+        for uid in ids:
             try:
-                # Remove DB row first (cascades may handle related data)
                 db.table("students").delete().eq("id", uid).execute()
                 deleted += 1
-                # Best-effort: also remove the auth user
                 try:
                     supabase_admin_auth.auth.admin.delete_user(uid)
                 except Exception:
                     pass
             except Exception:
                 continue
-        return JsonResponse({"deleted": deleted, "groups": dup_groups})
+        return JsonResponse({
+            "deleted": deleted,
+            "groups": dup_groups,
+            "remaining": max(0, len(deletable_ids) - deleted),
+        })
 
     return JsonResponse({"message": "Method not allowed"}, status=405)
