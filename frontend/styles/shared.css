@@ -2868,11 +2868,37 @@ tr:hover td {
     /* Form inputs: better touch targets */
     .form-input, .status-select, .comment-input { min-height: 44px; padding: 12px 14px; font-size: 16px; }
     .attendance-date-row input[type="date"] { min-height: 44px; padding: 10px 14px; }
-    /* Grades table: horizontal scroll on mobile */
-    .grades-page table { font-size: 0.78rem; display: table; overflow-x: visible; }
-    .grades-page .card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .grades-page th, .grades-page td { padding: 8px 6px; white-space: nowrap; }
-    .grades-page .grade-badge { width: 32px; height: 32px; line-height: 32px; font-size: 0.78rem; }
+    /* Grades table: stacked rows on mobile so comment is visible without scroll */
+    .grades-page .card { overflow-x: visible; }
+    .grades-page table { font-size: 0.82rem; table-layout: auto; width: 100%; display: block; }
+    .grades-page thead { display: none; }
+    .grades-page tbody { display: block; width: 100%; }
+    .grades-page tbody tr {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        column-gap: 10px;
+        row-gap: 2px;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(var(--primary-blue-rgb), 0.08);
+    }
+    .grades-page tbody tr:last-child { border-bottom: none; }
+    .grades-page tbody td {
+        display: block;
+        padding: 0;
+        border: none;
+        text-align: left;
+        white-space: normal;
+        word-break: break-word;
+        width: auto !important;
+        min-width: 0 !important;
+    }
+    .grades-page tbody td:nth-child(1) { font-weight: 600; grid-column: 1; grid-row: 1; }
+    .grades-page tbody td:nth-child(2) { grid-column: 2; grid-row: 1; text-align: center; }
+    .grades-page tbody td:nth-child(3) { grid-column: 3; grid-row: 1; text-align: right; font-size: 0.78rem; color: var(--text-light); min-width: 36px !important; }
+    .grades-page tbody td:nth-child(4) { grid-column: 1 / -1; grid-row: 2; font-size: 0.72rem; color: var(--text-lighter); }
+    .grades-page tbody td:nth-child(5) { grid-column: 1 / -1; grid-row: 3; font-size: 0.78rem; color: var(--text-light); font-style: italic; }
+    .grades-page .grade-badge { width: 32px; height: 32px; line-height: 32px; font-size: 0.78rem; margin: 0 auto; }
     /* Marks table: horizontal scroll on mobile */
     .marks-page .card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .marks-page table { font-size: 0.78rem; display: table; min-width: 500px; }
@@ -2941,9 +2967,10 @@ tr:hover td {
     .palette-label { font-size: 0.78rem; }
     /* Dashboard cards stacking */
     .dashboard-page .card { margin-bottom: 10px; }
-    /* Term filter buttons */
-    .term-filter { flex-wrap: wrap; gap: 6px; }
-    .term-btn { padding: 8px 14px; font-size: 0.82rem; }
+    /* Term filter buttons – keep on one line */
+    .term-filter { flex-wrap: nowrap; gap: 6px; }
+    .term-btn { padding: 8px 12px; font-size: 0.78rem; flex: 1 1 0; min-width: 0; white-space: nowrap; text-align: center; }
+    .term-btn small { display: none; }
 }
 
 /* ============================================================
@@ -3077,7 +3104,7 @@ tr:hover td {
     .marks-page th, .marks-page td { padding: 6px 6px; }
     .marks-page .grade-badge { width: 24px; height: 24px; line-height: 24px; font-size: 0.65rem; }
     .marks-page .add-grade-inline-btn { display: none; }
-    /* Schedule table - very compact with horizontal scroll */
+    /* Schedule table - subject only on phones, fits without horizontal scroll */
     .schedule-page .card {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
@@ -3086,18 +3113,24 @@ tr:hover td {
     }
     .schedule-page .timetable {
         display: table;
-        font-size: 0.65rem;
+        font-size: 0.62rem;
         min-width: 100%;
+        table-layout: fixed;
+        width: 100%;
     }
-    .timetable th,
-    .timetable td {
-        min-width: 60px;
-        padding: 6px 4px;
-        font-size: 0.65rem;
+    .schedule-page .timetable th,
+    .schedule-page .timetable td {
+        min-width: 0;
+        padding: 5px 2px;
+        font-size: 0.62rem;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        line-height: 1.15;
     }
     .schedule-page .timetable th:first-child,
     .schedule-page .timetable td:first-child {
-        min-width: 50px;
+        width: 38px;
+        min-width: 38px;
         position: sticky;
         left: 0;
         z-index: 10;
@@ -3106,9 +3139,13 @@ tr:hover td {
     .schedule-page .timetable th:first-child {
         background: var(--bg-table-header);
     }
-    .lesson-room {
-        font-size: 0.65rem;
-    }
+    .schedule-page .timetable td:first-child small { display: none; }
+    .schedule-page .timetable .lesson-room { display: none; }
+    .schedule-page .timetable .schedule-holiday-badge,
+    .schedule-page .timetable .schedule-event-badge { display: none; }
+    .schedule-page .timetable .sub-badge { display: none; }
+    .schedule-page .timetable .att-badge { font-size: 0.7rem; margin-left: 2px; }
+    .schedule-page .timetable .event-cell-icon { font-size: 0.7rem; }
     /* Grade badges - smaller but readable */
     .grade-item-name {
         font-size: 0.78rem;
