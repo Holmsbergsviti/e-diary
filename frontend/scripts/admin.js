@@ -1173,6 +1173,8 @@ async function loadStudents(container) {
 async function openDedupeStudents() {
     console.log("[dedupe] click");
     showToast("Scanning for duplicates…", "info");
+    // Defensive: stop any stale openAdminModal save handler from firing
+    modalSaveCallback = async () => {};
     const overlay = document.getElementById("adminModal");
     if (!overlay) {
         showToast("Admin modal not found on page", "error");
