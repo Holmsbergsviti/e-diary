@@ -11,6 +11,8 @@ from ..utils import logger, _require_admin, _admin_has_perm, ediary
 __all__ = [
     "generate_timetable",
     "generate_multi",
+    "save_multi",
+    "import_schedule",
     "get_timetable",
     "update_slot",
     "get_class_data",
@@ -314,25 +316,8 @@ def generate_multi(request):
                        "Try relaxing constraints, reducing classes, or check teacher availability.",
         }, status=409)
 
-    # Persist: wipe selected classes' rows, insert new
-    try:
-        for cid in selected_class_ids:
-            db.table("schedule").delete().eq("class_id", cid).execute()
-        bulk_rows = []
-        for cid, slots in solution.items():
-            for (d, p), meta in slots.items():
-                bulk_rows.append({
-                    "class_id": cid,
-                    "subject_id": meta["subject_id"],
-                    "teacher_id": meta["teacher_id"],
-                    "day_of_week": d,
-                    "period": p,
-                })
-        if bulk_rows:
-            db.table("schedule").insert(bulk_rows).execute()
-    except Exception:
-        logger.exception("Failed to persist multi-class timetable")
-        return JsonResponse({"message": "Failed to save timetables"}, status=500)
+    # Generation is preview-only: do NOT persist. The frontend admin
+    # confirms via /api/timetable/save-multi/ to commit the changes.
 
     # Build response with names
     subj_ids_all = list({m["subject_id"] for slots in solution.values() for m in slots.values()})
@@ -371,6 +356,7 @@ def generate_multi(request):
 
     return JsonResponse({
         "success": True,
+        "preview": True,
         "timetables": timetables,
         "skipped": skipped_with_names,
         "stats": {
@@ -416,6 +402,192 @@ def multi_class_data(request):
             "student_count": len(students),
         })
     return JsonResponse({"classes": out})
+
+
+@csrf_exempt
+def save_multi(request):
+    """Persist a previously-generated multi-class timetable. The body mirrors
+    the shape generate_multi returned: { timetables: { class_id: { timetable:
+    { day: { period: { subject_id, teacher_id, ... } } } } } }. Each listed
+    class has its existing schedule rows wiped before the new rows are
+    inserted so the operation is idempotent."""
+    payload, err = _auth(request)
+    if err:
+        return err
+    if request.method != "POST":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+
+    try:
+        data = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"message": "Invalid JSON"}, status=400)
+
+    timetables = data.get("timetables") or {}
+    if not isinstance(timetables, dict) or not timetables:
+        return JsonResponse({"message": "timetables required"}, status=400)
+
+    db = ediary()
+    bulk_rows = []
+    class_ids = list(timetables.keys())
+
+    for cid, block in timetables.items():
+        tt = (block or {}).get("timetable") or {}
+        for day_str, periods in tt.items():
+            try:
+                day = int(day_str)
+            except (TypeError, ValueError):
+                continue
+            if not (1 <= day <= 5):
+                continue
+            for period_str, meta in (periods or {}).items():
+                try:
+                    period = int(period_str)
+                except (TypeError, ValueError):
+                    continue
+                if not (1 <= period <= 8):
+                    continue
+                if not meta or not meta.get("subject_id") or not meta.get("teacher_id"):
+                    continue
+                bulk_rows.append({
+                    "class_id": cid,
+                    "subject_id": meta["subject_id"],
+                    "teacher_id": meta["teacher_id"],
+                    "day_of_week": day,
+                    "period": period,
+                })
+
+    try:
+        for cid in class_ids:
+            db.table("schedule").delete().eq("class_id", cid).execute()
+        if bulk_rows:
+            db.table("schedule").insert(bulk_rows).execute()
+    except Exception:
+        logger.exception("Failed to save multi-class timetable")
+        return JsonResponse({"message": "Failed to save timetables"}, status=500)
+
+    return JsonResponse({"saved": True, "rows": len(bulk_rows)})
+
+
+@csrf_exempt
+def import_schedule(request):
+    """Bulk import schedule rows from a JSON payload that uses class_name and
+    teacher initials/names instead of UUIDs. Useful for seeding a real-world
+    timetable without having to look up every UUID by hand. Body shape:
+        {
+          "wipe": true|false,           // optional, default false
+          "rows": [
+            {
+              "class_name": "10a",
+              "subject_name": "Mathematics",
+              "teacher_name": "Bakovic Ana",   // or "teacher_initials": "BA"
+              "day_of_week": 1,
+              "period": 4,
+              "room": "R1"               // optional
+            },
+            ...
+          ]
+        }
+    The endpoint resolves each row to UUIDs by querying classes / subjects /
+    teachers and skips rows whose lookups fail, returning a per-row result
+    array so the caller can spot mistakes."""
+    payload, err = _auth(request)
+    if err:
+        return err
+    if request.method != "POST":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+
+    try:
+        data = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"message": "Invalid JSON"}, status=400)
+
+    rows = data.get("rows") or []
+    if not isinstance(rows, list) or not rows:
+        return JsonResponse({"message": "rows (list) required"}, status=400)
+    wipe = bool(data.get("wipe"))
+
+    db = ediary()
+    classes = db.table("classes").select("id, class_name").execute().data or []
+    subjects = db.table("subjects").select("id, name").execute().data or []
+    teachers = db.table("teachers").select("id, name, surname").execute().data or []
+
+    class_map = {c["class_name"].lower(): c["id"] for c in classes}
+    subject_map = {s["name"].lower(): s["id"] for s in subjects}
+    teacher_by_name = {}
+    teacher_by_initials = {}
+    for t in teachers:
+        full = f"{t.get('name', '')} {t.get('surname', '')}".strip().lower()
+        rev = f"{t.get('surname', '')} {t.get('name', '')}".strip().lower()
+        teacher_by_name[full] = t["id"]
+        teacher_by_name[rev] = t["id"]
+        first_i = (t.get("name", "")[:1] or "").upper()
+        last_i = (t.get("surname", "")[:1] or "").upper()
+        if first_i and last_i:
+            teacher_by_initials[first_i + last_i] = t["id"]
+            teacher_by_initials[last_i + first_i] = t["id"]
+
+    valid_rows = []
+    results = []
+    affected_classes = set()
+
+    for i, r in enumerate(rows):
+        cls_name = (r.get("class_name") or "").strip().lower()
+        subj_name = (r.get("subject_name") or "").strip().lower()
+        teacher_name = (r.get("teacher_name") or "").strip().lower()
+        teacher_initials = (r.get("teacher_initials") or "").strip().upper()
+        try:
+            day = int(r.get("day_of_week"))
+            period = int(r.get("period"))
+        except (TypeError, ValueError):
+            results.append({"index": i, "ok": False, "error": "day_of_week and period must be integers"})
+            continue
+        if not (1 <= day <= 5) or not (1 <= period <= 8):
+            results.append({"index": i, "ok": False, "error": "day_of_week 1-5, period 1-8"})
+            continue
+
+        cid = class_map.get(cls_name)
+        sid = subject_map.get(subj_name)
+        tid = teacher_by_name.get(teacher_name) or teacher_by_initials.get(teacher_initials)
+
+        if not cid or not sid or not tid:
+            results.append({
+                "index": i, "ok": False,
+                "error": f"unresolved: class={bool(cid)} subject={bool(sid)} teacher={bool(tid)}",
+            })
+            continue
+
+        valid_rows.append({
+            "class_id": cid,
+            "subject_id": sid,
+            "teacher_id": tid,
+            "day_of_week": day,
+            "period": period,
+            "room": (r.get("room") or "").strip() or None,
+        })
+        affected_classes.add(cid)
+        results.append({"index": i, "ok": True})
+
+    try:
+        if wipe:
+            for cid in affected_classes:
+                db.table("schedule").delete().eq("class_id", cid).execute()
+        inserted = 0
+        if valid_rows:
+            # Insert in chunks to stay under HTTP body limits
+            chunk = 200
+            for start in range(0, len(valid_rows), chunk):
+                batch = valid_rows[start:start + chunk]
+                db.table("schedule").insert(batch).execute()
+                inserted += len(batch)
+    except Exception:
+        logger.exception("Failed to import schedule")
+        return JsonResponse({"message": "Failed to import schedule"}, status=500)
+
+    return JsonResponse({
+        "inserted": inserted,
+        "skipped": sum(1 for r in results if not r.get("ok")),
+        "results": results,
+    })
 
 
 @csrf_exempt
