@@ -70,6 +70,7 @@ urlpatterns = [
     path("timetable/generate-multi/", timetable_views.generate_multi),
     path("timetable/save-multi/", timetable_views.save_multi),
     path("timetable/import/", timetable_views.import_schedule),
+    path("timetable/seed-from-json/", timetable_views.seed_from_json),
     path("timetable/", timetable_views.get_timetable),
     path("timetable/slot/", timetable_views.update_slot),
     path("timetable/class-data/", timetable_views.get_class_data),
