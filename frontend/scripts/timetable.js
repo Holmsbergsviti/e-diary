@@ -1,5 +1,6 @@
-// Chartwell E-Diary — multi-class timetable generator
-// Requires auth.js (apiFetch, getUser, requireAuth, initNav, showToast, showConfirm)
+// Chartwell E-Diary — multi-year timetable generator
+// Flow: 1) define buildings + assign year levels  2) pick years to generate
+//       3) constraints  4) per-class results
 
 const TT_DAYS = [
     { id: 1, name: "Monday" },
@@ -16,13 +17,15 @@ const TT_COLORS = [
 ];
 
 const TT = {
-    classes: [],          // [{id, class_name, grade_level}]
-    selectedIds: [],      // [class_id]
-    classData: {},        // class_id -> { class_name, subjects, student_count }
-    config: {},           // class_id -> { building, subjects: [{subject_id, periods_per_week}] }
-    timetables: {},       // class_id -> { class_name, timetable: {day: {period: meta}} }
-    subjectColor: {},     // subject_id -> color
-    activeSlot: null,     // {class_id, day, period}
+    classes: [],          // [{id, class_name, grade_level}] all classes
+    years: [],            // sorted distinct grade_level values
+    buildings: [],        // [{ id (local), name, years: [int] }]
+    selectedYears: [],    // years user picked in step 2
+    classData: {},        // class_id -> {class_name, grade_level, subjects, student_count}
+    timetables: {},       // class_id -> { class_name, timetable }
+    subjectColor: {},
+    activeSlot: null,
+    nextBuildingId: 1,
 };
 
 function ttEsc(s) {
@@ -59,16 +62,25 @@ function ttGoStep(n) {
     ttShowError("");
 }
 
-// ---------- Step 1: load + pick classes ----------
+// ----- year helpers -----
+
+function ttBuildingForYear(year) {
+    return TT.buildings.find(b => b.years.includes(year));
+}
+
+function ttClassesForYear(year) {
+    return TT.classes.filter(c => c.grade_level === year);
+}
+
+// ----- Initial load -----
 
 async function ttLoadClasses() {
-    const container = document.getElementById("ttClassGrid");
     try {
         const res = await apiFetch("/admin/classes/");
         if (!res.ok) {
             const j = await res.json().catch(() => ({}));
-            container.innerHTML = `<p class="empty-state">Failed to load classes: ${ttEsc(j.message || res.status)}</p>`;
             ttShowError(j.message || `Failed to load classes (HTTP ${res.status}).`);
+            document.getElementById("ttBuildingsList").innerHTML = `<p class="empty-state">Failed to load classes.</p>`;
             return;
         }
         const data = await res.json();
@@ -76,152 +88,175 @@ async function ttLoadClasses() {
             const g = (a.grade_level || 0) - (b.grade_level || 0);
             return g !== 0 ? g : (a.class_name || "").localeCompare(b.class_name || "");
         });
-        if (TT.classes.length === 0) {
-            container.innerHTML = '<p class="empty-state">No classes exist yet. Create classes in the admin panel first.</p>';
+        const yearSet = new Set(TT.classes.map(c => c.grade_level).filter(y => y != null));
+        TT.years = Array.from(yearSet).sort((a, b) => a - b);
+
+        if (TT.years.length === 0) {
+            document.getElementById("ttBuildingsList").innerHTML =
+                '<p class="empty-state">No classes exist yet. Create classes in the admin panel first.</p>';
             return;
         }
-        container.innerHTML = TT.classes.map(c => `
-            <label class="tt-class-pick" data-id="${ttEsc(c.id)}">
-                <input type="checkbox" value="${ttEsc(c.id)}">
-                <span><strong>${ttEsc(c.class_name)}</strong>${c.grade_level ? ` <small style="opacity:.7">(Y${c.grade_level})</small>` : ""}</span>
-            </label>
-        `).join("");
 
-        container.querySelectorAll("input[type=checkbox]").forEach(cb => {
-            cb.addEventListener("change", ttOnClassToggle);
-        });
+        // Seed with one empty building so users know to start
+        if (TT.buildings.length === 0) ttAddBuilding();
+        ttRenderBuildings();
     } catch (e) {
         console.error(e);
-        container.innerHTML = '<p class="empty-state">Failed to reach the server.</p>';
         ttShowError("Could not reach the server. Backend may be cold-starting; retry in 30s.");
     }
 }
 
-function ttOnClassToggle() {
-    TT.selectedIds = Array.from(document.querySelectorAll("#ttClassGrid input:checked")).map(cb => cb.value);
-    document.querySelectorAll("#ttClassGrid .tt-class-pick").forEach(lbl => {
-        const cb = lbl.querySelector("input");
-        lbl.classList.toggle("checked", cb.checked);
-    });
-    document.getElementById("ttBtnNext1").disabled = TT.selectedIds.length === 0;
+// ----- Step 1: buildings -----
+
+function ttAddBuilding() {
+    TT.buildings.push({ id: TT.nextBuildingId++, name: "", years: [] });
+    ttRenderBuildings();
 }
 
-// ---------- Step 2: buildings + per-subject periods ----------
-
-async function ttLoadConfig() {
-    const list = document.getElementById("ttClassConfigList");
-    list.innerHTML = '<p class="loading">Loading subjects…</p>';
-    try {
-        const qs = encodeURIComponent(TT.selectedIds.join(","));
-        const res = await apiFetch(`/timetable/multi-class-data/?class_ids=${qs}`);
-        if (!res.ok) {
-            const j = await res.json().catch(() => ({}));
-            list.innerHTML = `<p class="empty-state">Failed: ${ttEsc(j.message || res.status)}</p>`;
-            ttShowError(j.message || "Failed to load class data.");
-            return;
-        }
-        const data = await res.json();
-        TT.classData = {};
-        for (const c of (data.classes || [])) {
-            TT.classData[c.class_id] = c;
-            // Pre-seed config from previous values if any
-            if (!TT.config[c.class_id]) {
-                TT.config[c.class_id] = {
-                    building: "",
-                    subjects: c.subjects.map(s => ({ subject_id: s.subject_id, periods_per_week: 4 })),
-                };
-            } else {
-                // Sync subjects in case assignments changed
-                const knownIds = new Set(TT.config[c.class_id].subjects.map(s => s.subject_id));
-                for (const s of c.subjects) {
-                    if (!knownIds.has(s.subject_id)) {
-                        TT.config[c.class_id].subjects.push({ subject_id: s.subject_id, periods_per_week: 4 });
-                    }
-                }
-            }
-        }
-        ttRenderConfig();
-    } catch (e) {
-        console.error(e);
-        list.innerHTML = '<p class="empty-state">Failed to reach the server.</p>';
-    }
+function ttRemoveBuilding(id) {
+    TT.buildings = TT.buildings.filter(b => b.id !== id);
+    if (TT.buildings.length === 0) ttAddBuilding();
+    ttRenderBuildings();
 }
 
-function ttRenderConfig() {
-    const list = document.getElementById("ttClassConfigList");
-    if (TT.selectedIds.length === 0) { list.innerHTML = ""; return; }
+function ttRenderBuildings() {
+    const list = document.getElementById("ttBuildingsList");
+    if (TT.years.length === 0) { list.innerHTML = ""; return; }
 
     let html = "";
-    for (const cid of TT.selectedIds) {
-        const cd = TT.classData[cid];
-        if (!cd) continue;
-        const cfg = TT.config[cid];
-        const subjRows = cd.subjects.map(s => {
-            const cur = cfg.subjects.find(x => x.subject_id === s.subject_id) || { periods_per_week: 4 };
+    for (const b of TT.buildings) {
+        const yearChecks = TT.years.map(y => {
+            const owner = ttBuildingForYear(y);
+            const taken = owner && owner.id !== b.id;
+            const checked = b.years.includes(y);
+            const cls = "tt-year-check" + (checked ? " active" : "") + (taken ? " taken" : "");
+            const tip = taken ? `Already in "${ttEsc(owner.name || "(unnamed)")}"` : "";
+            const count = TT.classes.filter(c => c.grade_level === y).length;
             return `
-                <div style="display:flex;align-items:center;gap:8px;font-size:0.85rem;padding:4px 0;">
-                    <span style="flex:1;"><strong>${ttEsc(s.subject_name)}</strong> · <span style="color:var(--text-light)">${ttEsc(s.teacher_name)}</span></span>
-                    <input type="number" min="1" max="10" value="${cur.periods_per_week}"
-                           data-class="${ttEsc(cid)}" data-subject="${ttEsc(s.subject_id)}" data-field="ppw"
-                           class="form-input" style="width:64px;padding:4px 6px;font-size:0.85rem;text-align:center;">
-                    <span style="font-size:0.75rem;color:var(--text-lighter);">/week</span>
-                </div>
+                <label class="${cls}" title="${tip}">
+                    <input type="checkbox" data-building="${b.id}" data-year="${y}"
+                           ${checked ? "checked" : ""} ${taken ? "disabled" : ""}>
+                    <span>Year ${y} <small style="opacity:.7">(${count} cls)</small></span>
+                </label>
             `;
-        }).join("") || '<p class="empty-state" style="margin:6px 0">No subjects assigned to this class.</p>';
+        }).join("");
 
         html += `
-            <div class="tt-class-config">
-                <div class="tt-class-config-title">${ttEsc(cd.class_name)}${cd.grade_level ? ` <small style="opacity:.7;font-weight:400;">Year ${cd.grade_level} · ${cd.student_count} student${cd.student_count === 1 ? "" : "s"}</small>` : ""}</div>
-                <div class="tt-class-config-row">
-                    <div class="form-group" style="margin:0;max-width:240px;">
-                        <label style="font-size:0.78rem;">Building</label>
-                        <input type="text" placeholder="e.g. Main, Annex, Building A"
-                               data-class="${ttEsc(cid)}" data-field="building"
-                               value="${ttEsc(cfg.building || "")}"
-                               class="form-input">
+            <div class="tt-building-row">
+                <div class="tt-building-head">
+                    <div class="form-group">
+                        <label>Building name</label>
+                        <input type="text" class="form-input" placeholder="e.g. Main, Annex"
+                               data-building="${b.id}" data-field="name" value="${ttEsc(b.name)}">
                     </div>
+                    <button type="button" class="tt-remove-btn" data-remove="${b.id}">Remove</button>
                 </div>
-                <div class="tt-class-config-row">
-                    ${subjRows}
+                <div>
+                    <div style="font-size:0.78rem;color:var(--text-light);margin-bottom:4px;">Year levels in this building</div>
+                    <div class="tt-year-checks">${yearChecks}</div>
                 </div>
             </div>
         `;
     }
     list.innerHTML = html;
 
-    list.querySelectorAll("input[data-field=building]").forEach(inp => {
+    list.querySelectorAll('input[data-field="name"]').forEach(inp => {
         inp.addEventListener("input", e => {
-            const cid = e.target.dataset.class;
-            TT.config[cid].building = e.target.value;
+            const id = parseInt(e.target.dataset.building, 10);
+            const b = TT.buildings.find(x => x.id === id);
+            if (b) b.name = e.target.value;
         });
     });
-    list.querySelectorAll("input[data-field=ppw]").forEach(inp => {
-        inp.addEventListener("change", e => {
-            const cid = e.target.dataset.class;
-            const sid = e.target.dataset.subject;
-            const v = Math.max(1, Math.min(10, parseInt(e.target.value, 10) || 4));
-            e.target.value = v;
-            const subj = TT.config[cid].subjects.find(s => s.subject_id === sid);
-            if (subj) subj.periods_per_week = v;
+    list.querySelectorAll('input[data-year]').forEach(cb => {
+        cb.addEventListener("change", e => {
+            const id = parseInt(e.target.dataset.building, 10);
+            const yr = parseInt(e.target.dataset.year, 10);
+            const b = TT.buildings.find(x => x.id === id);
+            if (!b) return;
+            if (e.target.checked) {
+                if (!b.years.includes(yr)) b.years.push(yr);
+            } else {
+                b.years = b.years.filter(y => y !== yr);
+            }
+            ttRenderBuildings();
+        });
+    });
+    list.querySelectorAll('[data-remove]').forEach(btn => {
+        btn.addEventListener("click", () => {
+            ttRemoveBuilding(parseInt(btn.dataset.remove, 10));
         });
     });
 }
 
-// ---------- Step 3 → 4: generate ----------
+function ttValidateBuildings() {
+    const used = TT.buildings.filter(b => b.years.length > 0);
+    if (used.length === 0) return "Add at least one building with a year assigned.";
+    for (const b of used) {
+        if (!b.name.trim()) return "Every building needs a name.";
+    }
+    return null;
+}
+
+// ----- Step 2: pick years -----
+
+function ttRenderYearPicker() {
+    const grid = document.getElementById("ttYearGrid");
+    const assignedYears = TT.buildings.flatMap(b => b.years.map(y => ({ year: y, building: b.name })));
+    if (assignedYears.length === 0) {
+        grid.innerHTML = '<p class="empty-state">No years assigned to a building.</p>';
+        return;
+    }
+    assignedYears.sort((a, b) => a.year - b.year);
+
+    grid.innerHTML = assignedYears.map(({ year, building }) => {
+        const classes = ttClassesForYear(year);
+        const checked = TT.selectedYears.includes(year);
+        return `
+            <label class="tt-year-pick ${checked ? "checked" : ""}" data-year="${year}">
+                <input type="checkbox" value="${year}" ${checked ? "checked" : ""}>
+                <span>
+                    <strong>Year ${year}</strong>
+                    <small>${classes.length} class${classes.length === 1 ? "" : "es"} · ${ttEsc(building || "(unnamed building)")}</small>
+                </span>
+            </label>
+        `;
+    }).join("");
+
+    grid.querySelectorAll("input[type=checkbox]").forEach(cb => {
+        cb.addEventListener("change", () => {
+            TT.selectedYears = Array.from(grid.querySelectorAll("input:checked")).map(c => parseInt(c.value, 10));
+            grid.querySelectorAll(".tt-year-pick").forEach(lbl => {
+                const inp = lbl.querySelector("input");
+                lbl.classList.toggle("checked", inp.checked);
+            });
+            document.getElementById("ttBtnNext2").disabled = TT.selectedYears.length === 0;
+        });
+    });
+    document.getElementById("ttBtnNext2").disabled = TT.selectedYears.length === 0;
+}
+
+// ----- Step 3 → 4: load metadata, generate -----
+
+async function ttLoadSelectedClassData() {
+    const classIds = TT.selectedYears.flatMap(y => ttClassesForYear(y).map(c => c.id));
+    if (classIds.length === 0) return classIds;
+    const qs = encodeURIComponent(classIds.join(","));
+    const res = await apiFetch(`/timetable/multi-class-data/?class_ids=${qs}`);
+    if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.message || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    TT.classData = {};
+    for (const c of (data.classes || [])) {
+        TT.classData[c.class_id] = c;
+    }
+    return classIds;
+}
 
 async function ttGenerate() {
     const breakAfter = parseInt(document.getElementById("ttBreakAfter").value, 10) || 4;
     const maxSame = parseInt(document.getElementById("ttMaxSame").value, 10) || 2;
-
-    const payload = {
-        classes: TT.selectedIds.map(cid => ({
-            class_id: cid,
-            building: (TT.config[cid]?.building || "").trim(),
-            subjects: TT.config[cid]?.subjects || [],
-        })),
-        constraints: { break_after: breakAfter, max_same_subject_per_day: maxSame },
-    };
-
     const btn = document.getElementById("ttBtnGenerate");
     const orig = btn.textContent;
     btn.disabled = true;
@@ -229,6 +264,29 @@ async function ttGenerate() {
     ttShowError("");
 
     try {
+        const classIds = await ttLoadSelectedClassData();
+        if (classIds.length === 0) {
+            ttShowError("No classes found in the selected years.");
+            return;
+        }
+
+        // Map every class to its building based on year → building assignment
+        const yearBuilding = {};
+        for (const b of TT.buildings) for (const y of b.years) yearBuilding[y] = b.name;
+
+        const payload = {
+            classes: classIds.map(cid => {
+                const cd = TT.classData[cid] || TT.classes.find(c => c.id === cid);
+                const yr = cd?.grade_level;
+                return {
+                    class_id: cid,
+                    building: yearBuilding[yr] || "",
+                    subjects: [], // backend uses default 4 periods/week
+                };
+            }),
+            constraints: { break_after: breakAfter, max_same_subject_per_day: maxSame },
+        };
+
         const res = await apiFetch("/timetable/generate-multi/", {
             method: "POST",
             body: JSON.stringify(payload),
@@ -240,22 +298,17 @@ async function ttGenerate() {
             return;
         }
         TT.timetables = data.timetables || {};
-        // Pre-assign colors based on the union of subject ids encountered, in stable order
         TT.subjectColor = {};
-        for (const cid of TT.selectedIds) {
-            const t = TT.timetables[cid]?.timetable || {};
-            for (const d of Object.keys(t)) {
-                for (const p of Object.keys(t[d])) {
-                    ttColorFor(t[d][p].subject_id);
-                }
-            }
+        for (const cid of Object.keys(TT.timetables)) {
+            const t = TT.timetables[cid].timetable || {};
+            for (const d of Object.keys(t)) for (const p of Object.keys(t[d])) ttColorFor(t[d][p].subject_id);
         }
         ttRenderResults(data.stats);
         ttGoStep(4);
         showToast("Timetables generated", "success");
     } catch (e) {
         console.error(e);
-        ttShowError("Network error. Backend may be cold-starting.");
+        ttShowError(e.message || "Generation failed.");
         showToast("Generation failed", "error");
     } finally {
         btn.disabled = false;
@@ -265,39 +318,50 @@ async function ttGenerate() {
 
 function ttRenderResults(stats) {
     const statsBox = document.getElementById("ttStats");
-    if (stats) {
-        statsBox.innerHTML = `
-            <div class="tt-stat"><strong>${stats.classes_count}</strong>Classes</div>
-            <div class="tt-stat"><strong>${stats.filled_slots}</strong>Filled slots</div>
-            <div class="tt-stat"><strong>${stats.free_slots}</strong>Free slots</div>
-            <div class="tt-stat"><strong>${stats.total_slots}</strong>Total slots</div>
-        `;
-    } else {
-        statsBox.innerHTML = "";
-    }
+    statsBox.innerHTML = stats ? `
+        <div class="tt-stat"><strong>${stats.classes_count}</strong>Classes</div>
+        <div class="tt-stat"><strong>${stats.filled_slots}</strong>Filled slots</div>
+        <div class="tt-stat"><strong>${stats.free_slots}</strong>Free slots</div>
+        <div class="tt-stat"><strong>${stats.total_slots}</strong>Total slots</div>
+    ` : "";
 
     const wrap = document.getElementById("ttResults");
+    // Group by year
+    const byYear = {};
+    for (const cid of Object.keys(TT.timetables)) {
+        const cd = TT.classData[cid] || TT.classes.find(c => c.id === cid) || {};
+        const yr = cd.grade_level || 0;
+        (byYear[yr] = byYear[yr] || []).push(cid);
+    }
+    const years = Object.keys(byYear).map(n => parseInt(n, 10)).sort((a, b) => a - b);
+
     let html = "";
-    for (const cid of TT.selectedIds) {
-        const block = TT.timetables[cid];
-        if (!block) continue;
-        html += `
-            <div class="tt-result-block" data-class="${ttEsc(cid)}">
-                <div class="tt-result-header">
-                    <div class="tt-result-title">${ttEsc(block.class_name)}</div>
-                    <div>
-                        <button class="btn btn-secondary btn-sm" data-export="${ttEsc(cid)}">Export CSV</button>
-                        <button class="btn btn-danger btn-sm" data-clear="${ttEsc(cid)}">Clear</button>
+    for (const yr of years) {
+        html += `<h3 style="margin:18px 0 6px;color:var(--primary-blue);">Year ${yr}</h3>`;
+        for (const cid of byYear[yr]) {
+            const block = TT.timetables[cid];
+            html += `
+                <div class="tt-result-block" data-class="${ttEsc(cid)}">
+                    <div class="tt-result-header">
+                        <div class="tt-result-title">${ttEsc(block.class_name)}</div>
+                        <div>
+                            <button class="btn btn-secondary btn-sm" data-export="${ttEsc(cid)}">Export CSV</button>
+                            <button class="btn btn-danger btn-sm" data-clear="${ttEsc(cid)}">Clear</button>
+                        </div>
+                    </div>
+                    <div class="tt-grid-wrap">
+                        <table class="tt-grid">${ttGridBody(cid)}</table>
                     </div>
                 </div>
-                <div class="tt-grid-wrap">
-                    <table class="tt-grid">${ttGridBody(cid)}</table>
-                </div>
-            </div>
-        `;
+            `;
+        }
     }
     wrap.innerHTML = html || '<p class="empty-state">No timetables produced.</p>';
+    ttBindResultEvents();
+}
 
+function ttBindResultEvents() {
+    const wrap = document.getElementById("ttResults");
     wrap.querySelectorAll("td.tt-cell").forEach(td => {
         td.addEventListener("click", () => {
             ttOpenSlotModal(td.dataset.class, parseInt(td.dataset.day, 10), parseInt(td.dataset.period, 10));
@@ -340,7 +404,7 @@ function ttGridBody(cid) {
     return html;
 }
 
-// ---------- Slot modal ----------
+// ----- Slot modal -----
 
 function ttOpenSlotModal(cid, day, period) {
     const cd = TT.classData[cid];
@@ -383,15 +447,13 @@ async function ttSaveSlot() {
     const subjectId = sel.value;
     const teacherId = opt ? (opt.dataset.teacher || "") : "";
     const { class_id, day, period } = TT.activeSlot;
-
     try {
         const res = await apiFetch("/timetable/slot/", {
             method: "PUT",
             body: JSON.stringify({ class_id, day, period, subject_id: subjectId, teacher_id: teacherId }),
         });
         const data = await res.json();
-        if (!res.ok) { showToast(data.message || "Failed to save", "error"); return; }
-
+        if (!res.ok) { showToast(data.message || "Failed", "error"); return; }
         const tt = TT.timetables[class_id]?.timetable || {};
         if (!tt[String(day)]) tt[String(day)] = {};
         if (subjectId) {
@@ -405,19 +467,14 @@ async function ttSaveSlot() {
         } else {
             delete tt[String(day)][String(period)];
         }
-        // Re-render only the affected class block
         const block = document.querySelector(`.tt-result-block[data-class="${class_id}"] table.tt-grid`);
         if (block) block.innerHTML = ttGridBody(class_id);
-        document.querySelectorAll(`.tt-result-block[data-class="${class_id}"] td.tt-cell`).forEach(td => {
-            td.addEventListener("click", () => {
-                ttOpenSlotModal(td.dataset.class, parseInt(td.dataset.day, 10), parseInt(td.dataset.period, 10));
-            });
-        });
+        ttBindResultEvents();
         ttCloseSlotModal();
         showToast("Slot updated", "success");
     } catch (e) {
         console.error(e);
-        showToast("Failed to save", "error");
+        showToast("Failed", "error");
     }
 }
 
@@ -435,11 +492,7 @@ async function ttDeleteSlot() {
         if (tt[String(day)]) delete tt[String(day)][String(period)];
         const block = document.querySelector(`.tt-result-block[data-class="${class_id}"] table.tt-grid`);
         if (block) block.innerHTML = ttGridBody(class_id);
-        document.querySelectorAll(`.tt-result-block[data-class="${class_id}"] td.tt-cell`).forEach(td => {
-            td.addEventListener("click", () => {
-                ttOpenSlotModal(td.dataset.class, parseInt(td.dataset.day, 10), parseInt(td.dataset.period, 10));
-            });
-        });
+        ttBindResultEvents();
         ttCloseSlotModal();
         showToast("Slot cleared", "success");
     } catch (e) {
@@ -448,7 +501,7 @@ async function ttDeleteSlot() {
     }
 }
 
-// ---------- Per-class clear + export ----------
+// ----- Per-class clear + export -----
 
 async function ttClearOne(cid) {
     const ok = await showConfirm(`Delete the timetable for ${TT.classData[cid]?.class_name || "this class"}?`,
@@ -462,11 +515,7 @@ async function ttClearOne(cid) {
             TT.timetables[cid].timetable = {};
             const block = document.querySelector(`.tt-result-block[data-class="${cid}"] table.tt-grid`);
             if (block) block.innerHTML = ttGridBody(cid);
-            document.querySelectorAll(`.tt-result-block[data-class="${cid}"] td.tt-cell`).forEach(td => {
-                td.addEventListener("click", () => {
-                    ttOpenSlotModal(td.dataset.class, parseInt(td.dataset.day, 10), parseInt(td.dataset.period, 10));
-                });
-            });
+            ttBindResultEvents();
         }
         showToast("Timetable cleared", "success");
     } catch (e) {
@@ -504,12 +553,10 @@ function ttExportCsv(cid) {
 }
 
 function ttExportAll() {
-    for (const cid of TT.selectedIds) {
-        if (TT.timetables[cid]) ttExportCsv(cid);
-    }
+    for (const cid of Object.keys(TT.timetables)) ttExportCsv(cid);
 }
 
-// ---------- Init ----------
+// ----- Init -----
 
 document.addEventListener("DOMContentLoaded", () => {
     if (typeof requireAuth === "function" && !requireAuth()) return;
@@ -524,18 +571,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
     ttLoadClasses();
 
+    document.getElementById("ttAddBuildingBtn").addEventListener("click", ttAddBuilding);
     document.getElementById("ttBtnNext1").addEventListener("click", () => {
+        const err = ttValidateBuildings();
+        if (err) { ttShowError(err); return; }
+        // Drop empty buildings
+        TT.buildings = TT.buildings.filter(b => b.years.length > 0);
         ttGoStep(2);
-        ttLoadConfig();
+        ttRenderYearPicker();
     });
-    document.getElementById("ttBtnBack2").addEventListener("click", () => ttGoStep(1));
+    document.getElementById("ttBtnBack2").addEventListener("click", () => {
+        ttGoStep(1);
+        ttRenderBuildings();
+    });
     document.getElementById("ttBtnNext2").addEventListener("click", () => {
-        // Validate every selected class has a building
-        const missing = TT.selectedIds.filter(cid => !(TT.config[cid]?.building || "").trim());
-        if (missing.length > 0) {
-            ttShowError("Set a building for every selected class.");
-            return;
-        }
+        if (TT.selectedYears.length === 0) { ttShowError("Pick at least one year."); return; }
         ttGoStep(3);
     });
     document.getElementById("ttBtnBack3").addEventListener("click", () => ttGoStep(2));
