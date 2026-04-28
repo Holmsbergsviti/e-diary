@@ -303,9 +303,14 @@ async function ttGenerate() {
             const t = TT.timetables[cid].timetable || {};
             for (const d of Object.keys(t)) for (const p of Object.keys(t[d])) ttColorFor(t[d][p].subject_id);
         }
-        ttRenderResults(data.stats);
+        ttRenderResults(data.stats, data.skipped || []);
         ttGoStep(4);
-        showToast("Timetables generated", "success");
+        if ((data.skipped || []).length > 0) {
+            const names = data.skipped.map(s => s.class_name).join(", ");
+            showToast(`Generated. Skipped (no teachers assigned): ${names}`, "info", 6000);
+        } else {
+            showToast("Timetables generated", "success");
+        }
     } catch (e) {
         console.error(e);
         ttShowError(e.message || "Generation failed.");
@@ -316,7 +321,7 @@ async function ttGenerate() {
     }
 }
 
-function ttRenderResults(stats) {
+function ttRenderResults(stats, skipped) {
     const statsBox = document.getElementById("ttStats");
     statsBox.innerHTML = stats ? `
         <div class="tt-stat"><strong>${stats.classes_count}</strong>Classes</div>
@@ -326,6 +331,13 @@ function ttRenderResults(stats) {
     ` : "";
 
     const wrap = document.getElementById("ttResults");
+    let skippedNote = "";
+    if (skipped && skipped.length > 0) {
+        const names = skipped.map(s => ttEsc(s.class_name)).join(", ");
+        skippedNote = `<div class="tt-error-box" style="background:#fef3c7;color:#92400e;border-color:#fde68a;">
+            Skipped (no teachers assigned to any subject): <strong>${names}</strong>
+        </div>`;
+    }
     // Group by year
     const byYear = {};
     for (const cid of Object.keys(TT.timetables)) {
@@ -356,7 +368,7 @@ function ttRenderResults(stats) {
             `;
         }
     }
-    wrap.innerHTML = html || '<p class="empty-state">No timetables produced.</p>';
+    wrap.innerHTML = (skippedNote || "") + (html || '<p class="empty-state">No timetables produced.</p>');
     ttBindResultEvents();
 }
 

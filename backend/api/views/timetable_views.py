@@ -240,15 +240,15 @@ def generate_multi(request):
 
     db = ediary()
 
-    # Validate inputs and build class_specs
+    # Validate inputs and build class_specs. Classes without teacher
+    # assignments are skipped (with a note) instead of failing the batch.
     class_specs = []
     selected_class_ids = []
-    name_lookup = {}
+    skipped = []
     for c in classes_in:
         cid = (c.get("class_id") or "").strip()
         if not cid:
             return JsonResponse({"message": "Each class needs class_id"}, status=400)
-        selected_class_ids.append(cid)
         building = (c.get("building") or "").strip()
 
         # Pull subjects from teacher_assignments for this class
@@ -257,7 +257,9 @@ def generate_multi(request):
             .eq("class_id", cid) \
             .execute().data or []
         if not assigned:
-            return JsonResponse({"message": f"Class {cid} has no teacher assignments"}, status=400)
+            skipped.append(cid)
+            continue
+        selected_class_ids.append(cid)
 
         # Optional per-subject periods_per_week override from request
         ppw_overrides = {}
@@ -298,6 +300,12 @@ def generate_multi(request):
             if r.get("class_id") in selected_class_ids:
                 continue
             busy_external[(r["teacher_id"], r["day_of_week"], r["period"])] = True
+
+    if not class_specs:
+        return JsonResponse({
+            "message": "None of the selected classes have teacher assignments yet. "
+                       "Assign teachers to subjects in the admin panel first.",
+        }, status=400)
 
     solution = _generate_joint(class_specs, busy_external, break_after, max_same)
     if solution is None:
@@ -355,9 +363,16 @@ def generate_multi(request):
 
     total_filled = sum(len(s) for s in solution.values())
     total_slots = len(selected_class_ids) * len(DAYS) * len(PERIODS)
+    skipped_with_names = []
+    if skipped:
+        sk_rows = db.table("classes").select("id, class_name").in_("id", skipped).execute().data or []
+        sk_map = {r["id"]: r["class_name"] for r in sk_rows}
+        skipped_with_names = [{"class_id": cid, "class_name": sk_map.get(cid, cid)} for cid in skipped]
+
     return JsonResponse({
         "success": True,
         "timetables": timetables,
+        "skipped": skipped_with_names,
         "stats": {
             "classes_count": len(selected_class_ids),
             "total_slots": total_slots,
