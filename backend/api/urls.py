@@ -67,8 +67,10 @@ urlpatterns = [
     path("admin/dedupe-students/", admin_views.admin_dedupe_students),
     # Timetable generation
     path("timetable/generate/", timetable_views.generate_timetable),
+    path("timetable/generate-multi/", timetable_views.generate_multi),
     path("timetable/", timetable_views.get_timetable),
     path("timetable/slot/", timetable_views.update_slot),
     path("timetable/class-data/", timetable_views.get_class_data),
+    path("timetable/multi-class-data/", timetable_views.multi_class_data),
     path("timetable/clear/", timetable_views.clear_timetable),
 ]

@@ -10,9 +10,11 @@ from ..utils import logger, _require_admin, _admin_has_perm, ediary
 
 __all__ = [
     "generate_timetable",
+    "generate_multi",
     "get_timetable",
     "update_slot",
     "get_class_data",
+    "multi_class_data",
     "clear_timetable",
 ]
 
@@ -130,6 +132,275 @@ def _generate(subjects, busy, break_after, max_same_per_day):
             return slots
 
     return None
+
+
+def _generate_joint(class_specs, busy_external, break_after, max_same):
+    """Joint constraint placer across multiple classes.
+
+    class_specs: list of dicts {class_id, building, subjects: [{subject_id, teacher_id, periods_per_week}]}
+    busy_external: {(teacher_id, day, period): building_or_True} from classes NOT being generated
+    Returns: dict class_id -> {(day, period): {subject_id, teacher_id}} or None.
+    """
+    placements = []
+    class_building = {}
+    for cs in class_specs:
+        class_building[cs["class_id"]] = (cs.get("building") or "").strip()
+        for s in cs["subjects"]:
+            ppw = max(1, int(s.get("periods_per_week") or DEFAULT_PERIODS_PER_WEEK))
+            for _ in range(ppw):
+                placements.append((cs["class_id"], s["subject_id"], s["teacher_id"]))
+
+    for _attempt in range(MAX_RESTARTS):
+        random.shuffle(placements)
+        per_class_slots = defaultdict(dict)         # class_id -> {(d,p): {...}}
+        teacher_used = dict(busy_external)          # (t, d, p) -> truthy (building string or True)
+        teacher_building = {k: v for k, v in busy_external.items() if isinstance(v, str)}
+        same_per_day = defaultdict(int)             # (class_id, d, subj) -> count
+        success = True
+
+        for class_id, subj_id, teacher_id in placements:
+            slot_choices = [(d, p) for d in DAYS for p in PERIODS
+                            if (d, p) not in per_class_slots[class_id]]
+            random.shuffle(slot_choices)
+            placed = False
+            for d, p in slot_choices:
+                if (teacher_id, d, p) in teacher_used:
+                    continue
+                if same_per_day[(class_id, d, subj_id)] >= max_same:
+                    continue
+                # No more than break_after consecutive filled periods for this class
+                run = 1
+                pp = p - 1
+                while pp >= 1 and (d, pp) in per_class_slots[class_id]:
+                    run += 1
+                    pp -= 1
+                pp = p + 1
+                while pp <= 8 and (d, pp) in per_class_slots[class_id]:
+                    run += 1
+                    pp += 1
+                if run > break_after:
+                    continue
+                # Building constraint: same teacher in adjacent period must not switch building
+                bld = class_building[class_id]
+                conflict = False
+                for np in (p - 1, p + 1):
+                    if 1 <= np <= 8:
+                        prev_bld = teacher_building.get((teacher_id, d, np))
+                        if prev_bld and bld and prev_bld != bld:
+                            conflict = True
+                            break
+                if conflict:
+                    continue
+                per_class_slots[class_id][(d, p)] = {
+                    "subject_id": subj_id,
+                    "teacher_id": teacher_id,
+                }
+                teacher_used[(teacher_id, d, p)] = bld or True
+                if bld:
+                    teacher_building[(teacher_id, d, p)] = bld
+                same_per_day[(class_id, d, subj_id)] += 1
+                placed = True
+                break
+
+            if not placed:
+                success = False
+                break
+
+        if success:
+            return dict(per_class_slots)
+
+    return None
+
+
+@csrf_exempt
+def generate_multi(request):
+    payload, err = _auth(request)
+    if err:
+        return err
+    if request.method != "POST":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+
+    try:
+        data = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"message": "Invalid JSON"}, status=400)
+
+    classes_in = data.get("classes") or []
+    if not isinstance(classes_in, list) or not classes_in:
+        return JsonResponse({"message": "classes (list) required"}, status=400)
+
+    constraints = data.get("constraints") or {}
+    try:
+        break_after = int(constraints.get("break_after", 4))
+        max_same = int(constraints.get("max_same_subject_per_day", 2))
+    except (TypeError, ValueError):
+        return JsonResponse({"message": "Invalid constraints"}, status=400)
+    if break_after < 1 or max_same < 1:
+        return JsonResponse({"message": "Constraints must be >= 1"}, status=400)
+
+    db = ediary()
+
+    # Validate inputs and build class_specs
+    class_specs = []
+    selected_class_ids = []
+    name_lookup = {}
+    for c in classes_in:
+        cid = (c.get("class_id") or "").strip()
+        if not cid:
+            return JsonResponse({"message": "Each class needs class_id"}, status=400)
+        selected_class_ids.append(cid)
+        building = (c.get("building") or "").strip()
+
+        # Pull subjects from teacher_assignments for this class
+        assigned = db.table("teacher_assignments") \
+            .select("teacher_id, subject_id") \
+            .eq("class_id", cid) \
+            .execute().data or []
+        if not assigned:
+            return JsonResponse({"message": f"Class {cid} has no teacher assignments"}, status=400)
+
+        # Optional per-subject periods_per_week override from request
+        ppw_overrides = {}
+        for s in (c.get("subjects") or []):
+            sid = (s.get("subject_id") or "").strip()
+            if sid:
+                try:
+                    ppw_overrides[sid] = int(s.get("periods_per_week") or DEFAULT_PERIODS_PER_WEEK)
+                except (TypeError, ValueError):
+                    pass
+
+        subjects = []
+        for a in assigned:
+            sid = a["subject_id"]
+            subjects.append({
+                "subject_id": sid,
+                "teacher_id": a["teacher_id"],
+                "periods_per_week": ppw_overrides.get(sid, DEFAULT_PERIODS_PER_WEEK),
+            })
+
+        class_specs.append({
+            "class_id": cid,
+            "building": building,
+            "subjects": subjects,
+        })
+
+    # Pull busy from non-selected classes
+    all_teacher_ids = list({s["teacher_id"] for cs in class_specs for s in cs["subjects"]})
+    busy_external = {}
+    if all_teacher_ids:
+        ext_rows = db.table("schedule") \
+            .select("teacher_id, day_of_week, period, class_id") \
+            .in_("teacher_id", all_teacher_ids) \
+            .execute().data or []
+        # Need building of OTHER classes — but we don't have it stored. Treat as unknown:
+        # mark busy True; building constraint cannot apply to unknown buildings.
+        for r in ext_rows:
+            if r.get("class_id") in selected_class_ids:
+                continue
+            busy_external[(r["teacher_id"], r["day_of_week"], r["period"])] = True
+
+    solution = _generate_joint(class_specs, busy_external, break_after, max_same)
+    if solution is None:
+        return JsonResponse({
+            "message": f"Could not generate after {MAX_RESTARTS} attempts. "
+                       "Try relaxing constraints, reducing classes, or check teacher availability.",
+        }, status=409)
+
+    # Persist: wipe selected classes' rows, insert new
+    try:
+        for cid in selected_class_ids:
+            db.table("schedule").delete().eq("class_id", cid).execute()
+        bulk_rows = []
+        for cid, slots in solution.items():
+            for (d, p), meta in slots.items():
+                bulk_rows.append({
+                    "class_id": cid,
+                    "subject_id": meta["subject_id"],
+                    "teacher_id": meta["teacher_id"],
+                    "day_of_week": d,
+                    "period": p,
+                })
+        if bulk_rows:
+            db.table("schedule").insert(bulk_rows).execute()
+    except Exception:
+        logger.exception("Failed to persist multi-class timetable")
+        return JsonResponse({"message": "Failed to save timetables"}, status=500)
+
+    # Build response with names
+    subj_ids_all = list({m["subject_id"] for slots in solution.values() for m in slots.values()})
+    teach_ids_all = list({m["teacher_id"] for slots in solution.values() for m in slots.values()})
+    s_rows = db.table("subjects").select("id, name").in_("id", subj_ids_all or [""]).execute().data or []
+    t_rows = db.table("teachers").select("id, name, surname").in_("id", teach_ids_all or [""]).execute().data or []
+    s_map = {s["id"]: s["name"] for s in s_rows}
+    t_map = {t["id"]: f"{t.get('name', '')} {t.get('surname', '')}".strip() for t in t_rows}
+    c_rows = db.table("classes").select("id, class_name").in_("id", selected_class_ids or [""]).execute().data or []
+    c_map = {c["id"]: c["class_name"] for c in c_rows}
+
+    timetables = {}
+    for cid, slots in solution.items():
+        t = {str(d): {} for d in DAYS}
+        for (d, p), meta in slots.items():
+            t[str(d)][str(p)] = {
+                "subject_id": meta["subject_id"],
+                "subject_name": s_map.get(meta["subject_id"], ""),
+                "teacher_id": meta["teacher_id"],
+                "teacher_name": t_map.get(meta["teacher_id"], ""),
+            }
+        timetables[cid] = {
+            "class_id": cid,
+            "class_name": c_map.get(cid, ""),
+            "timetable": t,
+            "filled_slots": len(slots),
+        }
+
+    total_filled = sum(len(s) for s in solution.values())
+    total_slots = len(selected_class_ids) * len(DAYS) * len(PERIODS)
+    return JsonResponse({
+        "success": True,
+        "timetables": timetables,
+        "stats": {
+            "classes_count": len(selected_class_ids),
+            "total_slots": total_slots,
+            "filled_slots": total_filled,
+            "free_slots": total_slots - total_filled,
+        },
+    })
+
+
+@csrf_exempt
+def multi_class_data(request):
+    """Return per-class subject and student summary for a list of class_ids."""
+    payload, err = _auth(request)
+    if err:
+        return err
+    if request.method != "GET":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+
+    raw = (request.GET.get("class_ids") or "").strip()
+    if not raw:
+        return JsonResponse({"message": "class_ids required"}, status=400)
+    ids = [x.strip() for x in raw.split(",") if x.strip()]
+    if not ids:
+        return JsonResponse({"message": "class_ids required"}, status=400)
+
+    db = ediary()
+    classes_rows = db.table("classes").select("id, class_name, grade_level").in_("id", ids).execute().data or []
+    c_map = {c["id"]: c for c in classes_rows}
+
+    out = []
+    for cid in ids:
+        if cid not in c_map:
+            continue
+        subjects = _fetch_class_subjects(db, cid)
+        students = db.table("students").select("id").eq("class_id", cid).execute().data or []
+        out.append({
+            "class_id": cid,
+            "class_name": c_map[cid]["class_name"],
+            "grade_level": c_map[cid].get("grade_level"),
+            "subjects": subjects,
+            "student_count": len(students),
+        })
+    return JsonResponse({"classes": out})
 
 
 @csrf_exempt

@@ -10,8 +10,21 @@
     <title>Generate Timetable – E-Diary</title>
     <script src="scripts/theme-loader.js"></script>
     <style>
-        .tt-toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 14px; }
-        .tt-toolbar .form-group { margin-bottom: 0; min-width: 140px; }
+        .tt-step { display: none; }
+        .tt-step.active { display: block; }
+        .tt-stepbar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+        .tt-stepbar .tt-step-pill { flex: 1 1 110px; padding: 8px 10px; border-radius: 8px; background: var(--bg-button); border: 1px solid rgba(var(--primary-blue-rgb), 0.15); font-size: 0.78rem; text-align: center; opacity: 0.55; }
+        .tt-stepbar .tt-step-pill.active { background: var(--primary-blue); color: #fff; border-color: var(--primary-blue); opacity: 1; font-weight: 700; }
+        .tt-stepbar .tt-step-pill.done { opacity: 1; border-color: var(--primary-blue); }
+        .tt-class-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+        .tt-class-pick { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(var(--primary-blue-rgb), 0.18); background: var(--bg-button); cursor: pointer; font-size: 0.9rem; }
+        .tt-class-pick input { width: 18px; height: 18px; cursor: pointer; }
+        .tt-class-pick.checked { background: rgba(var(--primary-blue-rgb), 0.1); border-color: var(--primary-blue); }
+        .tt-class-config { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; padding: 12px; border-radius: 10px; border: 1px solid rgba(var(--primary-blue-rgb), 0.18); margin-bottom: 10px; background: var(--bg-button); }
+        .tt-class-config-title { grid-column: 1 / -1; font-weight: 700; font-size: 0.95rem; color: var(--primary-blue); }
+        .tt-class-config-row { grid-column: 1 / -1; font-size: 0.8rem; color: var(--text-light); }
+        .tt-step-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+        .tt-step-actions .btn { min-width: 110px; }
         .tt-stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
         .tt-stat { background: var(--bg-button); border: 1px solid rgba(var(--primary-blue-rgb), 0.15); padding: 10px 14px; border-radius: 10px; font-size: 0.85rem; }
         .tt-stat strong { display: block; font-size: 1.2rem; color: var(--primary-blue); }
@@ -26,10 +39,10 @@
         .tt-cell-empty { color: var(--text-lighter); font-style: italic; text-align: center; font-size: 0.8rem; border-style: dashed !important; }
         .tt-break-row td { background: linear-gradient(90deg, rgba(var(--primary-blue-rgb), 0.08), rgba(var(--primary-blue-rgb), 0.04)); text-align: center; font-weight: 700; font-size: 0.78rem; color: var(--primary-blue); letter-spacing: 1px; }
         .tt-period-cell { background: var(--bg-table-header); font-weight: 700; text-align: center; width: 56px; }
-        .tt-subject-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-top: 8px; }
-        .tt-subject-pill { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; background: var(--bg-button); border: 1px solid rgba(var(--primary-blue-rgb), 0.15); font-size: 0.82rem; }
-        .tt-subject-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
-        .tt-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .tt-result-block { margin-top: 16px; }
+        .tt-result-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+        .tt-result-title { font-weight: 700; font-size: 1rem; color: var(--primary-blue); }
+        .tt-error-box { padding: 12px; border-radius: 8px; background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; margin-bottom: 12px; font-size: 0.88rem; }
     </style>
 </head>
 <body>
@@ -52,42 +65,64 @@
         <div class="card">
             <div class="card-title">📅 Timetable Generator</div>
 
-            <div class="tt-toolbar">
-                <div class="form-group">
-                    <label for="ttClassSelect">Class</label>
-                    <select id="ttClassSelect" class="form-input">
-                        <option value="">Loading…</option>
-                    </select>
+            <div class="tt-stepbar">
+                <div class="tt-step-pill active" data-pill="1">1. Pick classes</div>
+                <div class="tt-step-pill" data-pill="2">2. Buildings &amp; subjects</div>
+                <div class="tt-step-pill" data-pill="3">3. Constraints</div>
+                <div class="tt-step-pill" data-pill="4">4. Generated timetables</div>
+            </div>
+
+            <div id="ttErrorBox" class="tt-error-box" style="display:none;"></div>
+
+            <!-- Step 1: pick classes -->
+            <section class="tt-step active" data-step="1">
+                <p style="margin:0 0 10px;color:var(--text-light);font-size:0.9rem;">
+                    Select every class you want to schedule together. Teachers shared across classes will be honoured automatically.
+                </p>
+                <div id="ttClassGrid" class="tt-class-grid"><p class="loading">Loading classes…</p></div>
+                <div class="tt-step-actions">
+                    <button class="btn btn-primary" id="ttBtnNext1" disabled>Next →</button>
                 </div>
-                <div class="form-group">
-                    <label for="ttBreakAfter">Break after (periods)</label>
+            </section>
+
+            <!-- Step 2: buildings + per-subject periods -->
+            <section class="tt-step" data-step="2">
+                <p style="margin:0 0 10px;color:var(--text-light);font-size:0.9rem;">
+                    Set the building each class is in. Teachers will not be scheduled in adjacent periods across different buildings.
+                    Periods/week defaults to 4 per subject — adjust per subject if needed.
+                </p>
+                <div id="ttClassConfigList"></div>
+                <div class="tt-step-actions">
+                    <button class="btn btn-secondary" id="ttBtnBack2">← Back</button>
+                    <button class="btn btn-primary" id="ttBtnNext2">Next →</button>
+                </div>
+            </section>
+
+            <!-- Step 3: constraints -->
+            <section class="tt-step" data-step="3">
+                <div class="form-group" style="max-width:280px;">
+                    <label for="ttBreakAfter">Break after consecutive periods</label>
                     <input type="number" id="ttBreakAfter" class="form-input" min="1" max="8" value="4">
                 </div>
-                <div class="form-group">
-                    <label for="ttMaxSame">Max same subject/day</label>
+                <div class="form-group" style="max-width:280px;">
+                    <label for="ttMaxSame">Max same subject per day</label>
                     <input type="number" id="ttMaxSame" class="form-input" min="1" max="8" value="2">
                 </div>
-                <div class="tt-actions">
-                    <button id="ttGenerateBtn" class="btn btn-primary" disabled>Generate</button>
-                    <button id="ttExportBtn" class="btn btn-secondary" disabled>Export CSV</button>
-                    <button id="ttClearBtn" class="btn btn-secondary" disabled>Clear</button>
+                <div class="tt-step-actions">
+                    <button class="btn btn-secondary" id="ttBtnBack3">← Back</button>
+                    <button class="btn btn-primary" id="ttBtnGenerate">Generate timetables</button>
                 </div>
-            </div>
+            </section>
 
-            <div id="ttStats" class="tt-stats" style="display:none;"></div>
-        </div>
-
-        <div class="card" id="ttSubjectsCard" style="display:none;">
-            <div class="card-title">Subjects in this class</div>
-            <div id="ttStudentBadge" style="font-size:0.85rem;color:var(--text-light);margin-bottom:6px;"></div>
-            <div id="ttSubjectsList" class="tt-subject-list"></div>
-        </div>
-
-        <div class="card" id="ttGridCard" style="display:none;">
-            <div class="card-title">Weekly schedule</div>
-            <div class="tt-grid-wrap">
-                <table class="tt-grid" id="ttGrid"></table>
-            </div>
+            <!-- Step 4: results -->
+            <section class="tt-step" data-step="4">
+                <div id="ttStats" class="tt-stats"></div>
+                <div id="ttResults"></div>
+                <div class="tt-step-actions">
+                    <button class="btn btn-secondary" id="ttBtnBack4">← Back to constraints</button>
+                    <button class="btn btn-secondary" id="ttBtnExportAll">Export all as CSV</button>
+                </div>
+            </section>
         </div>
 
         <div class="admin-modal-overlay" id="ttSlotModal" style="display:none;" role="dialog" aria-modal="true">
