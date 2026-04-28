@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="images/icon.png">
+    <link rel="preconnect" href="https://e-diary-backend-qsly.onrender.com">
+    <link rel="stylesheet" href="styles/themes.css">
+    <link rel="stylesheet" href="styles/shared.css">
+    <title>Generate Timetable – E-Diary</title>
+    <script src="scripts/theme-loader.js"></script>
+    <style>
+        .tt-toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 14px; }
+        .tt-toolbar .form-group { margin-bottom: 0; min-width: 140px; }
+        .tt-stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+        .tt-stat { background: var(--bg-button); border: 1px solid rgba(var(--primary-blue-rgb), 0.15); padding: 10px 14px; border-radius: 10px; font-size: 0.85rem; }
+        .tt-stat strong { display: block; font-size: 1.2rem; color: var(--primary-blue); }
+        .tt-grid-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        table.tt-grid { width: 100%; border-collapse: collapse; min-width: 600px; }
+        table.tt-grid th, table.tt-grid td { border: 1px solid rgba(var(--primary-blue-rgb), 0.15); padding: 6px 8px; vertical-align: top; }
+        table.tt-grid th { background: var(--bg-table-header); font-weight: 700; text-align: center; font-size: 0.85rem; }
+        table.tt-grid td.tt-cell { cursor: pointer; min-height: 50px; height: 56px; transition: filter .15s; }
+        table.tt-grid td.tt-cell:hover { filter: brightness(0.95); }
+        .tt-cell-subject { font-weight: 700; font-size: 0.82rem; line-height: 1.2; }
+        .tt-cell-teacher { font-size: 0.7rem; opacity: 0.85; margin-top: 2px; }
+        .tt-cell-empty { color: var(--text-lighter); font-style: italic; text-align: center; font-size: 0.8rem; border-style: dashed !important; }
+        .tt-break-row td { background: linear-gradient(90deg, rgba(var(--primary-blue-rgb), 0.08), rgba(var(--primary-blue-rgb), 0.04)); text-align: center; font-weight: 700; font-size: 0.78rem; color: var(--primary-blue); letter-spacing: 1px; }
+        .tt-period-cell { background: var(--bg-table-header); font-weight: 700; text-align: center; width: 56px; }
+        .tt-subject-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-top: 8px; }
+        .tt-subject-pill { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; background: var(--bg-button); border: 1px solid rgba(var(--primary-blue-rgb), 0.15); font-size: 0.82rem; }
+        .tt-subject-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+        .tt-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    </style>
+</head>
+<body>
+
+<nav class="topnav">
+    <div class="topnav-left">
+        <button id="sidebarToggleBtn" class="sidebar-toggle-btn" title="Toggle sidebar">☰</button>
+        <span class="topnav-brand">E-Diary</span>
+    </div>
+    <div class="topnav-right">
+        <span id="navUserName"></span>
+        <button id="logoutBtn">Log out</button>
+    </div>
+</nav>
+
+<div class="page-layout">
+    <aside class="sidebar"></aside>
+
+    <main class="content">
+        <div class="card">
+            <div class="card-title">📅 Timetable Generator</div>
+
+            <div class="tt-toolbar">
+                <div class="form-group">
+                    <label for="ttClassSelect">Class</label>
+                    <select id="ttClassSelect" class="form-input">
+                        <option value="">Loading…</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="ttBreakAfter">Break after (periods)</label>
+                    <input type="number" id="ttBreakAfter" class="form-input" min="1" max="8" value="4">
+                </div>
+                <div class="form-group">
+                    <label for="ttMaxSame">Max same subject/day</label>
+                    <input type="number" id="ttMaxSame" class="form-input" min="1" max="8" value="2">
+                </div>
+                <div class="tt-actions">
+                    <button id="ttGenerateBtn" class="btn btn-primary" disabled>Generate</button>
+                    <button id="ttExportBtn" class="btn btn-secondary" disabled>Export CSV</button>
+                    <button id="ttClearBtn" class="btn btn-secondary" disabled>Clear</button>
+                </div>
+            </div>
+
+            <div id="ttStats" class="tt-stats" style="display:none;"></div>
+        </div>
+
+        <div class="card" id="ttSubjectsCard" style="display:none;">
+            <div class="card-title">Subjects in this class</div>
+            <div id="ttStudentBadge" style="font-size:0.85rem;color:var(--text-light);margin-bottom:6px;"></div>
+            <div id="ttSubjectsList" class="tt-subject-list"></div>
+        </div>
+
+        <div class="card" id="ttGridCard" style="display:none;">
+            <div class="card-title">Weekly schedule</div>
+            <div class="tt-grid-wrap">
+                <table class="tt-grid" id="ttGrid"></table>
+            </div>
+        </div>
+
+        <div class="admin-modal-overlay" id="ttSlotModal" style="display:none;" role="dialog" aria-modal="true">
+            <div class="admin-modal">
+                <div class="admin-modal-header">
+                    <h3 id="ttSlotModalTitle">Edit slot</h3>
+                    <button class="admin-modal-close" id="ttSlotModalClose" type="button">×</button>
+                </div>
+                <div class="admin-modal-body" id="ttSlotModalBody"></div>
+                <div class="admin-modal-footer">
+                    <button class="btn btn-secondary" id="ttSlotModalCancel">Cancel</button>
+                    <button class="btn btn-danger" id="ttSlotModalDelete" style="display:none;">Delete slot</button>
+                    <button class="btn btn-primary" id="ttSlotModalSave">Save</button>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="scripts/auth.js"></script>
+<script src="scripts/timetable.js"></script>
+</body>
+</html>

@@ -240,6 +240,7 @@ function initNav() {
 
         if (user.role === "admin") {
             links.push({ href: "admin.html", icon: "⚙️", label: "Admin Panel", active: isPage(["admin.html"]) });
+            links.push({ href: "timetable.html", icon: "📅", label: "Generate Timetable", active: isPage(["timetable.html"]) });
         } else if (user.role === "teacher") {
             links.push({ href: "teacher.html", icon: "🏠", label: "Dashboard", active: isPage(["teacher.html"]) });
             links.push({ href: "marks.html", icon: "📝", label: "Marks", active: isPage(["marks.html"]) });

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import auth_views, student_views, teacher_views, admin_views, schedule_views
+from .views import auth_views, student_views, teacher_views, admin_views, schedule_views, timetable_views
 
 urlpatterns = [
     # Auth
@@ -65,4 +65,10 @@ urlpatterns = [
     path("admin/student-lookup/", admin_views.admin_student_lookup),
     path("admin/classes/credentials/", admin_views.admin_class_credentials),
     path("admin/dedupe-students/", admin_views.admin_dedupe_students),
+    # Timetable generation
+    path("timetable/generate/", timetable_views.generate_timetable),
+    path("timetable/", timetable_views.get_timetable),
+    path("timetable/slot/", timetable_views.update_slot),
+    path("timetable/class-data/", timetable_views.get_class_data),
+    path("timetable/clear/", timetable_views.clear_timetable),
 ]
