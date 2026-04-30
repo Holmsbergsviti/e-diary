@@ -1,710 +1,292 @@
-// Chartwell E-Diary — multi-year timetable generator
-// Flow: 1) define buildings + assign year levels  2) pick years to generate
-//       3) constraints  4) per-class results
+// Chartwell E-Diary — Timetable Generator v2
+// Steps: 1) preview/save groups   2) generate + confirm save
 
-const TT_DAYS = [
-    { id: 1, name: "Monday" },
-    { id: 2, name: "Tuesday" },
-    { id: 3, name: "Wednesday" },
-    { id: 4, name: "Thursday" },
-    { id: 5, name: "Friday" },
-];
-const TT_PERIODS = [1, 2, 3, 4, 5, 6, 7, 8];
-const TT_COLORS = [
-    "#fde68a", "#bfdbfe", "#fecaca", "#bbf7d0",
-    "#ddd6fe", "#fed7aa", "#a7f3d0", "#fbcfe8",
-    "#fcd34d", "#93c5fd", "#fca5a5", "#86efac",
-];
+const V2_DAYS_SHORT = ["", "Mon", "Tue", "Wed", "Thu", "Fri"];
+const V2_DAY_FULL = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+const V2_PERIODS = [1, 2, 3, 4, 5, 6, 7, 8];
+const V2_DAYS = [1, 2, 3, 4, 5];
 
-const TT = {
-    classes: [],          // [{id, class_name, grade_level}] all classes
-    years: [],            // sorted distinct grade_level values
-    buildings: [],        // [{ id (local), name, years: [int] }]
-    selectedYears: [],    // years user picked in step 2
-    classData: {},        // class_id -> {class_name, grade_level, subjects, student_count}
-    subjectPeriods: {},   // subject_id -> periods_per_week (override)
-    subjectMeta: {},      // subject_id -> { name }
-    timetables: {},       // class_id -> { class_name, timetable }
-    subjectColor: {},
-    activeSlot: null,
-    nextBuildingId: 1,
+const V2 = {
+    placements: null,    // last generated (in-memory)
+    groupsLoaded: false,
+    lastSeed: null,
 };
 
-function ttEsc(s) {
+// ─────────────────────────── helpers ───────────────────────────
+
+function v2Esc(s) {
     return String(s ?? "").replace(/[&<>"']/g, c => ({
-        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-    })[c]);
+        "&": "&amp;", "<": "&lt;", ">": "&gt;",
+        "\"": "&quot;", "'": "&#39;",
+    }[c]));
 }
 
-// ----- Local persistence so building setup survives reloads -----
-const TT_STORE_KEY = "ediary_timetable_setup_v1";
-function ttPersist() {
-    try {
-        localStorage.setItem(TT_STORE_KEY, JSON.stringify({
-            buildings: TT.buildings,
-            selectedYears: TT.selectedYears,
-            subjectPeriods: TT.subjectPeriods,
-            nextBuildingId: TT.nextBuildingId,
-        }));
-    } catch (_) { /* ignore */ }
-}
-function ttRestore() {
-    try {
-        const raw = localStorage.getItem(TT_STORE_KEY);
-        if (!raw) return;
-        const obj = JSON.parse(raw);
-        if (Array.isArray(obj.buildings)) TT.buildings = obj.buildings;
-        if (Array.isArray(obj.selectedYears)) TT.selectedYears = obj.selectedYears;
-        if (obj.subjectPeriods && typeof obj.subjectPeriods === "object") TT.subjectPeriods = obj.subjectPeriods;
-        if (Number.isInteger(obj.nextBuildingId)) TT.nextBuildingId = obj.nextBuildingId;
-    } catch (_) { /* ignore */ }
-}
-
-function ttColorFor(subjectId) {
-    if (!subjectId) return "transparent";
-    if (TT.subjectColor[subjectId]) return TT.subjectColor[subjectId];
-    const idx = Object.keys(TT.subjectColor).length;
-    const c = TT_COLORS[idx % TT_COLORS.length];
-    TT.subjectColor[subjectId] = c;
-    return c;
-}
-
-function ttShowError(msg) {
-    const box = document.getElementById("ttErrorBox");
+function v2ShowError(msg) {
+    const box = document.getElementById("v2ErrorBox");
+    if (!box) return;
     if (!msg) { box.style.display = "none"; box.textContent = ""; return; }
     box.style.display = "";
     box.textContent = msg;
 }
 
-function ttGoStep(n) {
-    document.querySelectorAll(".tt-step").forEach(el => {
-        el.classList.toggle("active", el.dataset.step === String(n));
+function v2GoStep(n) {
+    document.querySelectorAll(".v2-step").forEach(s => {
+        s.classList.toggle("active", parseInt(s.dataset.step) === n);
     });
-    document.querySelectorAll(".tt-step-pill").forEach(el => {
-        const p = parseInt(el.dataset.pill, 10);
-        el.classList.toggle("active", p === n);
-        el.classList.toggle("done", p < n);
+    document.querySelectorAll(".v2-pill").forEach(p => {
+        const i = parseInt(p.dataset.pill);
+        p.classList.toggle("active", i === n);
+        p.classList.toggle("done", i < n);
     });
-    ttShowError("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-// ----- year helpers -----
-
-function ttBuildingForYear(year) {
-    return TT.buildings.find(b => b.years.includes(year));
-}
-
-function ttClassesForYear(year) {
-    return TT.classes.filter(c => c.grade_level === year);
-}
-
-// ----- Initial load -----
-
-async function ttLoadClasses() {
-    try {
-        const res = await apiFetch("/admin/classes/");
-        if (!res.ok) {
-            const j = await res.json().catch(() => ({}));
-            ttShowError(j.message || `Failed to load classes (HTTP ${res.status}).`);
-            document.getElementById("ttBuildingsList").innerHTML = `<p class="empty-state">Failed to load classes.</p>`;
-            return;
-        }
-        const data = await res.json();
-        TT.classes = (data.classes || []).slice().sort((a, b) => {
-            const g = (a.grade_level || 0) - (b.grade_level || 0);
-            return g !== 0 ? g : (a.class_name || "").localeCompare(b.class_name || "");
-        });
-        const yearSet = new Set(TT.classes.map(c => c.grade_level).filter(y => y != null));
-        TT.years = Array.from(yearSet).sort((a, b) => a - b);
-
-        if (TT.years.length === 0) {
-            document.getElementById("ttBuildingsList").innerHTML =
-                '<p class="empty-state">No classes exist yet. Create classes in the admin panel first.</p>';
-            return;
-        }
-
-        // Seed with one empty building so users know to start
-        if (TT.buildings.length === 0) ttAddBuilding();
-        ttRenderBuildings();
-    } catch (e) {
-        console.error(e);
-        ttShowError("Could not reach the server. Backend may be cold-starting; retry in 30s.");
+function v2BtnLoading(btn, isLoading, label) {
+    if (!btn) return;
+    if (isLoading) {
+        btn.dataset.origLabel = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = label || "Working…";
+    } else {
+        btn.disabled = false;
+        btn.textContent = btn.dataset.origLabel || label || "Done";
     }
 }
 
-// ----- Step 1: buildings -----
+// ─────────────────────────── step 1: groups ───────────────────────────
 
-function ttAddBuilding() {
-    TT.buildings.push({ id: TT.nextBuildingId++, name: "", years: [] });
-    ttPersist();
-    ttRenderBuildings();
+async function v2PreviewGroups() {
+    v2ShowError("");
+    const btn = document.getElementById("v2BtnPreview");
+    v2BtnLoading(btn, true, "Computing…");
+    try {
+        const res = await apiFetch("/admin/timetable/v2/groups/preview/", {
+            method: "POST", body: "{}",
+        });
+        const d = await res.json();
+        if (!res.ok) {
+            v2ShowError(d.message || "Failed to preview groups");
+            return;
+        }
+        v2RenderGroups(d.groups || []);
+        V2.groupsLoaded = true;
+        document.getElementById("v2BtnSaveGroups").disabled = false;
+        document.getElementById("v2BtnNext1").disabled = false;
+    } finally {
+        v2BtnLoading(btn, false);
+    }
 }
 
-function ttRemoveBuilding(id) {
-    TT.buildings = TT.buildings.filter(b => b.id !== id);
-    if (TT.buildings.length === 0) ttAddBuilding();
-    ttPersist();
-    ttRenderBuildings();
-}
-
-function ttRenderBuildings() {
-    const list = document.getElementById("ttBuildingsList");
-    if (TT.years.length === 0) { list.innerHTML = ""; return; }
-
+function v2RenderGroups(groups) {
+    const box = document.getElementById("v2GroupsBox");
+    if (!groups.length) {
+        box.innerHTML = `<p class="empty-state">No groups computed. Make sure students have enrollments.</p>`;
+        return;
+    }
+    // Section by year.
+    const byYear = {};
+    for (const g of groups) {
+        const y = g.year ?? 0;
+        if (!byYear[y]) byYear[y] = [];
+        byYear[y].push(g);
+    }
+    const yearKeys = Object.keys(byYear).sort();
     let html = "";
-    for (const b of TT.buildings) {
-        const yearChecks = TT.years.map(y => {
-            const owner = ttBuildingForYear(y);
-            const taken = owner && owner.id !== b.id;
-            const checked = b.years.includes(y);
-            const cls = "tt-year-check" + (checked ? " active" : "") + (taken ? " taken" : "");
-            const tip = taken ? `Already in "${ttEsc(owner.name || "(unnamed)")}"` : "";
-            const count = TT.classes.filter(c => c.grade_level === y).length;
-            return `
-                <label class="${cls}" title="${tip}">
-                    <input type="checkbox" data-building="${b.id}" data-year="${y}"
-                           ${checked ? "checked" : ""} ${taken ? "disabled" : ""}>
-                    <span>Year ${y} <small style="opacity:.7">(${count} cls)</small></span>
-                </label>
-            `;
-        }).join("");
+    for (const y of yearKeys) {
+        html += `<div class="v2-section-head">Year ${y}</div>`;
+        const rows = byYear[y].slice().sort((a, b) =>
+            (a.subject_name || "").localeCompare(b.subject_name || "") ||
+            (a.group_label || "").localeCompare(b.group_label || ""));
+        // Group by subject for readability
+        const bySub = {};
+        for (const r of rows) (bySub[r.subject_name] ||= []).push(r);
+        for (const subj of Object.keys(bySub).sort()) {
+            html += `<div class="v2-sub-head">${v2Esc(subj)}</div>`;
+            html += `<table class="v2-table"><thead><tr><th>Group</th><th>Size</th></tr></thead><tbody>`;
+            for (const r of bySub[subj]) {
+                html += `<tr><td>${v2Esc(r.group_label)}</td><td>${r.size}</td></tr>`;
+            }
+            html += `</tbody></table>`;
+        }
+    }
+    box.innerHTML = html;
+}
 
-        html += `
-            <div class="tt-building-row">
-                <div class="tt-building-head">
-                    <div class="form-group">
-                        <label>Building name</label>
-                        <input type="text" class="form-input" placeholder="e.g. Main, Annex"
-                               data-building="${b.id}" data-field="name" value="${ttEsc(b.name)}">
-                    </div>
-                    <button type="button" class="tt-remove-btn" data-remove="${b.id}">Remove</button>
-                </div>
-                <div>
-                    <div style="font-size:0.78rem;color:var(--text-light);margin-bottom:4px;">Year levels in this building</div>
-                    <div class="tt-year-checks">${yearChecks}</div>
-                </div>
+async function v2SaveGroups() {
+    v2ShowError("");
+    const btn = document.getElementById("v2BtnSaveGroups");
+    v2BtnLoading(btn, true, "Saving…");
+    try {
+        const res = await apiFetch("/admin/timetable/v2/groups/save/", {
+            method: "POST", body: "{}",
+        });
+        const d = await res.json();
+        if (!res.ok) {
+            v2ShowError(d.message || "Failed to save groups");
+            return;
+        }
+        showToast(`Saved ${d.updated || 0} group labels`, "success");
+    } finally {
+        v2BtnLoading(btn, false);
+    }
+}
+
+// ─────────────────────────── step 2: generate ───────────────────────────
+
+async function v2Generate() {
+    v2ShowError("");
+    const btn = document.getElementById("v2BtnRegen") || document.getElementById("v2BtnNext1");
+    v2BtnLoading(btn, true, "Generating…");
+    try {
+        V2.lastSeed = Math.floor(Math.random() * 1e9);
+        const res = await apiFetch("/admin/timetable/v2/generate/", {
+            method: "POST",
+            body: JSON.stringify({ seed: V2.lastSeed }),
+        });
+        const d = await res.json();
+        if (!res.ok) {
+            v2ShowError(d.message || "Failed to generate");
+            return;
+        }
+        V2.placements = d.placements || [];
+        v2RenderResults(d);
+        v2GoStep(2);
+    } finally {
+        v2BtnLoading(btn, false);
+    }
+}
+
+function v2RenderResults(d) {
+    const stats = document.getElementById("v2Stats");
+    const placements = d.placements || [];
+    const unplaced = d.unplaced || [];
+    const teacherCount = new Set(placements.map(p => p.teacher_id)).size;
+    const lessonCount = new Set(placements.map(p => p.lid)).size;
+    stats.innerHTML = `
+        <div class="v2-stat"><strong>${placements.length}</strong>Placed periods</div>
+        <div class="v2-stat"><strong>${lessonCount}</strong>Lessons</div>
+        <div class="v2-stat"><strong>${teacherCount}</strong>Teachers used</div>
+        <div class="v2-stat"><strong>${unplaced.length}</strong>Unplaced</div>
+    `;
+
+    const upBox = document.getElementById("v2Unplaced");
+    if (unplaced.length) {
+        upBox.innerHTML = `
+            <div class="v2-error-box">
+                <strong>${unplaced.length} lesson(s) could not be placed:</strong>
+                <ul style="margin:6px 0 0 18px;">
+                    ${unplaced.slice(0, 12).map(u =>
+                        `<li>${v2Esc(u.subject_name)} ${v2Esc(u.group_label || u.class_name || "")} (year ${u.year}) — ${v2Esc(u.reason || "no slot")}</li>`).join("")}
+                </ul>
+                ${unplaced.length > 12 ? `<small>… and ${unplaced.length - 12} more.</small>` : ""}
             </div>
         `;
+    } else {
+        upBox.innerHTML = "";
     }
-    list.innerHTML = html;
 
-    list.querySelectorAll('input[data-field="name"]').forEach(inp => {
-        inp.addEventListener("input", e => {
-            const id = parseInt(e.target.dataset.building, 10);
-            const b = TT.buildings.find(x => x.id === id);
-            if (b) {
-                b.name = e.target.value;
-                ttPersist();
-            }
-        });
-    });
-    list.querySelectorAll('input[data-year]').forEach(cb => {
-        cb.addEventListener("change", e => {
-            const id = parseInt(e.target.dataset.building, 10);
-            const yr = parseInt(e.target.dataset.year, 10);
-            const b = TT.buildings.find(x => x.id === id);
-            if (!b) return;
-            if (e.target.checked) {
-                if (!b.years.includes(yr)) b.years.push(yr);
-            } else {
-                b.years = b.years.filter(y => y !== yr);
-            }
-            ttPersist();
-            ttRenderBuildings();
-        });
-    });
-    list.querySelectorAll('[data-remove]').forEach(btn => {
-        btn.addEventListener("click", () => {
-            ttRemoveBuilding(parseInt(btn.dataset.remove, 10));
-        });
-    });
-}
-
-function ttValidateBuildings() {
-    const used = TT.buildings.filter(b => b.years.length > 0);
-    if (used.length === 0) return "Add at least one building with a year assigned.";
-    for (const b of used) {
-        if (!b.name.trim()) return "Every building needs a name.";
-    }
-    return null;
-}
-
-// ----- Step 2: pick years -----
-
-function ttRenderYearPicker() {
-    const grid = document.getElementById("ttYearGrid");
-    const assignedYears = TT.buildings.flatMap(b => b.years.map(y => ({ year: y, building: b.name })));
-    if (assignedYears.length === 0) {
-        grid.innerHTML = '<p class="empty-state">No years assigned to a building.</p>';
-        return;
-    }
-    assignedYears.sort((a, b) => a.year - b.year);
-
-    grid.innerHTML = assignedYears.map(({ year, building }) => {
-        const classes = ttClassesForYear(year);
-        const checked = TT.selectedYears.includes(year);
-        return `
-            <label class="tt-year-pick ${checked ? "checked" : ""}" data-year="${year}">
-                <input type="checkbox" value="${year}" ${checked ? "checked" : ""}>
-                <span>
-                    <strong>Year ${year}</strong>
-                    <small>${classes.length} class${classes.length === 1 ? "" : "es"} · ${ttEsc(building || "(unnamed building)")}</small>
-                </span>
-            </label>
-        `;
-    }).join("");
-
-    grid.querySelectorAll("input[type=checkbox]").forEach(cb => {
-        cb.addEventListener("change", () => {
-            TT.selectedYears = Array.from(grid.querySelectorAll("input:checked")).map(c => parseInt(c.value, 10));
-            grid.querySelectorAll(".tt-year-pick").forEach(lbl => {
-                const inp = lbl.querySelector("input");
-                lbl.classList.toggle("checked", inp.checked);
-            });
-            document.getElementById("ttBtnNext2").disabled = TT.selectedYears.length === 0;
-        });
-    });
-    document.getElementById("ttBtnNext2").disabled = TT.selectedYears.length === 0;
-}
-
-// ----- Step 3 → 4: load metadata, generate -----
-
-async function ttLoadSelectedClassData() {
-    const classIds = TT.selectedYears.flatMap(y => ttClassesForYear(y).map(c => c.id));
-    if (classIds.length === 0) return classIds;
-    const qs = encodeURIComponent(classIds.join(","));
-    const res = await apiFetch(`/timetable/multi-class-data/?class_ids=${qs}`);
-    if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j.message || `HTTP ${res.status}`);
-    }
-    const data = await res.json();
-    TT.classData = {};
-    TT.subjectMeta = {};
-    for (const c of (data.classes || [])) {
-        TT.classData[c.class_id] = c;
-        for (const s of (c.subjects || [])) {
-            if (!TT.subjectMeta[s.subject_id]) {
-                TT.subjectMeta[s.subject_id] = { name: s.subject_name };
-            }
-        }
-    }
-    // Seed periods/week with default 4 for any subject not yet set
-    for (const sid of Object.keys(TT.subjectMeta)) {
-        if (TT.subjectPeriods[sid] == null) TT.subjectPeriods[sid] = 4;
-    }
-    return classIds;
-}
-
-function ttRenderSubjectPeriods() {
-    const wrap = document.getElementById("ttSubjectPeriods");
-    const ids = Object.keys(TT.subjectMeta).sort((a, b) =>
-        TT.subjectMeta[a].name.localeCompare(TT.subjectMeta[b].name));
-    if (ids.length === 0) {
-        wrap.innerHTML = '<p class="empty-state">No subjects found across the selected years.</p>';
-        return;
-    }
-    wrap.innerHTML = `<div class="tt-subject-rows">${
-        ids.map(sid => `
-            <label class="tt-subject-row">
-                <strong>${ttEsc(TT.subjectMeta[sid].name)}</strong>
-                <input type="number" min="1" max="10" value="${TT.subjectPeriods[sid]}"
-                       data-subject="${ttEsc(sid)}">
-                <span style="font-size:0.75rem;color:var(--text-lighter);">/week</span>
-            </label>
-        `).join("")
-    }</div>`;
-    wrap.querySelectorAll("input[data-subject]").forEach(inp => {
-        inp.addEventListener("change", e => {
-            const sid = e.target.dataset.subject;
-            const v = Math.max(1, Math.min(10, parseInt(e.target.value, 10) || 4));
-            e.target.value = v;
-            TT.subjectPeriods[sid] = v;
-        });
-    });
-}
-
-async function ttGenerate() {
-    const breakAfter = parseInt(document.getElementById("ttBreakAfter").value, 10) || 4;
-    const maxSame = parseInt(document.getElementById("ttMaxSame").value, 10) || 2;
-    const btn = document.getElementById("ttBtnGenerate");
-    const orig = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = "Generating…";
-    ttShowError("");
-
-    try {
-        const classIds = TT.selectedYears.flatMap(y => ttClassesForYear(y).map(c => c.id));
-        if (classIds.length === 0) {
-            ttShowError("No classes found in the selected years.");
-            return;
-        }
-
-        // Map every class to its building based on year → building assignment
-        const yearBuilding = {};
-        for (const b of TT.buildings) for (const y of b.years) yearBuilding[y] = b.name;
-
-        const payload = {
-            classes: classIds.map(cid => {
-                const cd = TT.classData[cid] || TT.classes.find(c => c.id === cid);
-                const yr = cd?.grade_level;
-                const overrides = (cd?.subjects || []).map(s => ({
-                    subject_id: s.subject_id,
-                    periods_per_week: TT.subjectPeriods[s.subject_id] ?? 4,
-                }));
-                return {
-                    class_id: cid,
-                    building: yearBuilding[yr] || "",
-                    subjects: overrides,
-                };
-            }),
-            constraints: { break_after: breakAfter, max_same_subject_per_day: maxSame },
-        };
-
-        const res = await apiFetch("/timetable/generate-multi/", {
-            method: "POST",
-            body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-            ttShowError(data.message || "Generation failed.");
-            showToast(data.message || "Generation failed", "error");
-            return;
-        }
-        TT.timetables = data.timetables || {};
-        TT.subjectColor = {};
-        for (const cid of Object.keys(TT.timetables)) {
-            const t = TT.timetables[cid].timetable || {};
-            for (const d of Object.keys(t)) for (const p of Object.keys(t[d])) ttColorFor(t[d][p].subject_id);
-        }
-        ttRenderResults(data.stats, data.skipped || []);
-        ttGoStep(4);
-        if ((data.skipped || []).length > 0) {
-            const names = data.skipped.map(s => s.class_name).join(", ");
-            showToast(`Generated. Skipped (no teachers assigned): ${names}`, "info", 6000);
-        } else {
-            showToast("Timetables generated", "success");
-        }
-    } catch (e) {
-        console.error(e);
-        ttShowError(e.message || "Generation failed.");
-        showToast("Generation failed", "error");
-    } finally {
-        btn.disabled = false;
-        btn.textContent = orig;
-    }
-}
-
-function ttRenderResults(stats, skipped) {
-    const statsBox = document.getElementById("ttStats");
-    statsBox.innerHTML = stats ? `
-        <div class="tt-stat"><strong>${stats.classes_count}</strong>Classes</div>
-        <div class="tt-stat"><strong>${stats.filled_slots}</strong>Filled slots</div>
-        <div class="tt-stat"><strong>${stats.free_slots}</strong>Free slots</div>
-        <div class="tt-stat"><strong>${stats.total_slots}</strong>Total slots</div>
-    ` : "";
-
-    const wrap = document.getElementById("ttResults");
-    let skippedNote = "";
-    if (skipped && skipped.length > 0) {
-        const names = skipped.map(s => ttEsc(s.class_name)).join(", ");
-        skippedNote = `<div class="tt-error-box" style="background:#fef3c7;color:#92400e;border-color:#fde68a;">
-            Skipped (no teachers assigned to any subject): <strong>${names}</strong>
-        </div>`;
-    }
-    // Group by year
+    // Render per-year per-class grids and per-group grids.
+    const results = document.getElementById("v2Results");
     const byYear = {};
-    for (const cid of Object.keys(TT.timetables)) {
-        const cd = TT.classData[cid] || TT.classes.find(c => c.id === cid) || {};
-        const yr = cd.grade_level || 0;
-        (byYear[yr] = byYear[yr] || []).push(cid);
-    }
-    const years = Object.keys(byYear).map(n => parseInt(n, 10)).sort((a, b) => a - b);
-
+    for (const p of placements) (byYear[p.year] ||= []).push(p);
     let html = "";
-    for (const yr of years) {
-        html += `<h3 style="margin:18px 0 6px;color:var(--primary-blue);">Year ${yr}</h3>`;
-        for (const cid of byYear[yr]) {
-            const block = TT.timetables[cid];
-            html += `
-                <div class="tt-result-block" data-class="${ttEsc(cid)}">
-                    <div class="tt-result-header">
-                        <div class="tt-result-title">${ttEsc(block.class_name)}</div>
-                        <div>
-                            <button class="btn btn-secondary btn-sm" data-export="${ttEsc(cid)}">Export CSV</button>
-                            <button class="btn btn-danger btn-sm" data-clear="${ttEsc(cid)}">Clear</button>
-                        </div>
-                    </div>
-                    <div class="tt-grid-wrap">
-                        <table class="tt-grid">${ttGridBody(cid)}</table>
-                    </div>
-                </div>
-            `;
+    for (const year of Object.keys(byYear).sort()) {
+        html += `<div class="v2-section-head">Year ${year}</div>`;
+        const yearP = byYear[year];
+        // Class-wide lessons grouped by class_name.
+        const byClass = {};
+        const byGroup = {};
+        for (const p of yearP) {
+            if (p.class_id) {
+                (byClass[p.class_name || p.class_id] ||= []).push(p);
+            } else {
+                const k = `${p.subject_name} ${p.group_label || ""}`;
+                (byGroup[k] ||= []).push(p);
+            }
+        }
+        for (const cn of Object.keys(byClass).sort()) {
+            html += v2RenderGrid(`Class ${v2Esc(cn)}`, byClass[cn], { showClass: false, showTeacher: true });
+        }
+        for (const k of Object.keys(byGroup).sort()) {
+            html += v2RenderGrid(v2Esc(k), byGroup[k], { showClass: false, showTeacher: true });
         }
     }
-    wrap.innerHTML = (skippedNote || "") + (html || '<p class="empty-state">No timetables produced.</p>');
-    ttBindResultEvents();
+    results.innerHTML = html || `<p class="empty-state">No placements.</p>`;
 }
 
-function ttBindResultEvents() {
-    const wrap = document.getElementById("ttResults");
-    wrap.querySelectorAll("td.tt-cell").forEach(td => {
-        td.addEventListener("click", () => {
-            ttOpenSlotModal(td.dataset.class, parseInt(td.dataset.day, 10), parseInt(td.dataset.period, 10));
-        });
-    });
-    wrap.querySelectorAll("[data-export]").forEach(btn => {
-        btn.addEventListener("click", () => ttExportCsv(btn.dataset.export));
-    });
-    wrap.querySelectorAll("[data-clear]").forEach(btn => {
-        btn.addEventListener("click", () => ttClearOne(btn.dataset.clear));
-    });
-}
-
-function ttGridBody(cid) {
-    const breakAfter = parseInt(document.getElementById("ttBreakAfter").value, 10) || 4;
-    const tt = TT.timetables[cid]?.timetable || {};
-    let html = "<thead><tr><th class='tt-period-cell'>P</th>";
-    for (const d of TT_DAYS) html += `<th>${d.name}</th>`;
-    html += "</tr></thead><tbody>";
-    for (const p of TT_PERIODS) {
-        if (p === breakAfter + 1) {
-            html += `<tr class="tt-break-row"><td colspan="${TT_DAYS.length + 1}">— BREAK —</td></tr>`;
-        }
-        html += `<tr><td class="tt-period-cell">${p}</td>`;
-        for (const d of TT_DAYS) {
-            const slot = (tt[String(d.id)] || {})[String(p)];
-            if (slot) {
-                const bg = ttColorFor(slot.subject_id);
-                html += `<td class="tt-cell" style="background:${bg}" data-class="${ttEsc(cid)}" data-day="${d.id}" data-period="${p}">
-                    <div class="tt-cell-subject">${ttEsc(slot.subject_name)}</div>
-                    <div class="tt-cell-teacher">${ttEsc(slot.teacher_name)}</div>
-                </td>`;
+function v2RenderGrid(title, slots, opts) {
+    opts = opts || {};
+    const byKey = {};
+    for (const s of slots) {
+        const k = `${s.day}_${s.period}`;
+        (byKey[k] ||= []).push(s);
+    }
+    let html = `<div class="v2-sub-head">${title}</div>
+        <div class="v2-grid-wrap"><table class="v2-grid">
+            <thead><tr>
+                <th class="v2-period">Per.</th>
+                ${V2_DAYS.map(d => `<th>${V2_DAYS_SHORT[d]}</th>`).join("")}
+            </tr></thead><tbody>`;
+    for (const p of V2_PERIODS) {
+        html += `<tr><td class="v2-period">${p}</td>`;
+        for (const d of V2_DAYS) {
+            const cells = byKey[`${d}_${p}`] || [];
+            if (!cells.length) {
+                html += `<td class="v2-cell v2-cell-empty">—</td>`;
             } else {
-                html += `<td class="tt-cell tt-cell-empty" data-class="${ttEsc(cid)}" data-day="${d.id}" data-period="${p}">+ add</td>`;
+                const inner = cells.map(c => `
+                    <div>
+                        <div class="v2-cell-subject">${v2Esc(c.subject_name)}</div>
+                        ${c.group_label ? `<div class="v2-cell-meta">${v2Esc(c.group_label)}</div>` : ""}
+                        ${opts.showTeacher && c.teacher_name ? `<div class="v2-cell-meta">${v2Esc(c.teacher_name)}</div>` : ""}
+                    </div>`).join("");
+                html += `<td class="v2-cell">${inner}</td>`;
             }
         }
         html += "</tr>";
     }
-    html += "</tbody>";
+    html += "</tbody></table></div>";
     return html;
 }
 
-// ----- Slot modal -----
-
-function ttOpenSlotModal(cid, day, period) {
-    const cd = TT.classData[cid];
-    if (!cd) return;
-    TT.activeSlot = { class_id: cid, day, period };
-    const existing = (TT.timetables[cid]?.timetable[String(day)] || {})[String(period)] || null;
-    const dayName = TT_DAYS.find(d => d.id === day)?.name || day;
-
-    document.getElementById("ttSlotModalTitle").textContent = `${cd.class_name} · ${dayName} · Period ${period}`;
-    const opts = '<option value="">— None —</option>' +
-        cd.subjects.map(s =>
-            `<option value="${ttEsc(s.subject_id)}" data-teacher="${ttEsc(s.teacher_id)}"
-                ${existing && existing.subject_id === s.subject_id ? "selected" : ""}>
-                ${ttEsc(s.subject_name)} (${ttEsc(s.teacher_name)})
-             </option>`
-        ).join("");
-
-    document.getElementById("ttSlotModalBody").innerHTML = `
-        <div class="form-group">
-            <label>Subject &amp; teacher</label>
-            <select id="ttSlotSubject" class="form-input">${opts}</select>
-        </div>
-        <p style="font-size:0.78rem;color:var(--text-light);margin-top:6px;">
-            Server rejects teacher conflicts in other classes at this slot.
-        </p>
-    `;
-    document.getElementById("ttSlotModalDelete").style.display = existing ? "" : "none";
-    document.getElementById("ttSlotModal").style.display = "flex";
-}
-
-function ttCloseSlotModal() {
-    document.getElementById("ttSlotModal").style.display = "none";
-    TT.activeSlot = null;
-}
-
-function ttSaveSlot() {
-    // Preview mode — mutate the in-memory timetable only. The live schedule
-    // is only touched once the admin clicks Confirm & save.
-    if (!TT.activeSlot) return;
-    const sel = document.getElementById("ttSlotSubject");
-    const opt = sel.options[sel.selectedIndex];
-    const subjectId = sel.value;
-    const teacherId = opt ? (opt.dataset.teacher || "") : "";
-    const { class_id, day, period } = TT.activeSlot;
-
-    const tt = TT.timetables[class_id]?.timetable || {};
-    if (!tt[String(day)]) tt[String(day)] = {};
-    if (subjectId) {
-        const subj = TT.classData[class_id].subjects.find(s => s.subject_id === subjectId);
-        tt[String(day)][String(period)] = {
-            subject_id: subjectId,
-            subject_name: subj ? subj.subject_name : "",
-            teacher_id: teacherId,
-            teacher_name: subj ? subj.teacher_name : "",
-        };
-    } else {
-        delete tt[String(day)][String(period)];
-    }
-    const block = document.querySelector(`.tt-result-block[data-class="${class_id}"] table.tt-grid`);
-    if (block) block.innerHTML = ttGridBody(class_id);
-    ttBindResultEvents();
-    ttCloseSlotModal();
-    showToast("Slot updated (preview)", "success");
-}
-
-function ttDeleteSlot() {
-    if (!TT.activeSlot) return;
-    const { class_id, day, period } = TT.activeSlot;
-    const tt = TT.timetables[class_id]?.timetable || {};
-    if (tt[String(day)]) delete tt[String(day)][String(period)];
-    const block = document.querySelector(`.tt-result-block[data-class="${class_id}"] table.tt-grid`);
-    if (block) block.innerHTML = ttGridBody(class_id);
-    ttBindResultEvents();
-    ttCloseSlotModal();
-    showToast("Slot cleared (preview)", "success");
-}
-
-// ----- Per-class clear + export -----
-
-async function ttClearOne(cid) {
-    const ok = await showConfirm(`Clear the previewed timetable for ${TT.classData[cid]?.class_name || "this class"}?`,
-        { title: "Clear Preview", confirmText: "Clear" });
-    if (!ok) return;
-    if (TT.timetables[cid]) {
-        TT.timetables[cid].timetable = {};
-        const block = document.querySelector(`.tt-result-block[data-class="${cid}"] table.tt-grid`);
-        if (block) block.innerHTML = ttGridBody(cid);
-        ttBindResultEvents();
-    }
-    showToast("Cleared in preview", "success");
-}
-
-function ttExportCsv(cid) {
-    const block = TT.timetables[cid];
-    if (!block) return;
-    const className = block.class_name || cid;
-    const today = new Date().toISOString().slice(0, 10);
-    const headers = ["Period", ...TT_DAYS.map(d => d.name)];
-    const lines = [headers.join(",")];
-    const tt = block.timetable || {};
-    for (const p of TT_PERIODS) {
-        const cells = [String(p)];
-        for (const d of TT_DAYS) {
-            const slot = (tt[String(d.id)] || {})[String(p)];
-            const text = slot ? `${slot.subject_name} (${slot.teacher_name})` : "";
-            cells.push('"' + text.replace(/"/g, '""') + '"');
-        }
-        lines.push(cells.join(","));
-    }
-    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `timetable_${className}_${today}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-}
-
-function ttExportAll() {
-    for (const cid of Object.keys(TT.timetables)) ttExportCsv(cid);
-}
-
-async function ttConfirmSave() {
-    if (!TT.timetables || Object.keys(TT.timetables).length === 0) {
-        ttShowError("Nothing to save — generate first.");
+async function v2Confirm() {
+    if (!V2.placements || !V2.placements.length) {
+        v2ShowError("Nothing to save — generate first.");
         return;
     }
     const ok = await showConfirm(
-        "Replace the live schedule for every previewed class? Existing rows for those classes will be deleted first.",
-        { title: "Save Timetables", confirmText: "Save" }
+        "This will wipe the live schedule and replace it with the previewed timetable. Group labels on student_subjects will also be updated. Continue?",
+        { title: "Save new timetable", confirmText: "Save" }
     );
     if (!ok) return;
-
-    const btn = document.getElementById("ttBtnConfirmSave");
-    const orig = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = "Saving…";
+    const btn = document.getElementById("v2BtnConfirm");
+    v2BtnLoading(btn, true, "Saving…");
     try {
-        const res = await apiFetch("/timetable/save-multi/", {
+        const res = await apiFetch("/admin/timetable/v2/save/", {
             method: "POST",
-            body: JSON.stringify({ timetables: TT.timetables }),
+            body: JSON.stringify({ placements: V2.placements, save_groups: true }),
         });
-        const data = await res.json();
+        const d = await res.json();
         if (!res.ok) {
-            ttShowError(data.message || "Save failed.");
-            showToast(data.message || "Save failed", "error");
+            v2ShowError(d.message || "Failed to save");
             return;
         }
-        showToast(`Saved ${data.rows} rows`, "success");
-    } catch (e) {
-        console.error(e);
-        ttShowError("Network error while saving.");
-        showToast("Save failed", "error");
+        showToast(`Saved ${d.inserted || 0} schedule rows`, "success");
     } finally {
-        btn.disabled = false;
-        btn.textContent = orig;
+        v2BtnLoading(btn, false);
     }
 }
 
-// ----- Init -----
+// ─────────────────────────── wiring ───────────────────────────
 
-document.addEventListener("DOMContentLoaded", () => {
-    if (typeof requireAuth === "function" && !requireAuth()) return;
-    if (typeof initNav === "function") initNav();
+document.addEventListener("DOMContentLoaded", async () => {
+    if (!requireAuth()) return;
+    initNav();
 
-    const user = (typeof getUser === "function") ? getUser() : null;
-    if (!user || user.role !== "admin") {
-        showToast("Admin access required", "error");
-        setTimeout(() => { window.location.href = "index.html"; }, 800);
-        return;
-    }
-
-    ttRestore();
-    ttLoadClasses();
-
-    document.getElementById("ttAddBuildingBtn").addEventListener("click", ttAddBuilding);
-    document.getElementById("ttBtnNext1").addEventListener("click", () => {
-        const err = ttValidateBuildings();
-        if (err) { ttShowError(err); return; }
-        // Drop empty buildings
-        TT.buildings = TT.buildings.filter(b => b.years.length > 0);
-        ttPersist();
-        ttGoStep(2);
-        ttRenderYearPicker();
-    });
-    document.getElementById("ttBtnBack2").addEventListener("click", () => {
-        ttGoStep(1);
-        ttRenderBuildings();
-    });
-    document.getElementById("ttBtnNext2").addEventListener("click", async () => {
-        if (TT.selectedYears.length === 0) { ttShowError("Pick at least one year."); return; }
-        ttPersist();
-        ttGoStep(3);
-        document.getElementById("ttSubjectPeriods").innerHTML = '<p class="loading">Loading subjects…</p>';
-        try {
-            await ttLoadSelectedClassData();
-            ttRenderSubjectPeriods();
-        } catch (e) {
-            ttShowError(e.message || "Failed to load subjects.");
-        }
-    });
-    document.getElementById("ttBtnBack3").addEventListener("click", () => ttGoStep(2));
-    document.getElementById("ttBtnGenerate").addEventListener("click", ttGenerate);
-    document.getElementById("ttBtnBack4").addEventListener("click", () => ttGoStep(3));
-    document.getElementById("ttBtnExportAll").addEventListener("click", ttExportAll);
-    document.getElementById("ttBtnRegenerate").addEventListener("click", () => {
-        ttGoStep(3);
-    });
-    document.getElementById("ttBtnConfirmSave").addEventListener("click", ttConfirmSave);
-
-    document.getElementById("ttSlotModalSave").addEventListener("click", ttSaveSlot);
-    document.getElementById("ttSlotModalDelete").addEventListener("click", ttDeleteSlot);
-    document.getElementById("ttSlotModalCancel").addEventListener("click", ttCloseSlotModal);
-    document.getElementById("ttSlotModalClose").addEventListener("click", ttCloseSlotModal);
+    document.getElementById("v2BtnPreview").addEventListener("click", v2PreviewGroups);
+    document.getElementById("v2BtnSaveGroups").addEventListener("click", v2SaveGroups);
+    document.getElementById("v2BtnNext1").addEventListener("click", () => v2Generate());
+    document.getElementById("v2BtnBack2").addEventListener("click", () => v2GoStep(1));
+    document.getElementById("v2BtnRegen").addEventListener("click", () => v2Generate());
+    document.getElementById("v2BtnConfirm").addEventListener("click", v2Confirm);
 });
