@@ -1773,7 +1773,8 @@ function _schedRenderTeacherGrid(teacher, slots) {
         for (const d of days) {
             const cells = byDayPeriod[`${d}_${p}`] || [];
             if (!cells.length) {
-                html += `<td style="border:1px solid rgba(var(--primary-blue-rgb),0.12);padding:3px 5px;color:var(--text-lighter);font-style:italic;text-align:center;">—</td>`;
+                const tName = (teacher || "").replace(/'/g, "\\'");
+                html += `<td onclick="addScheduleSlotPrefill(${d}, ${p}, '${tName}')" title="Add slot" style="border:1px solid rgba(var(--primary-blue-rgb),0.12);padding:3px 5px;color:var(--text-lighter);font-style:italic;text-align:center;cursor:pointer;" onmouseover="this.style.background='rgba(var(--primary-blue-rgb),0.08)';this.innerHTML='+ add';" onmouseout="this.style.background='';this.innerHTML='—';">—</td>`;
             } else {
                 const inner = cells.map(c => `
                     <div style="margin-bottom:${cells.length>1?'4px':'0'};padding:2px 4px;border-radius:4px;background:rgba(var(--primary-blue-rgb),0.07);">
@@ -1946,17 +1947,31 @@ async function seedFromPdf() {
     }
 }
 
-function openAddScheduleSlot() {
+function _teacherIdByName(fullName) {
+    if (!fullName) return "";
+    const norm = fullName.trim().toLowerCase();
+    for (const t of cachedTeachers) {
+        const a = `${(t.name||"").trim()} ${(t.surname||"").trim()}`.trim().toLowerCase();
+        const b = `${(t.surname||"").trim()} ${(t.name||"").trim()}`.trim().toLowerCase();
+        if (a === norm || b === norm) return t.id;
+    }
+    return "";
+}
+
+function openAddScheduleSlot(prefill) {
+    prefill = prefill || {};
+    const teacherId = prefill.teacher_id || (prefill.teacher_name ? _teacherIdByName(prefill.teacher_name) : "");
+    const day = prefill.day_of_week || 1;
+    const period = prefill.period || 1;
     openAdminModal("Add Schedule Slot", `
-        <label>Teacher <select class="form-input" id="mTeacher"><option value="">— Select —</option>${teacherOptions()}</select></label>
+        <label>Teacher <select class="form-input" id="mTeacher"><option value="">— Select —</option>${teacherOptions(teacherId)}</select></label>
         <label>Subject <select class="form-input" id="mSubject"><option value="">— Select —</option>${subjectOptions()}</select></label>
         <label>Class <select class="form-input" id="mClass"><option value="">— Select —</option>${classOptions()}</select></label>
         <label>Day <select class="form-input" id="mDay">
-            <option value="1">Monday</option><option value="2">Tuesday</option>
-            <option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option>
+            ${[1,2,3,4,5].map(d => `<option value="${d}" ${d===day?"selected":""}>${["","Monday","Tuesday","Wednesday","Thursday","Friday"][d]}</option>`).join("")}
         </select></label>
         <label>Period <select class="form-input" id="mPeriod">
-            ${[1,2,3,4,5,6,7,8].map(p => `<option value="${p}">Period ${p}</option>`).join("")}
+            ${[1,2,3,4,5,6,7,8].map(p => `<option value="${p}" ${p===period?"selected":""}>Period ${p}</option>`).join("")}
         </select></label>
         <label>Room <input class="form-input" id="mRoom" placeholder="e.g. Room 201 (optional)"></label>
     `, async () => {
@@ -1972,6 +1987,10 @@ function openAddScheduleSlot() {
         showToast("Slot created", "success");
         await loadSection("schedule");
     });
+}
+
+function addScheduleSlotPrefill(day, period, teacherName) {
+    openAddScheduleSlot({ day_of_week: day, period: period, teacher_name: teacherName });
 }
 
 async function deleteScheduleSlot(id) {
