@@ -1740,36 +1740,210 @@ async function deleteEnrollment(studentId, subjectId) {
 
 /* ═══════════════ SCHEDULE ═══════════════ */
 const DAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+const SCHED_DAY_LABELS = ["", "Mon", "Tue", "Wed", "Thu", "Fri"];
+const SCHED_DAY_FULL  = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+
+function _schedExtractYear(className) {
+    const m = String(className || "").match(/^(\d+)/);
+    return m ? parseInt(m[1]) : 999;
+}
+
+function _schedRenderTeacherGrid(teacher, slots) {
+    const byDayPeriod = {};
+    for (const s of slots) {
+        const key = `${s.day_of_week}_${s.period}`;
+        if (!byDayPeriod[key]) byDayPeriod[key] = [];
+        byDayPeriod[key].push(s);
+    }
+    const days = [1,2,3,4,5];
+    const periods = [1,2,3,4,5,6,7,8];
+    let html = `<div style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+            <strong style="font-size:0.95rem;color:var(--primary-blue);">${escHtml(teacher)}</strong>
+        </div>
+        <div style="overflow-x:auto;">
+        <table style="border-collapse:collapse;font-size:0.78rem;min-width:500px;width:100%;">
+            <thead><tr>
+                <th style="border:1px solid rgba(var(--primary-blue-rgb),0.15);padding:4px 6px;background:var(--bg-table-header);width:44px;text-align:center;">Per.</th>
+                ${days.map(d => `<th style="border:1px solid rgba(var(--primary-blue-rgb),0.15);padding:4px 8px;background:var(--bg-table-header);text-align:center;">${SCHED_DAY_LABELS[d]}</th>`).join("")}
+            </tr></thead>
+            <tbody>`;
+    for (const p of periods) {
+        html += `<tr><td style="border:1px solid rgba(var(--primary-blue-rgb),0.15);padding:4px 6px;text-align:center;font-weight:700;background:var(--bg-table-header);">${p}</td>`;
+        for (const d of days) {
+            const cells = byDayPeriod[`${d}_${p}`] || [];
+            if (!cells.length) {
+                html += `<td style="border:1px solid rgba(var(--primary-blue-rgb),0.12);padding:3px 5px;color:var(--text-lighter);font-style:italic;text-align:center;">—</td>`;
+            } else {
+                const inner = cells.map(c => `
+                    <div style="margin-bottom:${cells.length>1?'4px':'0'};padding:2px 4px;border-radius:4px;background:rgba(var(--primary-blue-rgb),0.07);">
+                        <span style="font-weight:700;">${escHtml(c.subject_name||"")}</span>
+                        <span style="color:var(--text-light);margin-left:4px;">${escHtml(c.class_name||"")}</span>
+                        ${c.room ? `<span style="color:var(--text-lighter);margin-left:3px;">${escHtml(c.room)}</span>` : ""}
+                        <button onclick="deleteScheduleSlot('${c.id}')" title="Delete" style="float:right;background:none;border:none;color:#b91c1c;cursor:pointer;padding:0 2px;font-size:0.85rem;">✕</button>
+                    </div>`).join("");
+                html += `<td style="border:1px solid rgba(var(--primary-blue-rgb),0.15);padding:3px 5px;vertical-align:top;">${inner}</td>`;
+            }
+        }
+        html += `</tr>`;
+    }
+    html += `</tbody></table></div></div>`;
+    return html;
+}
+
 async function loadSchedule(container) {
     await Promise.all([fetchClasses(), fetchSubjects(), fetchTeachers()]);
     const res = await apiFetch("/admin/schedule/");
     const d = await res.json();
     const slots = d.schedule || [];
+
+    // Group by year → teacher
+    const byYear = {};
+    for (const s of slots) {
+        const yr = _schedExtractYear(s.class_name);
+        if (!byYear[yr]) byYear[yr] = {};
+        const t = s.teacher_name || "Unknown";
+        if (!byYear[yr][t]) byYear[yr][t] = [];
+        byYear[yr][t].push(s);
+    }
+    const years = Object.keys(byYear).map(Number).sort((a, b) => a - b);
+
+    let bodyHtml;
+    if (!slots.length) {
+        bodyHtml = `<p class="empty-state">No schedule slots yet.</p>`;
+    } else {
+        // View toggle state
+        bodyHtml = `
+        <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <span style="font-size:0.85rem;color:var(--text-light);">Group by:</span>
+            <button class="btn btn-sm" id="schedViewByYear" onclick="schedSetView('year')" style="background:var(--primary-blue);color:#fff;">Year → Teacher</button>
+            <button class="btn btn-sm" id="schedViewByTeacher" onclick="schedSetView('teacher')">Teacher only</button>
+        </div>
+        <div id="schedBody"></div>`;
+    }
+
     container.innerHTML = `
         <div class="admin-section-header">
             <h3>Timetable</h3>
             <div class="section-header-actions">
+                <button class="btn btn-secondary btn-sm" id="seedPdfBtn" onclick="seedFromPdf()">⬆ Import PDF timetable</button>
                 <button class="btn btn-primary btn-sm" onclick="openAddScheduleSlot()">+ Add Time Slot</button>
             </div>
         </div>
-        ${slots.length === 0 ? '<p class="empty-state">No schedule slots yet.</p>' : `
-        <table class="admin-table">
-            <thead><tr><th>Day</th><th>Period</th><th>Teacher</th><th>Subject</th><th>Class</th><th>Room</th><th>Actions</th></tr></thead>
-            <tbody>${slots.map(s => `
-                <tr>
-                    <td>${DAY_NAMES[s.day_of_week] || s.day_of_week}</td>
-                    <td>${s.period}</td>
-                    <td>${escHtml(s.teacher_name)}</td>
-                    <td>${escHtml(s.subject_name)}</td>
-                    <td>${escHtml(s.class_name)}</td>
-                    <td>${escHtml(s.room || "—")}</td>
-                    <td class="admin-actions">
-                        <button class="btn btn-sm btn-danger" onclick="deleteScheduleSlot('${s.id}')">Delete</button>
-                    </td>
-                </tr>
-            `).join("")}</tbody>
-        </table>`}
+        <div id="seedResultBox" style="display:none;"></div>
+        ${bodyHtml}
     `;
+
+    if (slots.length) {
+        window._schedSlots = slots;
+        window._schedByYear = byYear;
+        window._schedYears = years;
+        schedSetView("year");
+    }
+}
+
+function schedSetView(mode) {
+    const slots = window._schedSlots || [];
+    const byYear = window._schedByYear || {};
+    const years = window._schedYears || [];
+
+    const btnYear = document.getElementById("schedViewByYear");
+    const btnTeacher = document.getElementById("schedViewByTeacher");
+    const body = document.getElementById("schedBody");
+    if (!body) return;
+
+    if (btnYear) { btnYear.style.background = mode === "year" ? "var(--primary-blue)" : ""; btnYear.style.color = mode === "year" ? "#fff" : ""; }
+    if (btnTeacher) { btnTeacher.style.background = mode === "teacher" ? "var(--primary-blue)" : ""; btnTeacher.style.color = mode === "teacher" ? "#fff" : ""; }
+
+    if (mode === "year") {
+        let html = "";
+        for (const yr of years) {
+            const teachers = Object.keys(byYear[yr]).sort();
+            html += `<div style="margin-bottom:28px;">
+                <div style="font-size:1.05rem;font-weight:800;color:var(--primary-blue);border-bottom:2px solid rgba(var(--primary-blue-rgb),0.25);padding-bottom:4px;margin-bottom:12px;">Year ${yr}</div>`;
+            for (const t of teachers) {
+                html += _schedRenderTeacherGrid(t, byYear[yr][t]);
+            }
+            html += `</div>`;
+        }
+        body.innerHTML = html;
+    } else {
+        // All teachers across all years
+        const byTeacher = {};
+        for (const s of slots) {
+            const t = s.teacher_name || "Unknown";
+            if (!byTeacher[t]) byTeacher[t] = [];
+            byTeacher[t].push(s);
+        }
+        const teachers = Object.keys(byTeacher).sort();
+        let html = "";
+        for (const t of teachers) {
+            html += _schedRenderTeacherGrid(t, byTeacher[t]);
+        }
+        body.innerHTML = html;
+    }
+}
+
+async function seedFromPdf() {
+    const btn = document.getElementById("seedPdfBtn");
+    const box = document.getElementById("seedResultBox");
+    if (btn) { btn.disabled = true; btn.textContent = "Importing…"; }
+    if (box) { box.style.display = "none"; }
+
+    try {
+        // Fetch the committed seed JSON from GitHub raw
+        const jsonRes = await fetch("https://raw.githubusercontent.com/Holmsbergsviti/e-diary/main/docs/timetable_seed.json");
+        if (!jsonRes.ok) throw new Error("Could not fetch timetable_seed.json from GitHub");
+        const seed = await jsonRes.json();
+        const rows = seed.rows || [];
+        if (!rows.length) throw new Error("seed JSON has no rows");
+
+        const apiRes = await apiFetch("/timetable/seed-from-json/", {
+            method: "POST",
+            body: JSON.stringify({ wipe: true, rows }),
+        });
+        const data = await apiRes.json();
+
+        if (!apiRes.ok) {
+            throw new Error(data.message || `HTTP ${apiRes.status}`);
+        }
+
+        const teachersCreated = Array.isArray(data.teachers_created) ? data.teachers_created.length : (data.teachers_created ?? 0);
+        const subjectsCreated = Array.isArray(data.subjects_created) ? data.subjects_created.length : (data.subjects_created ?? 0);
+        const lines = [
+            `✅ Import complete`,
+            `Schedule rows inserted: <strong>${data.schedule_rows_inserted ?? "?"}</strong>`,
+            `Teachers created: <strong>${teachersCreated}</strong>`,
+            `Subjects created: <strong>${subjectsCreated}</strong>`,
+            `Assignments wired: <strong>${data.assignments_created ?? 0}</strong>`,
+        ];
+        if (data.missing_classes && data.missing_classes.length) {
+            lines.push(`⚠️ Missing classes (not in DB, rows skipped): <em>${escHtml(data.missing_classes.join(", "))}</em>`);
+        }
+        const creds = data.teacher_credentials || data.teachers_credentials || [];
+        if (creds.length) {
+            const cred = creds.map(c => `${escHtml(c.name)} — ${escHtml(c.email)} / ${escHtml(c.password)}`).join("<br>");
+            lines.push(`<details style="margin-top:6px;"><summary style="cursor:pointer;">New teacher credentials (${creds.length})</summary><div style="font-family:monospace;font-size:0.8rem;margin-top:6px;">${cred}</div></details>`);
+        }
+        // Re-render the section, then re-show result
+        const resultHtml = lines.join("<br>");
+        await loadSection("schedule");
+        const newBox = document.getElementById("seedResultBox");
+        if (newBox) {
+            newBox.style.cssText = "display:block;padding:12px 14px;border-radius:8px;background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;font-size:0.88rem;margin-bottom:12px;";
+            newBox.innerHTML = resultHtml;
+        }
+    } catch (err) {
+        const currentBox = document.getElementById("seedResultBox");
+        if (currentBox) {
+            currentBox.style.cssText = "display:block;padding:12px 14px;border-radius:8px;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;font-size:0.88rem;margin-bottom:12px;";
+            currentBox.innerHTML = `❌ ${escHtml(err.message)}`;
+        }
+        showToast("Import failed: " + err.message, "error");
+    } finally {
+        const currentBtn = document.getElementById("seedPdfBtn");
+        if (currentBtn) { currentBtn.disabled = false; currentBtn.textContent = "⬆ Import PDF timetable"; }
+    }
 }
 
 function openAddScheduleSlot() {
