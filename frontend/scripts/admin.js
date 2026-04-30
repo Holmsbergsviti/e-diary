@@ -1822,9 +1822,9 @@ async function openEnrollEditor(studentId) {
                 <label>Mandatory (auto-enrolled)</label>
                 <div style="font-size:0.85rem;color:var(--text-light);">${[...opts.mandatory_class, ...opts.mandatory_level_split].map(escHtml).join(", ")}</div>
             </div>
-            ${enrollGroupCheckboxes("Pick exactly 2 humanities", "hum", opts.humanities_pick_2, chosen)}
-            ${enrollGroupCheckboxes("Pick exactly 1 of PE / Art / Psychology / ML", "pe", opts.pe_bucket_pick_1, chosen)}
-            ${enrollGroupCheckboxes("Pick exactly 1 language", "lang", opts.languages_pick_1, chosen)}
+            ${enrollGroupCheckboxes("Pick exactly 2 humanities", "hum", opts.humanities_pick_2, chosen, 2)}
+            ${enrollGroupCheckboxes("Pick exactly 1 of PE / Art / Psychology / ML", "pe", opts.pe_bucket_pick_1, chosen, 1)}
+            ${enrollGroupCheckboxes("Pick exactly 1 language", "lang", opts.languages_pick_1, chosen, 1)}
         `;
     } else {
         // Year 12/13
@@ -1881,18 +1881,32 @@ async function openEnrollEditor(studentId) {
     });
 }
 
-function enrollGroupCheckboxes(title, group, options, chosen) {
+function enrollGroupCheckboxes(title, group, options, chosen, maxPick) {
+    const max = maxPick || 0;
     return `
         <div class="form-group">
             <label>${escHtml(title)}</label>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 ${(options || []).map(s => `
                     <label style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid rgba(var(--primary-blue-rgb),0.2);border-radius:8px;background:var(--bg-button);font-size:0.85rem;">
-                        <input type="checkbox" class="enroll-pick" data-group="${group}" data-name="${escHtml(s)}" ${chosen.has(s) ? "checked" : ""}> ${escHtml(s)}
+                        <input type="checkbox" class="enroll-pick" data-group="${group}" data-name="${escHtml(s)}" ${chosen.has(s) ? "checked" : ""} onchange="enforceEnrollPickLimit(this, ${max})"> ${escHtml(s)}
                     </label>`).join("")}
             </div>
         </div>
     `;
+}
+
+function enforceEnrollPickLimit(el, max) {
+    if (!el.checked || !max) return;
+    const grp = el.dataset.group;
+    let checked = Array.from(document.querySelectorAll(
+        `input.enroll-pick[data-group="${grp}"]:checked`));
+    while (checked.length > max) {
+        const old = checked.find(x => x !== el);
+        if (!old) break;
+        old.checked = false;
+        checked = checked.filter(x => x !== old);
+    }
 }
 
 function updateIeltsIndicator() {
