@@ -1876,6 +1876,17 @@ function _schedRenderYearBucketGrid(label, slots) {
     return html;
 }
 
+async function reloadScheduleKeepScroll() {
+    const y = window.scrollY || window.pageYOffset || 0;
+    const view = window._schedViewMode || "year";
+    window._schedRestoreView = view;
+    window._schedRestoreScroll = y;
+    await loadSection("schedule");
+    // Restore view mode if needed (loadSchedule defaults to "year")
+    if (view !== "year" && typeof schedSetView === "function") schedSetView(view);
+    requestAnimationFrame(() => window.scrollTo(0, y));
+}
+
 async function loadSchedule(container) {
     await Promise.all([fetchClasses(), fetchSubjects(), fetchTeachers()]);
     const res = await apiFetch("/admin/schedule/");
@@ -1928,6 +1939,7 @@ async function loadSchedule(container) {
 }
 
 function schedSetView(mode) {
+    window._schedViewMode = mode;
     const slots = window._schedSlots || [];
     const byYear = window._schedByYear || {};
     const years = window._schedYears || [];
@@ -2028,7 +2040,7 @@ async function seedFromPdf() {
         }
         // Re-render the section, then re-show result
         const resultHtml = lines.join("<br>");
-        await loadSection("schedule");
+        await reloadScheduleKeepScroll();
         const newBox = document.getElementById("seedResultBox");
         if (newBox) {
             newBox.style.cssText = "display:block;padding:12px 14px;border-radius:8px;background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;font-size:0.88rem;margin-bottom:12px;";
@@ -2085,7 +2097,7 @@ function openAddScheduleSlot(prefill) {
         if (!res.ok) { showToast(d.message || "Failed", "error"); return; }
         closeAdminModal();
         showToast("Slot created", "success");
-        await loadSection("schedule");
+        await reloadScheduleKeepScroll();
     });
 }
 
@@ -2128,7 +2140,7 @@ function openEditScheduleSlot(slotId) {
         if (!res.ok) { showToast(d.message || "Failed", "error"); return; }
         closeAdminModal();
         showToast("Slot updated", "success");
-        await loadSection("schedule");
+        await reloadScheduleKeepScroll();
     });
 }
 
@@ -2139,7 +2151,7 @@ async function deleteScheduleSlot(id) {
         const res = await apiFetch(`/admin/schedule/detail/?id=${id}`, { method: "DELETE" });
         if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.message || "Failed to delete slot", "error"); return; }
         showToast("Slot deleted", "success");
-        await loadSection("schedule");
+        await reloadScheduleKeepScroll();
     } catch (err) { showToast("Error: " + err.message, "error"); }
 }
 
