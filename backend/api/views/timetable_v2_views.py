@@ -253,6 +253,8 @@ def _build_lessons(db, group_assignments: dict[tuple, str | None]) -> list[dict]
         if s.get("class_id"):
             students_in_class[s["class_id"]].add(s["id"])
 
+    student_to_class = {s["id"]: s.get("class_id") for s in students}
+
     for year in (10, 11):
         for cls in classes:
             if class_year.get(cls["id"]) != year:
@@ -271,6 +273,8 @@ def _build_lessons(db, group_assignments: dict[tuple, str | None]) -> list[dict]
                     "group_label": None,
                     "class_id": cls["id"],
                     "class_name": cls["class_name"],
+                    "class_ids": [cls["id"]],
+                    "class_names": [cls["class_name"]],
                     "year": year,
                     "students": set(cls_students),
                     "periods_per_week": periods_per_week(subj_name, year),
@@ -289,10 +293,14 @@ def _build_lessons(db, group_assignments: dict[tuple, str | None]) -> list[dict]
             continue
         by_group[(yr, subj_id, label)].add(stu_id)
 
+    class_id_to_name = {c["id"]: c["class_name"] for c in classes}
     for (yr, subj_id, label), stuset in by_group.items():
         subj_name = sname.get(subj_id, "?")
         is_double = (yr in (10, 11) and
                      subj_name in {"PE", "Art", "Psychology", "ML"})
+        # Cover-set of classes this group spans.
+        cids = {student_to_class.get(s) for s in stuset}
+        cids.discard(None)
         lessons.append({
             "lid": f"grp-{yr}-{subj_name}-{label}",
             "subject_id": subj_id,
@@ -300,6 +308,8 @@ def _build_lessons(db, group_assignments: dict[tuple, str | None]) -> list[dict]
             "group_label": label,
             "class_id": None,
             "class_name": None,
+            "class_ids": sorted(cids),
+            "class_names": sorted({class_id_to_name.get(c, "") for c in cids if c}),
             "year": yr,
             "students": set(stuset),
             "periods_per_week": periods_per_week(subj_name, yr),
@@ -449,6 +459,8 @@ def _lesson_meta(lesson: dict) -> dict:
         "group_label": lesson["group_label"],
         "class_id": lesson["class_id"],
         "class_name": lesson.get("class_name"),
+        "class_ids": lesson.get("class_ids", []),
+        "class_names": lesson.get("class_names", []),
         "year": lesson["year"],
     }
 

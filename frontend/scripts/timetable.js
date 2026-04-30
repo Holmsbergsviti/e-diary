@@ -175,8 +175,12 @@ function v2RenderResults(d) {
             <div class="v2-error-box">
                 <strong>${unplaced.length} lesson(s) could not be placed:</strong>
                 <ul style="margin:6px 0 0 18px;">
-                    ${unplaced.slice(0, 12).map(u =>
-                        `<li>${v2Esc(u.subject_name)} ${v2Esc(u.group_label || u.class_name || "")} (year ${u.year}) — ${v2Esc(u.reason || "no slot")}</li>`).join("")}
+                    ${unplaced.slice(0, 12).map(u => {
+                        const ctx = u.class_name
+                            ? `class ${v2Esc(u.class_name)}`
+                            : (u.group_label ? v2Esc(u.group_label) : "");
+                        return `<li>${v2Esc(u.subject_name)} (${ctx}, year ${u.year}) — ${v2Esc(u.reason || "no slot")}</li>`;
+                    }).join("")}
                 </ul>
                 ${unplaced.length > 12 ? `<small>… and ${unplaced.length - 12} more.</small>` : ""}
             </div>
@@ -185,32 +189,38 @@ function v2RenderResults(d) {
         upBox.innerHTML = "";
     }
 
-    // Render per-year per-class grids and per-group grids.
+    // Render per-class grids for year 10/11 (cells stack groups that
+    // overlap that class) and one combined grid each for year 12 + 13.
     const results = document.getElementById("v2Results");
     const byYear = {};
     for (const p of placements) (byYear[p.year] ||= []).push(p);
     let html = "";
-    for (const year of Object.keys(byYear).sort()) {
+
+    for (const year of [10, 11]) {
+        const yearP = byYear[year] || [];
+        if (!yearP.length) continue;
         html += `<div class="v2-section-head">Year ${year}</div>`;
-        const yearP = byYear[year];
-        // Class-wide lessons grouped by class_name.
-        const byClass = {};
-        const byGroup = {};
+        // Discover all class names involved.
+        const classNames = new Set();
         for (const p of yearP) {
-            if (p.class_id) {
-                (byClass[p.class_name || p.class_id] ||= []).push(p);
-            } else {
-                const k = `${p.subject_name} ${p.group_label || ""}`;
-                (byGroup[k] ||= []).push(p);
-            }
+            for (const cn of (p.class_names || [])) classNames.add(cn);
+            if (p.class_name) classNames.add(p.class_name);
         }
-        for (const cn of Object.keys(byClass).sort()) {
-            html += v2RenderGrid(`Class ${v2Esc(cn)}`, byClass[cn], { showClass: false, showTeacher: true });
-        }
-        for (const k of Object.keys(byGroup).sort()) {
-            html += v2RenderGrid(v2Esc(k), byGroup[k], { showClass: false, showTeacher: true });
+        for (const cn of Array.from(classNames).sort()) {
+            const cellsForClass = yearP.filter(p =>
+                (p.class_name === cn) ||
+                (p.class_names || []).includes(cn));
+            html += v2RenderGrid(`Class ${v2Esc(cn)}`, cellsForClass, { showTeacher: true });
         }
     }
+
+    for (const year of [12, 13]) {
+        const yearP = byYear[year] || [];
+        if (!yearP.length) continue;
+        html += `<div class="v2-section-head">Year ${year}</div>`;
+        html += v2RenderGrid(`All year ${year}`, yearP, { showTeacher: true });
+    }
+
     results.innerHTML = html || `<p class="empty-state">No placements.</p>`;
 }
 
