@@ -1792,6 +1792,48 @@ function _schedRenderTeacherGrid(teacher, slots) {
     return html;
 }
 
+function _schedRenderClassGrid(className, slots) {
+    const days = [1,2,3,4,5];
+    const periods = [1,2,3,4,5,6,7,8];
+    const byKey = {};
+    for (const s of slots) {
+        const k = `${s.day_of_week}_${s.period}`;
+        if (!byKey[k]) byKey[k] = [];
+        byKey[k].push(s);
+    }
+    let html = `<div style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+            <strong style="font-size:0.95rem;color:var(--primary-blue);">${escHtml(className)}</strong>
+        </div>
+        <div style="overflow-x:auto;">
+        <table style="border-collapse:collapse;font-size:0.78rem;min-width:500px;width:100%;">
+            <thead><tr>
+                <th style="border:1px solid rgba(var(--primary-blue-rgb),0.15);padding:4px 6px;background:var(--bg-table-header);width:44px;text-align:center;">Per.</th>
+                ${days.map(d => `<th style="border:1px solid rgba(var(--primary-blue-rgb),0.15);padding:4px 8px;background:var(--bg-table-header);text-align:center;">${SCHED_DAY_LABELS[d]}</th>`).join("")}
+            </tr></thead><tbody>`;
+    for (const p of periods) {
+        html += `<tr><td style="border:1px solid rgba(var(--primary-blue-rgb),0.15);padding:4px 6px;text-align:center;font-weight:700;background:var(--bg-table-header);">${p}</td>`;
+        for (const d of days) {
+            const cells = byKey[`${d}_${p}`] || [];
+            if (!cells.length) {
+                html += `<td onclick="addScheduleSlotPrefill(${d}, ${p}, '')" title="Add slot" style="border:1px solid rgba(var(--primary-blue-rgb),0.12);padding:3px 5px;color:var(--text-lighter);font-style:italic;text-align:center;cursor:pointer;" onmouseover="this.style.background='rgba(var(--primary-blue-rgb),0.08)';" onmouseout="this.style.background='';">—</td>`;
+            } else {
+                const inner = cells.map(c => `
+                    <div style="margin-bottom:${cells.length>1?'4px':'0'};padding:2px 4px;border-radius:4px;background:rgba(var(--primary-blue-rgb),0.07);">
+                        <span style="font-weight:700;">${escHtml(c.subject_name||"")}</span>
+                        ${c.room ? `<span style="color:var(--text-lighter);margin-left:3px;">${escHtml(c.room)}</span>` : ""}
+                        <button onclick="event.stopPropagation();deleteScheduleSlot('${c.id}')" title="Delete" style="float:right;background:none;border:none;color:#b91c1c;cursor:pointer;padding:0 2px;font-size:0.85rem;">✕</button>
+                        <div style="font-size:0.7rem;color:var(--text-light);">${escHtml(c.teacher_name||"")}</div>
+                    </div>`).join("");
+                html += `<td style="border:1px solid rgba(var(--primary-blue-rgb),0.15);padding:3px 5px;vertical-align:top;">${inner}</td>`;
+            }
+        }
+        html += `</tr>`;
+    }
+    html += `</tbody></table></div></div>`;
+    return html;
+}
+
 function _schedRenderYearBucketGrid(label, slots) {
     const days = [1,2,3,4,5];
     const periods = [1,2,3,4,5,6,7,8];
@@ -1899,19 +1941,31 @@ function schedSetView(mode) {
     if (btnTeacher) { btnTeacher.style.background = mode === "teacher" ? "var(--primary-blue)" : ""; btnTeacher.style.color = mode === "teacher" ? "#fff" : ""; }
 
     if (mode === "year") {
-        // Bucket years: 10 alone, 11 alone, 12+13 combined.
-        const buckets = { "Year 10": [], "Year 11": [], "Years 12 & 13": [] };
+        // Group by class, show per-class timetables under year headers.
+        // Year 10: 10A..10F (each own grid), Year 11: 11A..11E, Year 12: one, Year 13: one.
+        const byClass = {};
         for (const s of slots) {
-            const yr = _schedExtractYear(s.class_name);
-            if (yr === 10) buckets["Year 10"].push(s);
-            else if (yr === 11) buckets["Year 11"].push(s);
-            else if (yr === 12 || yr === 13) buckets["Years 12 & 13"].push(s);
+            const c = s.class_name || "—";
+            if (!byClass[c]) byClass[c] = [];
+            byClass[c].push(s);
         }
+        const yearGroups = { 10: [], 11: [], 12: [], 13: [] };
+        for (const cName of Object.keys(byClass)) {
+            const yr = _schedExtractYear(cName);
+            if (yearGroups[yr]) yearGroups[yr].push(cName);
+        }
+        for (const yr of Object.keys(yearGroups)) yearGroups[yr].sort();
+
         let html = "";
-        for (const label of Object.keys(buckets)) {
-            const bSlots = buckets[label];
-            if (!bSlots.length) continue;
-            html += _schedRenderYearBucketGrid(label, bSlots);
+        for (const yr of [10, 11, 12, 13]) {
+            const classes = yearGroups[yr];
+            if (!classes.length) continue;
+            html += `<div style="margin-bottom:30px;">
+                <div style="font-size:1.1rem;font-weight:800;color:var(--primary-blue);border-bottom:2px solid rgba(var(--primary-blue-rgb),0.25);padding-bottom:4px;margin-bottom:12px;">Year ${yr}</div>`;
+            for (const cName of classes) {
+                html += _schedRenderClassGrid(cName, byClass[cName]);
+            }
+            html += `</div>`;
         }
         body.innerHTML = html;
     } else {
