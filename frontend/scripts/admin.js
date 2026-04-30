@@ -1777,11 +1777,11 @@ function _schedRenderTeacherGrid(teacher, slots) {
                 html += `<td onclick="addScheduleSlotPrefill(${d}, ${p}, '${tName}')" title="Add slot" style="border:1px solid rgba(var(--primary-blue-rgb),0.12);padding:3px 5px;color:var(--text-lighter);font-style:italic;text-align:center;cursor:pointer;" onmouseover="this.style.background='rgba(var(--primary-blue-rgb),0.08)';this.innerHTML='+ add';" onmouseout="this.style.background='';this.innerHTML='—';">—</td>`;
             } else {
                 const inner = cells.map(c => `
-                    <div style="margin-bottom:${cells.length>1?'4px':'0'};padding:2px 4px;border-radius:4px;background:rgba(var(--primary-blue-rgb),0.07);">
+                    <div onclick="openEditScheduleSlot('${c.id}')" title="Edit slot" style="margin-bottom:${cells.length>1?'4px':'0'};padding:2px 4px;border-radius:4px;background:rgba(var(--primary-blue-rgb),0.07);cursor:pointer;">
                         <span style="font-weight:700;">${escHtml(c.subject_name||"")}</span>
                         <span style="color:var(--text-light);margin-left:4px;">${escHtml(c.class_name||"")}</span>
                         ${c.room ? `<span style="color:var(--text-lighter);margin-left:3px;">${escHtml(c.room)}</span>` : ""}
-                        <button onclick="deleteScheduleSlot('${c.id}')" title="Delete" style="float:right;background:none;border:none;color:#b91c1c;cursor:pointer;padding:0 2px;font-size:0.85rem;">✕</button>
+                        <button onclick="event.stopPropagation();deleteScheduleSlot('${c.id}')" title="Delete" style="float:right;background:none;border:none;color:#b91c1c;cursor:pointer;padding:0 2px;font-size:0.85rem;">✕</button>
                     </div>`).join("");
                 html += `<td style="border:1px solid rgba(var(--primary-blue-rgb),0.15);padding:3px 5px;vertical-align:top;">${inner}</td>`;
             }
@@ -1819,7 +1819,7 @@ function _schedRenderClassGrid(className, slots) {
                 html += `<td onclick="addScheduleSlotPrefill(${d}, ${p}, '')" title="Add slot" style="border:1px solid rgba(var(--primary-blue-rgb),0.12);padding:3px 5px;color:var(--text-lighter);font-style:italic;text-align:center;cursor:pointer;" onmouseover="this.style.background='rgba(var(--primary-blue-rgb),0.08)';" onmouseout="this.style.background='';">—</td>`;
             } else {
                 const inner = cells.map(c => `
-                    <div style="margin-bottom:${cells.length>1?'4px':'0'};padding:2px 4px;border-radius:4px;background:rgba(var(--primary-blue-rgb),0.07);">
+                    <div onclick="openEditScheduleSlot('${c.id}')" title="Edit slot" style="margin-bottom:${cells.length>1?'4px':'0'};padding:2px 4px;border-radius:4px;background:rgba(var(--primary-blue-rgb),0.07);cursor:pointer;">
                         <span style="font-weight:700;">${escHtml(c.subject_name||"")}</span>
                         ${c.room ? `<span style="color:var(--text-lighter);margin-left:3px;">${escHtml(c.room)}</span>` : ""}
                         <button onclick="event.stopPropagation();deleteScheduleSlot('${c.id}')" title="Delete" style="float:right;background:none;border:none;color:#b91c1c;cursor:pointer;padding:0 2px;font-size:0.85rem;">✕</button>
@@ -1859,7 +1859,7 @@ function _schedRenderYearBucketGrid(label, slots) {
                 html += `<td onclick="addScheduleSlotPrefill(${d}, ${p}, '')" title="Add slot" style="border:1px solid rgba(var(--primary-blue-rgb),0.12);padding:3px 5px;color:var(--text-lighter);font-style:italic;text-align:center;cursor:pointer;" onmouseover="this.style.background='rgba(var(--primary-blue-rgb),0.08)';" onmouseout="this.style.background='';">—</td>`;
             } else {
                 const inner = cells.map(c => `
-                    <div style="margin-bottom:3px;padding:2px 4px;border-radius:4px;background:rgba(var(--primary-blue-rgb),0.07);line-height:1.25;">
+                    <div onclick="openEditScheduleSlot('${c.id}')" title="Edit slot" style="margin-bottom:3px;padding:2px 4px;border-radius:4px;background:rgba(var(--primary-blue-rgb),0.07);line-height:1.25;cursor:pointer;">
                         <span style="font-weight:700;color:var(--primary-blue);">${escHtml(c.class_name || "")}</span>
                         <span style="margin-left:4px;">${escHtml(c.subject_name || "")}</span>
                         <div style="font-size:0.66rem;color:var(--text-light);">
@@ -2091,6 +2091,45 @@ function openAddScheduleSlot(prefill) {
 
 function addScheduleSlotPrefill(day, period, teacherName) {
     openAddScheduleSlot({ day_of_week: day, period: period, teacher_name: teacherName });
+}
+
+function openEditScheduleSlot(slotId) {
+    const slots = window._schedSlots || [];
+    const s = slots.find(x => x.id === slotId);
+    if (!s) { showToast("Slot not found", "error"); return; }
+
+    const teacherId = s.teacher_id || _teacherIdByName(s.teacher_name);
+    const subjId = s.subject_id || (cachedSubjects.find(x => x.name === s.subject_name) || {}).id || "";
+    const classId = s.class_id || (cachedClasses.find(x => x.class_name === s.class_name) || {}).id || "";
+
+    openAdminModal("Edit Schedule Slot", `
+        <label>Teacher <select class="form-input" id="mTeacher"><option value="">— Select —</option>${teacherOptions(teacherId)}</select></label>
+        <label>Subject <select class="form-input" id="mSubject"><option value="">— Select —</option>${subjectOptions(subjId)}</select></label>
+        <label>Class <select class="form-input" id="mClass"><option value="">— Select —</option>${classOptions(classId)}</select></label>
+        <label>Day <select class="form-input" id="mDay">
+            ${[1,2,3,4,5].map(d => `<option value="${d}" ${d===s.day_of_week?"selected":""}>${["","Monday","Tuesday","Wednesday","Thursday","Friday"][d]}</option>`).join("")}
+        </select></label>
+        <label>Period <select class="form-input" id="mPeriod">
+            ${[1,2,3,4,5,6,7,8].map(p => `<option value="${p}" ${p===s.period?"selected":""}>Period ${p}</option>`).join("")}
+        </select></label>
+        <label>Room <input class="form-input" id="mRoom" value="${escHtml(s.room || "")}" placeholder="e.g. Room 201 (optional)"></label>
+        <div style="margin-top:10px;">
+            <button class="btn btn-danger btn-sm" onclick="(async () => { if (await showConfirm('Delete this slot?', { title: 'Delete Slot', confirmText: 'Delete' })) { closeAdminModal(); await deleteScheduleSlot('${slotId}'); } })()">Delete this slot</button>
+        </div>
+    `, async () => {
+        const body = {
+            id: slotId,
+            teacher_id: gv("mTeacher"), subject_id: gv("mSubject"), class_id: gv("mClass"),
+            day_of_week: parseInt(gv("mDay")), period: parseInt(gv("mPeriod")), room: gv("mRoom"),
+        };
+        if (!body.teacher_id || !body.subject_id || !body.class_id) { showToast("Teacher, subject, class required", "warning"); return; }
+        const res = await apiFetch("/admin/schedule/detail/", { method: "PATCH", body: JSON.stringify(body) });
+        const d = await res.json();
+        if (!res.ok) { showToast(d.message || "Failed", "error"); return; }
+        closeAdminModal();
+        showToast("Slot updated", "success");
+        await loadSection("schedule");
+    });
 }
 
 async function deleteScheduleSlot(id) {
