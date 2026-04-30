@@ -1617,125 +1617,408 @@ async function deleteUser(id, role) {
 
 /* ═══════════════ TEACHER ASSIGNMENTS ═══════════════ */
 async function loadAssignments(container) {
-    await Promise.all([fetchClasses(), fetchSubjects(), fetchTeachers()]);
-    const res = await apiFetch("/admin/teacher-assignments/");
+    await Promise.all([fetchSubjects(), fetchTeachers()]);
+    const res = await apiFetch("/admin/teacher-subjects/");
     const d = await res.json();
-    const assignments = (d.assignments || []).slice().sort((a, b) =>
-        (a.teacher_name || "").localeCompare(b.teacher_name || "", undefined, { sensitivity: "base" }) ||
-        (a.subject_name || "").localeCompare(b.subject_name || "", undefined, { sensitivity: "base" }) ||
-        (a.class_name || "").localeCompare(b.class_name || "", undefined, { sensitivity: "base" })
-    );
+    const rows = (d.rows || []);
+    // teacher_id -> { years, subjects: [{id, name}] }
+    const byTeacher = {};
+    for (const r of rows) {
+        if (!byTeacher[r.teacher_id]) byTeacher[r.teacher_id] = { years: new Set(), subjects: [] };
+        byTeacher[r.teacher_id].subjects.push({
+            subject_id: r.subject_id,
+            subject_name: (cachedSubjects.find(s => s.id === r.subject_id) || {}).name || "?",
+        });
+        for (const y of (r.years_allowed || [])) byTeacher[r.teacher_id].years.add(y);
+    }
+    const teacherList = cachedTeachers.slice().sort(_byPersonName);
+
     container.innerHTML = `
         <div class="admin-section-header">
-            <h3>Teacher Assignments</h3>
+            <h3>Teacher Subjects</h3>
             <div class="section-header-actions">
-                <button class="btn btn-primary btn-sm" onclick="openAddAssignment()">+ Add Assignment</button>
+                <button class="btn btn-secondary btn-sm" onclick="reseedTeacherSubjects()">Reseed from current schedule</button>
             </div>
         </div>
-        ${assignments.length === 0 ? '<p class="empty-state">No assignments yet.</p>' : `
+        <p style="color:var(--text-light);font-size:0.88rem;margin:0 0 12px;">
+            Which subjects each teacher can be scheduled for, and which year groups they can teach. Used by the new generator.
+        </p>
         <table class="admin-table">
-            <thead><tr><th>Teacher</th><th>Subject</th><th>Class</th><th>Actions</th></tr></thead>
-            <tbody>${assignments.map(a => `
-                <tr>
-                    <td>${escHtml(a.teacher_name)}</td>
-                    <td>${escHtml(a.subject_name)}</td>
-                    <td>${escHtml(a.class_name)}</td>
+            <thead><tr><th>Teacher</th><th>Years</th><th>Subjects</th><th>Actions</th></tr></thead>
+            <tbody>${teacherList.map(t => {
+                const info = byTeacher[t.id] || { years: new Set(), subjects: [] };
+                const years = Array.from(info.years).sort();
+                const chips = info.subjects.map(s => `<span class="ts-chip">${escHtml(s.subject_name)}</span>`).join(" ");
+                return `<tr>
+                    <td>${escHtml(t.surname)} ${escHtml(t.name)}</td>
+                    <td>${years.length ? years.join(", ") : '<span style="color:var(--text-lighter);">—</span>'}</td>
+                    <td>${chips || '<span style="color:var(--text-lighter);">—</span>'}</td>
                     <td class="admin-actions">
-                        <button class="btn btn-sm btn-danger" onclick="deleteAssignment('${a.teacher_id}','${a.subject_id}','${a.class_id}')">Delete</button>
+                        <button class="btn btn-sm btn-secondary" onclick="openTeacherSubjectsModal('${t.id}')">Edit</button>
                     </td>
-                </tr>
-            `).join("")}</tbody>
-        </table>`}
+                </tr>`;
+            }).join("")}</tbody>
+        </table>
+        <style>
+            .ts-chip { display:inline-block; padding:2px 8px; border-radius:10px; background:rgba(var(--primary-blue-rgb),0.10); color:var(--primary-blue); font-size:0.78rem; margin:2px 2px 2px 0; }
+        </style>
     `;
 }
 
-function openAddAssignment() {
-    openAdminModal("Add Teacher Assignment", `
-        <label>Teacher <select class="form-input" id="mTeacher"><option value="">— Select —</option>${teacherOptions()}</select></label>
-        <label>Subject <select class="form-input" id="mSubject"><option value="">— Select —</option>${subjectOptions()}</select></label>
-        <label>Class <select class="form-input" id="mClass"><option value="">— Select —</option>${classOptions()}</select></label>
+async function openTeacherSubjectsModal(teacherId) {
+    const t = cachedTeachers.find(x => x.id === teacherId);
+    if (!t) { showToast("Teacher not found", "error"); return; }
+    const res = await apiFetch(`/admin/teacher-subjects/?teacher_id=${teacherId}`);
+    const d = await res.json();
+    const cur = (d.rows || []);
+    const curIds = new Set(cur.map(r => r.subject_id));
+    // Use most-common years_allowed from existing rows; default all 4 years.
+    let curYears = new Set();
+    for (const r of cur) for (const y of (r.years_allowed || [])) curYears.add(y);
+    if (curYears.size === 0) ["10","11","12","13"].forEach(y => curYears.add(y));
+
+    const subjList = cachedSubjects.slice().sort((a, b) => a.name.localeCompare(b.name));
+    openAdminModal(`Edit ${t.surname} ${t.name}`, `
+        <div class="form-group">
+            <label>Years allowed</label>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                ${["10","11","12","13"].map(y => `
+                    <label style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid rgba(var(--primary-blue-rgb),0.2);border-radius:8px;background:var(--bg-button);">
+                        <input type="checkbox" class="ts-year" value="${y}" ${curYears.has(y) ? "checked" : ""}> Year ${y}
+                    </label>
+                `).join("")}
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Subjects</label>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;max-height:340px;overflow-y:auto;border:1px solid rgba(var(--primary-blue-rgb),0.15);border-radius:8px;padding:8px;">
+                ${subjList.map(s => `
+                    <label style="display:inline-flex;align-items:center;gap:6px;font-size:0.85rem;">
+                        <input type="checkbox" class="ts-sub" value="${s.id}" ${curIds.has(s.id) ? "checked" : ""}> ${escHtml(s.name)}
+                    </label>
+                `).join("")}
+            </div>
+        </div>
     `, async () => {
-        const body = { teacher_id: gv("mTeacher"), subject_id: gv("mSubject"), class_id: gv("mClass") };
-        if (!body.teacher_id || !body.subject_id || !body.class_id) { showToast("All fields required", "warning"); return; }
-        const res = await apiFetch("/admin/teacher-assignments/", { method: "POST", body: JSON.stringify(body) });
-        const d = await res.json();
-        if (!res.ok) { showToast(d.message || "Failed", "error"); return; }
+        const sids = Array.from(document.querySelectorAll(".ts-sub:checked")).map(c => c.value);
+        const yrs = Array.from(document.querySelectorAll(".ts-year:checked")).map(c => c.value);
+        if (yrs.length === 0) { showToast("Pick at least one year", "warning"); return; }
+        const r = await apiFetch("/admin/teacher-subjects/", {
+            method: "POST",
+            body: JSON.stringify({ teacher_id: teacherId, subject_ids: sids, years_allowed: yrs }),
+        });
+        if (!r.ok) { const e = await r.json().catch(() => ({})); showToast(e.message || "Failed", "error"); return; }
         closeAdminModal();
-        showToast("Assignment created", "success");
+        showToast("Teacher subjects saved", "success");
         await loadSection("assignments");
     });
 }
 
-async function deleteAssignment(tid, sid, cid) {
-    const ok = await showConfirm("Remove this teacher assignment?", { title: "Remove Assignment", confirmText: "Remove" });
+async function reseedTeacherSubjects() {
+    const ok = await showConfirm(
+        "Wipe teacher_subjects and rebuild from the current schedule? Year restrictions for each teacher will be re-applied automatically.",
+        { title: "Reseed teacher subjects", confirmText: "Reseed" }
+    );
     if (!ok) return;
-    try {
-        const res = await apiFetch(`/admin/teacher-assignments/delete/?teacher_id=${tid}&subject_id=${sid}&class_id=${cid}`, { method: "DELETE" });
-        if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.message || "Failed to remove assignment", "error"); return; }
-        showToast("Assignment removed", "success");
-        await loadSection("assignments");
-    } catch (err) { showToast("Error: " + err.message, "error"); }
+    const r = await apiFetch("/admin/seed-teacher-subjects/", { method: "POST", body: "{}" });
+    const d = await r.json();
+    if (!r.ok) { showToast(d.message || "Failed", "error"); return; }
+    showToast(`Reseeded: ${d.rows} rows / ${d.teachers} teachers`, "success");
+    await loadSection("assignments");
 }
 
 /* ═══════════════ STUDENT ENROLMENTS ═══════════════ */
 async function loadEnrollments(container) {
-    await Promise.all([fetchClasses(), fetchSubjects(), fetchStudents()]);
-    const res = await apiFetch("/admin/student-subjects/");
+    const res = await apiFetch("/admin/enrollments/list/");
     const d = await res.json();
-    const enrollments = (d.enrollments || []).slice().sort((a, b) =>
-        (a.student_name || "").localeCompare(b.student_name || "", undefined, { sensitivity: "base" }) ||
-        (a.subject_name || "").localeCompare(b.subject_name || "", undefined, { sensitivity: "base" })
-    );
+    if (!res.ok) {
+        container.innerHTML = `<p class="empty-state">${escHtml(d.message || "Failed to load")}</p>`;
+        return;
+    }
+    window._enrollRows = d.rows || [];
     container.innerHTML = `
         <div class="admin-section-header">
-            <h3>Student Subject Enrolments</h3>
+            <h3>Enrollments</h3>
             <div class="section-header-actions">
-                <button class="btn btn-primary btn-sm" onclick="openAddEnrollment()">+ Add Enrolment</button>
+                <button class="btn btn-secondary btn-sm" onclick="openImportEnrollmentsModal()">Import CSV</button>
             </div>
         </div>
-        ${enrollments.length === 0 ? '<p class="empty-state">No enrolments yet.</p>' : `
+        <p style="color:var(--text-light);font-size:0.88rem;margin:0 0 10px;">
+            Click a student to edit their subject choices. Year 10/11 students must pick exactly 2 humanities, 1 of PE/Art/Psy/ML, 1 language. Year 12/13 students pick at least 3; IELTS auto-added if neither English nor English Literature is taken.
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+            <select id="enrollFilterYear" class="form-input" style="max-width:160px;" onchange="renderEnrollTable()">
+                <option value="">All years</option>
+                <option value="10">Year 10</option>
+                <option value="11">Year 11</option>
+                <option value="12">Year 12</option>
+                <option value="13">Year 13</option>
+            </select>
+            <input id="enrollFilterSearch" class="form-input" style="max-width:240px;" placeholder="Search by name…" oninput="renderEnrollTable()">
+        </div>
+        <div id="enrollTableWrap"></div>
+    `;
+    renderEnrollTable();
+}
+
+function renderEnrollTable() {
+    const yr = document.getElementById("enrollFilterYear")?.value || "";
+    const q = (document.getElementById("enrollFilterSearch")?.value || "").trim().toLowerCase();
+    const wrap = document.getElementById("enrollTableWrap");
+    if (!wrap) return;
+    let rows = (window._enrollRows || []);
+    if (yr) rows = rows.filter(r => String(r.year) === yr);
+    if (q) rows = rows.filter(r =>
+        `${r.surname} ${r.name}`.toLowerCase().includes(q) ||
+        (r.class_name || "").toLowerCase().includes(q));
+    if (!rows.length) { wrap.innerHTML = '<p class="empty-state">No students match.</p>'; return; }
+    wrap.innerHTML = `
         <table class="admin-table">
-            <thead><tr><th>Student</th><th>Subject</th><th>Group Class</th><th>Actions</th></tr></thead>
-            <tbody>${enrollments.map(e => `
+            <thead><tr>
+                <th>Class</th><th>Surname</th><th>Name</th><th>Year</th>
+                <th>English Lvl</th><th># Subjects</th><th>Actions</th>
+            </tr></thead>
+            <tbody>${rows.map(r => `
                 <tr>
-                    <td>${escHtml(e.student_name)}</td>
-                    <td>${escHtml(e.subject_name)}</td>
-                    <td>${escHtml(e.group_class_name || "—")}</td>
+                    <td>${escHtml(r.class_name || "—")}</td>
+                    <td>${escHtml(r.surname || "")}</td>
+                    <td>${escHtml(r.name || "")}</td>
+                    <td>${r.year ?? "—"}</td>
+                    <td>${r.english_level ?? "—"}</td>
+                    <td>${(r.subjects || []).length}</td>
                     <td class="admin-actions">
-                        <button class="btn btn-sm btn-danger" onclick="deleteEnrollment('${e.student_id}','${e.subject_id}')">Delete</button>
+                        <button class="btn btn-sm btn-secondary" onclick="openEnrollEditor('${r.id}')">Edit</button>
                     </td>
-                </tr>
-            `).join("")}</tbody>
-        </table>`}
+                </tr>`).join("")}</tbody>
+        </table>
     `;
 }
 
-function openAddEnrollment() {
-    openAdminModal("Add Student Enrolment", `
-        <label>Student <select class="form-input" id="mStudent"><option value="">— Select —</option>${studentOptions()}</select></label>
-        <label>Subject <select class="form-input" id="mSubject"><option value="">— Select —</option>${subjectOptions()}</select></label>
-        <label>Group Class (optional) <select class="form-input" id="mGroupClass"><option value="">— None —</option>${classOptions()}</select></label>
-    `, async () => {
-        const body = { student_id: gv("mStudent"), subject_id: gv("mSubject"), group_class_id: gv("mGroupClass") };
-        if (!body.student_id || !body.subject_id) { showToast("Student and subject required", "warning"); return; }
-        const res = await apiFetch("/admin/student-subjects/", { method: "POST", body: JSON.stringify(body) });
-        const d = await res.json();
-        if (!res.ok) { showToast(d.message || "Failed", "error"); return; }
+async function openEnrollEditor(studentId) {
+    const stud = (window._enrollRows || []).find(r => r.id === studentId);
+    if (!stud) { showToast("Student not found", "error"); return; }
+    const year = stud.year;
+    if (!year) { showToast("Student has no class assigned", "warning"); return; }
+    const optsRes = await apiFetch(`/admin/enrollments/options/?year=${year}`);
+    const opts = await optsRes.json();
+    if (!optsRes.ok) { showToast(opts.message || "Could not load options", "error"); return; }
+
+    const chosen = new Set((stud.subjects || []).map(s => s.subject_name));
+
+    let body;
+    if (year === 10 || year === 11) {
+        body = `
+            <p style="font-size:0.85rem;color:var(--text-light);">
+                <strong>${escHtml(stud.surname)} ${escHtml(stud.name)}</strong> · Class ${escHtml(stud.class_name)} · Year ${year}
+            </p>
+            <div class="form-group">
+                <label>English level</label>
+                <select id="enrollEnglish" class="form-input" style="max-width:160px;">
+                    <option value="">Unknown</option>
+                    ${[1,2,3,4,5].map(l => `<option value="${l}" ${stud.english_level === l ? "selected" : ""}>Level ${l}</option>`).join("")}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Mandatory (auto-enrolled)</label>
+                <div style="font-size:0.85rem;color:var(--text-light);">${[...opts.mandatory_class, ...opts.mandatory_level_split].map(escHtml).join(", ")}</div>
+            </div>
+            ${enrollGroupCheckboxes("Pick exactly 2 humanities", "hum", opts.humanities_pick_2, chosen)}
+            ${enrollGroupCheckboxes("Pick exactly 1 of PE / Art / Psychology / ML", "pe", opts.pe_bucket_pick_1, chosen)}
+            ${enrollGroupCheckboxes("Pick exactly 1 language", "lang", opts.languages_pick_1, chosen)}
+        `;
+    } else {
+        // Year 12/13
+        const ielts = chosen.has("English") || chosen.has("English Literature") ? "Not required" : "Required (auto-added)";
+        body = `
+            <p style="font-size:0.85rem;color:var(--text-light);">
+                <strong>${escHtml(stud.surname)} ${escHtml(stud.name)}</strong> · Class ${escHtml(stud.class_name)} · Year ${year}
+            </p>
+            <p style="font-size:0.82rem;color:var(--text-light);margin-bottom:6px;">
+                Pick at least ${opts.min_subjects} subjects. <span id="ieltsIndicator">IELTS: ${ielts}</span>
+            </p>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;max-height:380px;overflow-y:auto;border:1px solid rgba(var(--primary-blue-rgb),0.15);border-radius:8px;padding:8px;">
+                ${opts.all_choices.map(s => `
+                    <label style="display:inline-flex;align-items:center;gap:6px;font-size:0.85rem;">
+                        <input type="checkbox" class="enroll-pick" data-name="${escHtml(s)}" ${chosen.has(s) ? "checked" : ""} onchange="updateIeltsIndicator()"> ${escHtml(s)}
+                    </label>`).join("")}
+            </div>
+        `;
+    }
+
+    openAdminModal(`Edit enrollment`, body, async () => {
+        let chosenNames = [];
+        let englishLevel = null;
+        if (year === 10 || year === 11) {
+            const hum = Array.from(document.querySelectorAll('input.enroll-pick[data-group="hum"]:checked')).map(c => c.dataset.name);
+            const pe = Array.from(document.querySelectorAll('input.enroll-pick[data-group="pe"]:checked')).map(c => c.dataset.name);
+            const lang = Array.from(document.querySelectorAll('input.enroll-pick[data-group="lang"]:checked')).map(c => c.dataset.name);
+            if (hum.length !== 2) { showToast("Pick exactly 2 humanities", "warning"); return; }
+            if (pe.length !== 1) { showToast("Pick exactly 1 of PE/Art/Psy/ML", "warning"); return; }
+            if (lang.length !== 1) { showToast("Pick exactly 1 language", "warning"); return; }
+            chosenNames = [...hum, ...pe, ...lang];
+            const lv = document.getElementById("enrollEnglish").value;
+            englishLevel = lv === "" ? null : parseInt(lv);
+        } else {
+            chosenNames = Array.from(document.querySelectorAll('input.enroll-pick:checked')).map(c => c.dataset.name);
+            if (chosenNames.length < (opts.min_subjects || 3)) {
+                showToast(`Pick at least ${opts.min_subjects} subjects`, "warning");
+                return;
+            }
+        }
+        const r = await apiFetch("/admin/enrollments/", {
+            method: "POST",
+            body: JSON.stringify({
+                student_id: studentId,
+                subjects: chosenNames,
+                english_level: englishLevel,
+            }),
+        });
+        const dd = await r.json();
+        if (!r.ok) { showToast(dd.message || "Failed", "error"); return; }
         closeAdminModal();
-        showToast("Enrolment created", "success");
+        showToast("Enrollment saved", "success");
         await loadSection("enrollments");
     });
 }
 
-async function deleteEnrollment(studentId, subjectId) {
-    const ok = await showConfirm("Remove this enrolment?", { title: "Remove Enrolment", confirmText: "Remove" });
-    if (!ok) return;
-    try {
-        const res = await apiFetch(`/admin/student-subjects/delete/?student_id=${studentId}&subject_id=${subjectId}`, { method: "DELETE" });
-        if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.message || "Failed to remove enrolment", "error"); return; }
-        showToast("Enrolment removed", "success");
+function enrollGroupCheckboxes(title, group, options, chosen) {
+    return `
+        <div class="form-group">
+            <label>${escHtml(title)}</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                ${(options || []).map(s => `
+                    <label style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid rgba(var(--primary-blue-rgb),0.2);border-radius:8px;background:var(--bg-button);font-size:0.85rem;">
+                        <input type="checkbox" class="enroll-pick" data-group="${group}" data-name="${escHtml(s)}" ${chosen.has(s) ? "checked" : ""}> ${escHtml(s)}
+                    </label>`).join("")}
+            </div>
+        </div>
+    `;
+}
+
+function updateIeltsIndicator() {
+    const ind = document.getElementById("ieltsIndicator");
+    if (!ind) return;
+    const checked = Array.from(document.querySelectorAll('input.enroll-pick:checked')).map(c => c.dataset.name);
+    const hasEng = checked.includes("English") || checked.includes("English Literature");
+    ind.textContent = `IELTS: ${hasEng ? "Not required" : "Required (auto-added)"}`;
+}
+
+function openImportEnrollmentsModal() {
+    openAdminModal("Import enrollments from CSV", `
+        <p style="font-size:0.85rem;color:var(--text-light);margin:0 0 10px;">
+            Upload a CSV with one row per student. Recognised columns:
+            <code>email</code>, <code>english_level</code> (optional), and the subject choices in any of:
+        </p>
+        <ul style="font-size:0.82rem;color:var(--text-light);margin:0 0 10px 16px;padding:0;">
+            <li><strong>Wide:</strong> <code>email, english_level, subject1, subject2, …</code></li>
+            <li><strong>Long:</strong> separate <code>subject</code> column repeated per student row (one row per choice)</li>
+        </ul>
+        <p style="font-size:0.82rem;color:var(--text-light);margin:0 0 10px;">
+            Mandatory year 10/11 subjects are auto-added. IELTS auto-added for year 12/13 without English/English Literature.
+        </p>
+        <div class="form-group">
+            <label>CSV file</label>
+            <input type="file" id="enrollCsvFile" accept=".csv,text/csv" class="form-input">
+        </div>
+        <div class="form-group">
+            <label style="display:inline-flex;align-items:center;gap:6px;">
+                <input type="checkbox" id="enrollWipe"> Wipe all existing enrollments before importing
+            </label>
+        </div>
+        <div id="enrollImportPreview" style="font-size:0.82rem;color:var(--text-light);"></div>
+    `, async () => {
+        const f = document.getElementById("enrollCsvFile").files[0];
+        if (!f) { showToast("Pick a CSV file", "warning"); return; }
+        const wipe = document.getElementById("enrollWipe").checked;
+        const text = await f.text();
+        const parsed = parseEnrollCsv(text);
+        if (!parsed.rows.length) { showToast("No rows parsed", "warning"); return; }
+
+        const r = await apiFetch("/admin/enrollments/bulk/", {
+            method: "POST",
+            body: JSON.stringify({ rows: parsed.rows, wipe_existing: wipe }),
+        });
+        const d = await r.json();
+        if (!r.ok) { showToast(d.message || "Failed", "error"); return; }
+        const s = d.summary || {};
+        const errLines = (s.errors || []).slice(0, 10).map(e =>
+            `Row ${e.row}: ${e.email || ""} — ${e.error}`).join("\n");
+        closeAdminModal();
+        showToast(`Imported ${s.imported || 0}, skipped ${s.skipped || 0}`,
+            (s.skipped > 0 ? "warning" : "success"));
+        if (errLines) console.warn("Enrollment import errors:\n" + errLines);
         await loadSection("enrollments");
-    } catch (err) { showToast("Error: " + err.message, "error"); }
+    });
+}
+
+function parseEnrollCsv(text) {
+    // Support both wide and long formats. Header row required.
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length);
+    if (!lines.length) return { rows: [] };
+    const header = lines[0].split(",").map(c => c.trim().toLowerCase());
+    const rest = lines.slice(1).map(l => splitCsvLine(l));
+    const emailIdx = header.findIndex(h => h === "email");
+    const levelIdx = header.findIndex(h => h === "english_level" || h === "level");
+    const subjectIdx = header.findIndex(h => h === "subject");
+    if (emailIdx < 0) return { rows: [] };
+
+    if (subjectIdx >= 0) {
+        // Long format: aggregate by email.
+        const byEmail = {};
+        for (const cells of rest) {
+            const email = (cells[emailIdx] || "").trim().toLowerCase();
+            if (!email) continue;
+            if (!byEmail[email]) byEmail[email] = { email, subjects: [], english_level: null };
+            const subj = (cells[subjectIdx] || "").trim();
+            if (subj) byEmail[email].subjects.push(subj);
+            if (levelIdx >= 0 && cells[levelIdx]) {
+                const lv = parseInt(cells[levelIdx]);
+                if (!isNaN(lv)) byEmail[email].english_level = lv;
+            }
+        }
+        return { rows: Object.values(byEmail) };
+    }
+
+    // Wide format: every column except email + english_level is a subject choice.
+    const subjectCols = header.map((h, i) => ({ h, i }))
+        .filter(x => x.i !== emailIdx && x.i !== levelIdx)
+        .map(x => x.i);
+    const out = [];
+    for (const cells of rest) {
+        const email = (cells[emailIdx] || "").trim().toLowerCase();
+        if (!email) continue;
+        const subjects = [];
+        for (const i of subjectCols) {
+            const v = (cells[i] || "").trim();
+            if (v) subjects.push(v);
+        }
+        let lv = null;
+        if (levelIdx >= 0 && cells[levelIdx]) {
+            const n = parseInt(cells[levelIdx]);
+            if (!isNaN(n)) lv = n;
+        }
+        out.push({ email, subjects, english_level: lv });
+    }
+    return { rows: out };
+}
+
+function splitCsvLine(line) {
+    // Minimal CSV splitter that handles quoted values containing commas.
+    const out = [];
+    let cur = "", inQ = false;
+    for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"') {
+            if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+            else inQ = !inQ;
+        } else if (c === "," && !inQ) {
+            out.push(cur); cur = "";
+        } else {
+            cur += c;
+        }
+    }
+    out.push(cur);
+    return out;
 }
 
 /* ═══════════════ SCHEDULE ═══════════════ */

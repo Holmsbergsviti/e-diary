@@ -33,6 +33,7 @@ from ..enrollment_constants import (
 
 __all__ = [
     "admin_enrollment", "admin_enrollment_options",
+    "admin_enrollment_bulk", "admin_enrollment_list",
     "admin_teacher_subjects", "admin_teacher_subjects_delete",
     "admin_seed_teacher_subjects",
 ]
@@ -216,6 +217,209 @@ def admin_enrollment_options(request):
             "ielts_auto": "IELTS auto-added if neither English nor English Literature is chosen",
         })
     return JsonResponse({"message": f"Year {year} not supported"}, status=400)
+
+
+# ---------------------------------------------------------------- list + bulk
+
+
+@csrf_exempt
+def admin_enrollment_list(request):
+    """Return a flat list of every student with their enrollments,
+    english level, and class. Used by the Enrollments tab."""
+    payload = _require_admin(request)
+    if not payload:
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+    if not _admin_has_perm(payload, "students"):
+        return JsonResponse({"message": "No permission"}, status=403)
+
+    db = ediary()
+    students = db.table("students") \
+        .select("id, name, surname, class_id, english_level").execute().data or []
+    classes = db.table("classes").select("id, class_name").execute().data or []
+    enrolls = db.table("student_subjects") \
+        .select("student_id, subject_id, group_label").execute().data or []
+    _, id_to_name = _subject_lookup(db)
+
+    class_by_id = {c["id"]: c["class_name"] for c in classes}
+    by_student = {}
+    for e in enrolls:
+        by_student.setdefault(e["student_id"], []).append({
+            "subject_id": e["subject_id"],
+            "subject_name": id_to_name.get(e["subject_id"], "?"),
+            "group_label": e.get("group_label"),
+        })
+
+    rows = []
+    for s in students:
+        cn = class_by_id.get(s.get("class_id"), "")
+        yr = _year_from_class_name(cn)
+        rows.append({
+            "id": s["id"],
+            "name": s["name"], "surname": s["surname"],
+            "class_id": s.get("class_id"),
+            "class_name": cn,
+            "year": yr,
+            "english_level": s.get("english_level"),
+            "subjects": by_student.get(s["id"], []),
+        })
+    rows.sort(key=lambda r: ((r["class_name"] or "ZZ"),
+                             (r["surname"] or "").lower(),
+                             (r["name"] or "").lower()))
+    return JsonResponse({"rows": rows})
+
+
+@csrf_exempt
+def admin_enrollment_bulk(request):
+    """Bulk import student enrollments.
+    Body: {
+      "rows": [
+        {"email": "...", "subjects": ["Mathematics", ...], "english_level": 3},
+        ...
+      ],
+      "wipe_existing": false      # if true, clears all student_subjects first
+    }
+    Resolves email -> student_id via auth.users. Validates per-year rules
+    using existing helpers. Returns summary + per-row errors.
+    """
+    payload = _require_admin(request)
+    if not payload:
+        return JsonResponse({"message": "Unauthorized"}, status=401)
+    if not _admin_has_perm(payload, "students"):
+        return JsonResponse({"message": "No permission"}, status=403)
+    if request.method != "POST":
+        return JsonResponse({"message": "Method not allowed"}, status=405)
+
+    data = json.loads(request.body)
+    in_rows = data.get("rows", [])
+    wipe_existing = bool(data.get("wipe_existing"))
+    if not isinstance(in_rows, list) or not in_rows:
+        return JsonResponse({"message": "rows required"}, status=400)
+
+    db = ediary()
+    name_to_id, _ = _subject_lookup(db)
+
+    # email -> student_id (via auth.users join through students.id)
+    students = db.table("students").select("id, name, surname, class_id").execute().data or []
+    classes = db.table("classes").select("id, class_name").execute().data or []
+    class_year = {c["id"]: _year_from_class_name(c["class_name"]) for c in classes}
+
+    # Resolve emails via Supabase auth.admin
+    from ..utils import supabase_admin_auth
+    email_to_id: dict[str, str] = {}
+    try:
+        page = 1
+        while True:
+            res = supabase_admin_auth.auth.admin.list_users(
+                page=page, per_page=1000)
+            users = res or []
+            if not users:
+                break
+            for u in users:
+                if getattr(u, "email", None):
+                    email_to_id[u.email.lower()] = u.id
+            if len(users) < 1000:
+                break
+            page += 1
+    except Exception as e:
+        return JsonResponse({"message": f"Could not list auth users: {e}"}, status=500)
+
+    student_ids = {s["id"] for s in students}
+    student_class = {s["id"]: s.get("class_id") for s in students}
+
+    if wipe_existing:
+        # Defensive delete-all: avoids rebuilding stale group labels.
+        db.table("student_subjects").delete() \
+            .neq("student_id", "00000000-0000-0000-0000-000000000000").execute()
+
+    summary = {"imported": 0, "skipped": 0, "errors": []}
+    bulk_inserts = []
+    level_updates = []
+
+    for idx, row in enumerate(in_rows):
+        email = (row.get("email") or "").strip().lower()
+        subjects = row.get("subjects") or []
+        elevel = row.get("english_level")
+        if not email:
+            summary["errors"].append({"row": idx, "error": "missing email"})
+            summary["skipped"] += 1
+            continue
+        sid = email_to_id.get(email)
+        if not sid or sid not in student_ids:
+            summary["errors"].append({"row": idx, "email": email,
+                                      "error": "student not found"})
+            summary["skipped"] += 1
+            continue
+        cid = student_class.get(sid)
+        year = class_year.get(cid)
+        if year is None:
+            summary["errors"].append({"row": idx, "email": email,
+                                      "error": "class/year unknown"})
+            summary["skipped"] += 1
+            continue
+
+        chosen = [s.strip() for s in subjects if s and s.strip()]
+
+        if year in (10, 11):
+            ok, err = validate_year_10_11_choices(chosen)
+            if not ok:
+                summary["errors"].append({"row": idx, "email": email,
+                                          "year": year, "error": err})
+                summary["skipped"] += 1
+                continue
+            chosen = list(set(chosen)
+                          | set(Y10_11_MANDATORY_CLASS)
+                          | set(Y10_11_MANDATORY_LEVEL_SPLIT))
+            # english level
+            if elevel in (None, ""):
+                lv = None
+            else:
+                try:
+                    lv = int(elevel)
+                    if lv < 1 or lv > 5:
+                        lv = None
+                except (TypeError, ValueError):
+                    lv = None
+            level_updates.append({"id": sid, "english_level": lv})
+        elif year in (12, 13):
+            ok, err = validate_year_12_13_choices(chosen)
+            if not ok:
+                summary["errors"].append({"row": idx, "email": email,
+                                          "year": year, "error": err})
+                summary["skipped"] += 1
+                continue
+            if needs_ielts(chosen):
+                chosen = list(set(chosen) | {"IELTS"})
+        else:
+            summary["errors"].append({"row": idx, "email": email,
+                                      "year": year, "error": "year not supported"})
+            summary["skipped"] += 1
+            continue
+
+        missing_subjects = [s for s in chosen if s not in name_to_id]
+        if missing_subjects:
+            summary["errors"].append({"row": idx, "email": email,
+                                      "error": f"subject(s) missing in DB: {missing_subjects}"})
+            summary["skipped"] += 1
+            continue
+
+        # Per-student wipe so re-imports replace cleanly.
+        if not wipe_existing:
+            db.table("student_subjects").delete().eq("student_id", sid).execute()
+        for n in chosen:
+            bulk_inserts.append({"student_id": sid, "subject_id": name_to_id[n]})
+        summary["imported"] += 1
+
+    # Bulk insert
+    if bulk_inserts:
+        chunk = 500
+        for i in range(0, len(bulk_inserts), chunk):
+            db.table("student_subjects").insert(bulk_inserts[i:i+chunk]).execute()
+    # English level updates
+    for u in level_updates:
+        db.table("students").update({"english_level": u["english_level"]}) \
+            .eq("id", u["id"]).execute()
+
+    return JsonResponse({"summary": summary})
 
 
 # ---------------------------------------------------------------- teacher_subjects

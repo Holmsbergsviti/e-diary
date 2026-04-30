@@ -78,6 +78,8 @@ urlpatterns = [
     path("timetable/clear/", timetable_views.clear_timetable),
     # Enrollments + teacher subjects (new generator pipeline)
     path("admin/enrollments/", enrollment_views.admin_enrollment),
+    path("admin/enrollments/list/", enrollment_views.admin_enrollment_list),
+    path("admin/enrollments/bulk/", enrollment_views.admin_enrollment_bulk),
     path("admin/enrollments/options/", enrollment_views.admin_enrollment_options),
     path("admin/teacher-subjects/", enrollment_views.admin_teacher_subjects),
     path("admin/teacher-subjects/delete/", enrollment_views.admin_teacher_subjects_delete),
