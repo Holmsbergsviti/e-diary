@@ -27,7 +27,7 @@ from ..enrollment_constants import (
     subject_years, is_subject_allowed_for_year,
     validate_year_10_11_choices, validate_year_12_13_choices,
     needs_ielts, years_allowed_for_teacher,
-    GROUP_SIZE_MAX,
+    GROUP_SIZE_MAX, canonical_subject,
 )
 
 
@@ -66,11 +66,31 @@ def _student_year(db, student_id: str) -> tuple[int | None, str]:
 
 
 def _subject_lookup(db) -> tuple[dict[str, str], dict[str, str]]:
-    """Return (name_to_id, id_to_name) for subjects."""
+    """Return (name_to_id, id_to_name) for subjects.
+    name_to_id includes both raw DB names and their canonical aliases so
+    that callers can look up either form (e.g. "Business" finds the
+    "Business Studies" row when only the latter exists). Exact DB-name
+    matches always win over alias collisions."""
     rows = db.table("subjects").select("id, name").execute().data or []
     name_to_id = {r["name"]: r["id"] for r in rows}
     id_to_name = {r["id"]: r["name"] for r in rows}
+    # Add canonical aliases without overwriting exact matches.
+    for r in rows:
+        cn = canonical_subject(r["name"])
+        if cn != r["name"] and cn not in name_to_id:
+            name_to_id[cn] = r["id"]
     return name_to_id, id_to_name
+
+
+def _ensure_subject(db, name: str) -> str:
+    """Get the id of a subject by name; create if missing. Returns id."""
+    rows = db.table("subjects").select("id").eq("name", name).execute().data or []
+    if rows:
+        return rows[0]["id"]
+    res = db.table("subjects").insert({"name": name}).execute()
+    if res.data:
+        return res.data[0]["id"]
+    raise Exception(f"Could not create subject {name}")
 
 
 # ---------------------------------------------------------------- enrollments
@@ -116,7 +136,8 @@ def admin_enrollment(request):
     if request.method == "POST":
         data = json.loads(request.body)
         student_id = data.get("student_id", "").strip()
-        chosen_names = [s.strip() for s in data.get("subjects", []) if s.strip()]
+        chosen_names = [canonical_subject(s)
+                        for s in data.get("subjects", []) if s and s.strip()]
         english_level = data.get("english_level")
         if english_level == "" or english_level is None:
             english_level = None
@@ -154,6 +175,9 @@ def admin_enrollment(request):
             return JsonResponse({"message": f"Year {year} not supported"}, status=400)
 
         name_to_id, _ = _subject_lookup(db)
+        # Auto-create IELTS if it's required but missing.
+        if "IELTS" in chosen_names and "IELTS" not in name_to_id:
+            name_to_id["IELTS"] = _ensure_subject(db, "IELTS")
         missing = [n for n in chosen_names if n not in name_to_id]
         if missing:
             return JsonResponse({
@@ -194,8 +218,12 @@ def admin_enrollment_options(request):
     db = ediary()
     name_to_id, _ = _subject_lookup(db)
 
+    # Build a canonicalized name set so options reflect what's actually
+    # in DB even when the DB has aliased / duplicate subject rows.
+    canonical_names = {canonical_subject(n) for n in name_to_id.keys()}
+
     def names_present(names):
-        return [n for n in names if n in name_to_id]
+        return [n for n in names if n in canonical_names or n in name_to_id]
 
     if year in (10, 11):
         return JsonResponse({
@@ -208,8 +236,18 @@ def admin_enrollment_options(request):
             "english_levels": [1, 2, 3, 4, 5],
         })
     if year in (12, 13):
-        all_subjects = [n for n in name_to_id.keys()
-                        if is_subject_allowed_for_year(n, 12)]
+        # Collapse aliases (e.g. "Business Studies" → "Business") and
+        # filter to subjects offered to year 12/13. Result is deduped.
+        seen = set()
+        all_subjects = []
+        for n in name_to_id.keys():
+            cn = canonical_subject(n)
+            if cn in seen:
+                continue
+            if not is_subject_allowed_for_year(cn, 12):
+                continue
+            seen.add(cn)
+            all_subjects.append(cn)
         return JsonResponse({
             "year": year,
             "min_subjects": Y12_13_MIN_SUBJECTS,
@@ -357,7 +395,7 @@ def admin_enrollment_bulk(request):
             summary["skipped"] += 1
             continue
 
-        chosen = [s.strip() for s in subjects if s and s.strip()]
+        chosen = [canonical_subject(s) for s in subjects if s and s.strip()]
 
         if year in (10, 11):
             ok, err = validate_year_10_11_choices(chosen)
@@ -395,6 +433,9 @@ def admin_enrollment_bulk(request):
             summary["skipped"] += 1
             continue
 
+        # Auto-create IELTS if needed for this row.
+        if "IELTS" in chosen and "IELTS" not in name_to_id:
+            name_to_id["IELTS"] = _ensure_subject(db, "IELTS")
         missing_subjects = [s for s in chosen if s not in name_to_id]
         if missing_subjects:
             summary["errors"].append({"row": idx, "email": email,

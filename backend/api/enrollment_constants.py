@@ -3,6 +3,30 @@ restrictions. Single source of truth for the new enrollment + generator
 flow. All names match the canonical strings in the subjects table.
 """
 
+# Canonical name aliases — collapse common variants from external data
+# (CSV imports, parser output, manual data entry) to the canonical name
+# used everywhere in the rules.
+SUBJECT_ALIASES = {
+    "Business Studies": "Business",
+    "English Language": "English",
+    "Eng Lit": "English Literature",
+    "EngLit": "English Literature",
+    "Computing": "Computer Science",
+    "CS": "Computer Science",
+    "ICT/CS": "ICT",
+    "Modern Language": "ML",
+    "Modern Languages": "ML",
+}
+
+
+def canonical_subject(name: str) -> str:
+    """Map a possibly-aliased subject name to its canonical form."""
+    if not name:
+        return ""
+    n = name.strip()
+    return SUBJECT_ALIASES.get(n, n)
+
+
 # ----------------------------------------------------------------------
 # Year 10/11 rules
 # ----------------------------------------------------------------------
