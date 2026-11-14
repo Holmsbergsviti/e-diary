@@ -13,87 +13,221 @@
     <script src="scripts/demo.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Inter, "Segoe UI", system-ui, sans-serif; background: var(--bg-page); color: var(--text-dark); min-height: 100vh; }
-        .wrap { max-width: 1080px; margin: 0 auto; padding: 48px 16px 64px; }
-        .hero { text-align: center; margin-bottom: 40px; }
-        .hero img { width: 64px; height: 64px; filter: drop-shadow(0 4px 12px rgba(var(--primary-blue-rgb), .2)); }
-        .hero h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); font-weight: 800; letter-spacing: -.5px; color: var(--primary-blue); margin: 12px 0 8px; }
-        .hero p { color: var(--text-muted); font-size: 1.05rem; max-width: 640px; margin: 0 auto; line-height: 1.55; }
-        .pill { display: inline-block; margin-top: 16px; padding: 6px 12px; border-radius: 999px; background: rgba(var(--primary-blue-rgb), .1); color: var(--primary-blue); font-size: .82rem; font-weight: 600; }
-        .roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
-        .role { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 20px; padding: 26px 24px; display: flex; flex-direction: column; box-shadow: 0 12px 40px rgba(0, 0, 0, .05); }
-        .role .icon { font-size: 2rem; }
-        .role h2 { font-size: 1.25rem; margin: 10px 0 4px; }
-        .role .who { color: var(--text-light); font-size: .88rem; margin-bottom: 14px; }
-        .role ul { list-style: none; display: grid; gap: 8px; margin-bottom: 22px; flex: 1; }
-        .role li { font-size: .92rem; color: var(--text-muted); padding-left: 22px; position: relative; line-height: 1.4; }
-        .role li::before { content: "✓"; position: absolute; left: 0; color: var(--primary-blue); font-weight: 700; }
-        .role button { border: 0; border-radius: 12px; padding: 12px 16px; font: 600 .95rem Inter, system-ui, sans-serif; cursor: pointer; color: #fff; background: linear-gradient(135deg, var(--gradient-from), var(--gradient-to)); box-shadow: 0 6px 18px var(--shadow-color); }
-        .role button:hover { filter: brightness(1.05); transform: translateY(-1px); }
-        .stack { margin-top: 44px; text-align: center; color: var(--text-muted); font-size: .9rem; line-height: 1.7; }
-        .stack strong { color: var(--text-dark); }
-        .stack a { color: var(--primary-blue); font-weight: 600; text-decoration: none; }
-        .stack a:hover { text-decoration: underline; }
+        html { scroll-behavior: smooth; }
+        body { font-family: Inter, "Segoe UI", system-ui, sans-serif; background: var(--bg-page); color: var(--text-dark); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+        a { color: inherit; text-decoration: none; }
+        .container { max-width: 1160px; margin: 0 auto; padding: 0 20px; }
+
+        /* Nav */
+        .nav { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; }
+        .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.05rem; color: var(--primary-blue); }
+        .brand img { width: 34px; height: 34px; }
+        .nav-links { display: flex; gap: 8px; }
+        .nav-links a { padding: 8px 14px; border-radius: 10px; font-size: .9rem; font-weight: 500; color: var(--text-muted); }
+        .nav-links a:hover { background: rgba(var(--primary-blue-rgb), .08); color: var(--primary-blue); }
+        .nav-links a.outline { border: 1px solid var(--border-color); color: var(--primary-blue); font-weight: 600; }
+
+        /* Hero */
+        .hero { display: grid; grid-template-columns: 1fr 1.15fr; gap: 56px; align-items: center; padding: 40px 0 72px; }
+        .eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(var(--primary-blue-rgb), .08); color: var(--primary-blue); font-size: .8rem; font-weight: 600; }
+        .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, .2); }
+        h1 { font-size: clamp(2.1rem, 4.6vw, 3.3rem); line-height: 1.08; letter-spacing: -1.2px; font-weight: 800; margin: 18px 0 18px; color: #0f172a; }
+        h1 span { background: linear-gradient(135deg, var(--gradient-from), var(--gradient-to)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .lead { font-size: 1.08rem; line-height: 1.6; color: var(--text-muted); max-width: 500px; }
+        .cta-label { margin: 30px 0 10px; font-size: .78rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-lighter); }
+        .cta-row { display: flex; gap: 10px; flex-wrap: wrap; }
+        .btn { display: inline-flex; align-items: center; gap: 8px; border: 0; border-radius: 12px; padding: 13px 20px; font: 600 .95rem Inter, system-ui, sans-serif; cursor: pointer; transition: transform .15s, box-shadow .15s, background .15s; }
+        .btn svg { width: 18px; height: 18px; }
+        .btn-primary { color: #fff; background: linear-gradient(135deg, var(--gradient-from), var(--gradient-to)); box-shadow: 0 8px 22px var(--shadow-color); }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 12px 26px var(--shadow-color); }
+        .btn-ghost { background: #fff; color: var(--primary-blue); border: 1px solid var(--border-color); }
+        .btn-ghost:hover { background: rgba(var(--primary-blue-rgb), .06); }
+        .note { margin-top: 14px; font-size: .84rem; color: var(--text-lighter); }
+
+        /* Browser preview */
+        .browser { border-radius: 16px; background: #fff; border: 1px solid rgba(15, 23, 42, .08); box-shadow: 0 30px 70px rgba(15, 23, 42, .14), 0 6px 18px rgba(15, 23, 42, .06); overflow: hidden; }
+        .browser-bar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0; }
+        .lights { display: flex; gap: 6px; }
+        .lights i { width: 10px; height: 10px; border-radius: 50%; background: #cbd5e1; }
+        .tabs { display: flex; gap: 4px; margin-left: auto; background: #e2e8f0; padding: 3px; border-radius: 9px; }
+        .tabs button { border: 0; background: transparent; padding: 5px 12px; border-radius: 7px; font: 600 .78rem Inter, system-ui, sans-serif; color: #64748b; cursor: pointer; }
+        .tabs button.active { background: #fff; color: var(--primary-blue); box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
+        .shot { position: relative; aspect-ratio: 16 / 10; background: #f8fafc; }
+        .shot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top left; opacity: 0; transition: opacity .35s ease; }
+        .shot img.active { opacity: 1; }
+
+        /* Roles */
+        .section-head { text-align: center; margin-bottom: 34px; }
+        .section-head h2 { font-size: clamp(1.5rem, 3vw, 2rem); letter-spacing: -.6px; color: #0f172a; }
+        .section-head p { margin-top: 8px; color: var(--text-muted); }
+        .roles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+        .role { background: #fff; border: 1px solid rgba(15, 23, 42, .07); border-radius: 18px; padding: 26px; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(15, 23, 42, .05); transition: transform .2s, box-shadow .2s; }
+        .role:hover { transform: translateY(-3px); box-shadow: 0 18px 40px rgba(15, 23, 42, .09); }
+        .role-head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+        .role-icon { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; background: rgba(var(--primary-blue-rgb), .1); color: var(--primary-blue); flex-shrink: 0; }
+        .role-icon svg { width: 24px; height: 24px; }
+        .role h3 { font-size: 1.15rem; color: #0f172a; }
+        .role .who { font-size: .85rem; color: var(--text-lighter); margin-top: 2px; }
+        .role ul { list-style: none; display: grid; gap: 10px; margin-bottom: 24px; flex: 1; }
+        .role li { display: flex; gap: 10px; font-size: .92rem; color: var(--text-muted); line-height: 1.45; }
+        .role li svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 3px; color: var(--primary-blue); }
+        .role .btn { justify-content: center; width: 100%; }
+
+        /* Stats + footer */
+        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 64px 0 0; padding: 26px; border-radius: 18px; background: #fff; border: 1px solid rgba(15, 23, 42, .07); }
+        .stat { text-align: center; }
+        .stat b { display: block; font-size: 1.7rem; font-weight: 800; color: var(--primary-blue); letter-spacing: -.5px; }
+        .stat span { font-size: .85rem; color: var(--text-muted); }
+        footer { margin-top: 56px; padding: 28px 0 40px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; font-size: .88rem; color: var(--text-muted); }
+        .stack { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .chip { padding: 4px 10px; border-radius: 999px; background: rgba(var(--primary-blue-rgb), .07); color: var(--text-dark); font-size: .8rem; font-weight: 500; }
+        footer a { color: var(--primary-blue); font-weight: 600; }
+        footer a:hover { text-decoration: underline; }
+
+        @media (max-width: 960px) {
+            .hero { grid-template-columns: 1fr; gap: 36px; padding-top: 16px; }
+            .roles { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 560px) {
+            .nav-links a:not(.outline) { display: none; }
+            .stats { grid-template-columns: repeat(2, 1fr); }
+            .cta-row .btn { flex: 1 1 100%; justify-content: center; }
+            .tabs button { padding: 5px 8px; }
+        }
     </style>
 </head>
 <body>
-<main class="wrap">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+        <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
+        <symbol id="i-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+        <symbol id="i-student" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5"/><path d="M22 10v6"/></symbol>
+        <symbol id="i-teacher" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M7 20h10M12 16v4"/><path d="m7 12 3-3 2 2 4-4"/></symbol>
+        <symbol id="i-admin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></symbol>
+        <symbol id="i-github" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a11.5 11.5 0 0 0-3.6 22.4c.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6A11.5 11.5 0 0 0 12 .5Z"/></symbol>
+    </defs>
+</svg>
+
+<div class="container">
+    <nav class="nav">
+        <a class="brand" href="demo.html"><img src="images/icon.png" alt="">Chartwell E-Diary</a>
+        <div class="nav-links">
+            <a href="#roles">Features</a>
+            <a href="https://github.com/Holmsbergsviti/e-diary" target="_blank" rel="noopener">GitHub</a>
+            <a class="outline" href="index.html">Log in</a>
+        </div>
+    </nav>
+
     <header class="hero">
-        <img src="images/icon.png" alt="E-Diary logo">
-        <h1>Chartwell E-Diary</h1>
-        <p>A full-stack school management platform with separate experiences for students, teachers and administrators. Pick a role below to explore it. No sign-up required.</p>
-        <span class="pill">Interactive demo · sample school with 4 classes, 9 teachers and 24 students</span>
+        <div>
+            <span class="eyebrow"><span class="dot"></span>Live interactive demo</span>
+            <h1>The school day, <span>in one place.</span></h1>
+            <p class="lead">Chartwell E-Diary is a full-stack school platform for grades, attendance, homework, timetables and reports, with separate experiences for students, teachers and administrators.</p>
+            <div class="cta-label">Explore as</div>
+            <div class="cta-row">
+                <button class="btn btn-primary" data-role="student"><svg><use href="#i-student"/></svg>Student</button>
+                <button class="btn btn-primary" data-role="teacher"><svg><use href="#i-teacher"/></svg>Teacher</button>
+                <button class="btn btn-primary" data-role="admin"><svg><use href="#i-admin"/></svg>Admin</button>
+            </div>
+            <p class="note">No sign-up. Runs on sample data in your browser, and you can switch roles at any time.</p>
+        </div>
+
+        <div class="browser">
+            <div class="browser-bar">
+                <div class="lights"><i></i><i></i><i></i></div>
+                <div class="tabs" role="tablist" aria-label="Preview">
+                    <button class="active" data-preview="student" role="tab">Student</button>
+                    <button data-preview="teacher" role="tab">Teacher</button>
+                    <button data-preview="admin" role="tab">Admin</button>
+                </div>
+            </div>
+            <div class="shot">
+                <img class="active" data-shot="student" src="images/demo/student.jpg" alt="Student weekly timetable with attendance marks">
+                <img data-shot="teacher" src="images/demo/teacher.jpg" alt="Teacher marks book for a maths class" loading="lazy">
+                <img data-shot="admin" src="images/demo/admin.jpg" alt="Admin panel showing attendance conflict flags" loading="lazy">
+            </div>
+        </div>
     </header>
 
-    <section class="roles">
-        <article class="role">
-            <div class="icon">🎒</div>
-            <h2>Student</h2>
-            <div class="who">Alex Morgan, class 10A</div>
-            <ul>
-                <li>Dashboard with homework, completion progress and recent grades</li>
-                <li>Grades per subject and term, with teacher comments</li>
-                <li>Weekly timetable with events, holidays, substitutes and missed lessons</li>
-                <li>Behaviour notes from teachers</li>
-                <li>Profile with emoji avatars and colour themes</li>
-            </ul>
-            <button onclick="EDiaryDemo.start('student')">Explore as student</button>
-        </article>
+    <section id="roles">
+        <div class="section-head">
+            <h2>Three roles, one platform</h2>
+            <p>Each role sees its own dashboard and permissions, backed by the same data.</p>
+        </div>
+        <div class="roles">
+            <article class="role">
+                <div class="role-head">
+                    <div class="role-icon"><svg><use href="#i-student"/></svg></div>
+                    <div><h3>Student</h3><div class="who">Alex Morgan · Class 10A</div></div>
+                </div>
+                <ul>
+                    <li><svg><use href="#i-check"/></svg>Dashboard with homework, completion progress and recent grades</li>
+                    <li><svg><use href="#i-check"/></svg>Grades per subject and term, with teacher comments</li>
+                    <li><svg><use href="#i-check"/></svg>Weekly timetable with events, holidays, substitutes and missed lessons</li>
+                    <li><svg><use href="#i-check"/></svg>Behaviour notes, profile avatars and colour themes</li>
+                </ul>
+                <button class="btn btn-ghost" data-role="student">Open student view<svg><use href="#i-arrow"/></svg></button>
+            </article>
 
-        <article class="role">
-            <div class="icon">🍎</div>
-            <h2>Teacher</h2>
-            <div class="who">Emma Clarke, Mathematics, form tutor of 10A</div>
-            <ul>
-                <li>Take attendance per lesson with late minutes, comments and topics</li>
-                <li>Marks book with weighted averages, categories and class overview</li>
-                <li>Homework with completion tracking and behaviour notes</li>
-                <li>Class statistics, end-of-term reports and Excel/CSV exports</li>
-                <li>Study hall, substitute lessons and class events</li>
-            </ul>
-            <button onclick="EDiaryDemo.start('teacher')">Explore as teacher</button>
-        </article>
+            <article class="role">
+                <div class="role-head">
+                    <div class="role-icon"><svg><use href="#i-teacher"/></svg></div>
+                    <div><h3>Teacher</h3><div class="who">Emma Clarke · Mathematics, form tutor 10A</div></div>
+                </div>
+                <ul>
+                    <li><svg><use href="#i-check"/></svg>Per-lesson attendance with late minutes, comments and topics</li>
+                    <li><svg><use href="#i-check"/></svg>Marks book with weighted averages and a form-class overview</li>
+                    <li><svg><use href="#i-check"/></svg>Homework tracking, behaviour notes, study hall and substitutes</li>
+                    <li><svg><use href="#i-check"/></svg>Class statistics, term reports and Excel/CSV exports</li>
+                </ul>
+                <button class="btn btn-ghost" data-role="teacher">Open teacher view<svg><use href="#i-arrow"/></svg></button>
+            </article>
 
-        <article class="role">
-            <div class="icon">🛡️</div>
-            <h2>Admin</h2>
-            <div class="who">Rachel Adams, super admin</div>
-            <ul>
-                <li>School overview, full student profiles and attendance conflict flags</li>
-                <li>Manage classes, subjects, teachers, students and admin permissions</li>
-                <li>Edit the timetable, or regenerate it with the timetable generator</li>
-                <li>Subject enrollments, events and holidays</li>
-                <li>"Login as" any student or teacher to see what they see</li>
-            </ul>
-            <button onclick="EDiaryDemo.start('admin')">Explore as admin</button>
-        </article>
+            <article class="role">
+                <div class="role-head">
+                    <div class="role-icon"><svg><use href="#i-admin"/></svg></div>
+                    <div><h3>Admin</h3><div class="who">Rachel Adams · Super admin</div></div>
+                </div>
+                <ul>
+                    <li><svg><use href="#i-check"/></svg>School overview, student profiles and attendance conflict flags</li>
+                    <li><svg><use href="#i-check"/></svg>Manage classes, subjects, staff, students and admin permissions</li>
+                    <li><svg><use href="#i-check"/></svg>Edit the timetable or regenerate it with the built-in generator</li>
+                    <li><svg><use href="#i-check"/></svg>Log in as any student or teacher to see exactly what they see</li>
+                </ul>
+                <button class="btn btn-ghost" data-role="admin">Open admin view<svg><use href="#i-arrow"/></svg></button>
+            </article>
+        </div>
     </section>
 
-    <p class="stack">
-        The demo runs the real frontend against a mock backend in your browser, so it loads instantly and any changes you make stay on your device.<br>
-        <strong>Production stack:</strong> vanilla HTML/CSS/JS on Netlify · Django REST API on Render · Supabase (Postgres, Auth, Storage)<br>
-        <a href="https://github.com/Holmsbergsviti/e-diary" target="_blank" rel="noopener">Source on GitHub</a> · <a href="index.html">Log in with a real account</a>
-    </p>
-</main>
+    <div class="stats">
+        <div class="stat"><b>3</b><span>user roles</span></div>
+        <div class="stat"><b>24</b><span>sample students</span></div>
+        <div class="stat"><b>60+</b><span>API endpoints</span></div>
+        <div class="stat"><b>0</b><span>build steps</span></div>
+    </div>
+
+    <footer>
+        <div class="stack">
+            <span class="chip">Vanilla JS on Netlify</span>
+            <span class="chip">Django REST API on Render</span>
+            <span class="chip">Supabase Postgres, Auth and Storage</span>
+        </div>
+        <div>
+            <a href="https://github.com/Holmsbergsviti/e-diary" target="_blank" rel="noopener">Source on GitHub</a>
+            · By Vladislav Salii and Stepan Atroshkin
+        </div>
+    </footer>
+</div>
+
+<script>
+    document.querySelectorAll("[data-role]").forEach(b => b.addEventListener("click", () => EDiaryDemo.start(b.dataset.role)));
+    const tabs = document.querySelectorAll("[data-preview]");
+    function showPreview(role) {
+        tabs.forEach(t => t.classList.toggle("active", t.dataset.preview === role));
+        document.querySelectorAll("[data-shot]").forEach(i => i.classList.toggle("active", i.dataset.shot === role));
+    }
+    tabs.forEach(t => t.addEventListener("click", () => showPreview(t.dataset.preview)));
+    document.querySelectorAll(".cta-row [data-role]").forEach(b => b.addEventListener("mouseenter", () => showPreview(b.dataset.role)));
+</script>
 </body>
 </html>
