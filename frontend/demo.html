@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Interactive demo of Chartwell E-Diary, a full-stack school management platform. Explore it as a student, teacher or admin with sample data.">
+    <link rel="icon" type="image/png" href="images/icon.png">
+    <link rel="stylesheet" href="styles/themes.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>E-Diary – Live Demo</title>
+    <script src="scripts/theme-loader.js"></script>
+    <script src="scripts/demo.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Inter, "Segoe UI", system-ui, sans-serif; background: var(--bg-page); color: var(--text-dark); min-height: 100vh; }
+        .wrap { max-width: 1080px; margin: 0 auto; padding: 48px 16px 64px; }
+        .hero { text-align: center; margin-bottom: 40px; }
+        .hero img { width: 64px; height: 64px; filter: drop-shadow(0 4px 12px rgba(var(--primary-blue-rgb), .2)); }
+        .hero h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); font-weight: 800; letter-spacing: -.5px; color: var(--primary-blue); margin: 12px 0 8px; }
+        .hero p { color: var(--text-muted); font-size: 1.05rem; max-width: 640px; margin: 0 auto; line-height: 1.55; }
+        .pill { display: inline-block; margin-top: 16px; padding: 6px 12px; border-radius: 999px; background: rgba(var(--primary-blue-rgb), .1); color: var(--primary-blue); font-size: .82rem; font-weight: 600; }
+        .roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+        .role { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 20px; padding: 26px 24px; display: flex; flex-direction: column; box-shadow: 0 12px 40px rgba(0, 0, 0, .05); }
+        .role .icon { font-size: 2rem; }
+        .role h2 { font-size: 1.25rem; margin: 10px 0 4px; }
+        .role .who { color: var(--text-light); font-size: .88rem; margin-bottom: 14px; }
+        .role ul { list-style: none; display: grid; gap: 8px; margin-bottom: 22px; flex: 1; }
+        .role li { font-size: .92rem; color: var(--text-muted); padding-left: 22px; position: relative; line-height: 1.4; }
+        .role li::before { content: "✓"; position: absolute; left: 0; color: var(--primary-blue); font-weight: 700; }
+        .role button { border: 0; border-radius: 12px; padding: 12px 16px; font: 600 .95rem Inter, system-ui, sans-serif; cursor: pointer; color: #fff; background: linear-gradient(135deg, var(--gradient-from), var(--gradient-to)); box-shadow: 0 6px 18px var(--shadow-color); }
+        .role button:hover { filter: brightness(1.05); transform: translateY(-1px); }
+        .stack { margin-top: 44px; text-align: center; color: var(--text-muted); font-size: .9rem; line-height: 1.7; }
+        .stack strong { color: var(--text-dark); }
+        .stack a { color: var(--primary-blue); font-weight: 600; text-decoration: none; }
+        .stack a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<main class="wrap">
+    <header class="hero">
+        <img src="images/icon.png" alt="E-Diary logo">
+        <h1>Chartwell E-Diary</h1>
+        <p>A full-stack school management platform with separate experiences for students, teachers and administrators. Pick a role below to explore it. No sign-up required.</p>
+        <span class="pill">Interactive demo · sample school with 4 classes, 9 teachers and 24 students</span>
+    </header>
+
+    <section class="roles">
+        <article class="role">
+            <div class="icon">🎒</div>
+            <h2>Student</h2>
+            <div class="who">Alex Morgan, class 10A</div>
+            <ul>
+                <li>Dashboard with homework, completion progress and recent grades</li>
+                <li>Grades per subject and term, with teacher comments</li>
+                <li>Weekly timetable with events, holidays, substitutes and missed lessons</li>
+                <li>Behaviour notes from teachers</li>
+                <li>Profile with emoji avatars and colour themes</li>
+            </ul>
+            <button onclick="EDiaryDemo.start('student')">Explore as student</button>
+        </article>
+
+        <article class="role">
+            <div class="icon">🍎</div>
+            <h2>Teacher</h2>
+            <div class="who">Emma Clarke, Mathematics, form tutor of 10A</div>
+            <ul>
+                <li>Take attendance per lesson with late minutes, comments and topics</li>
+                <li>Marks book with weighted averages, categories and class overview</li>
+                <li>Homework with completion tracking and behaviour notes</li>
+                <li>Class statistics, end-of-term reports and Excel/CSV exports</li>
+                <li>Study hall, substitute lessons and class events</li>
+            </ul>
+            <button onclick="EDiaryDemo.start('teacher')">Explore as teacher</button>
+        </article>
+
+        <article class="role">
+            <div class="icon">🛡️</div>
+            <h2>Admin</h2>
+            <div class="who">Rachel Adams, super admin</div>
+            <ul>
+                <li>School overview, full student profiles and attendance conflict flags</li>
+                <li>Manage classes, subjects, teachers, students and admin permissions</li>
+                <li>Edit the timetable, or regenerate it with the timetable generator</li>
+                <li>Subject enrollments, events and holidays</li>
+                <li>"Login as" any student or teacher to see what they see</li>
+            </ul>
+            <button onclick="EDiaryDemo.start('admin')">Explore as admin</button>
+        </article>
+    </section>
+
+    <p class="stack">
+        The demo runs the real frontend against a mock backend in your browser, so it loads instantly and any changes you make stay on your device.<br>
+        <strong>Production stack:</strong> vanilla HTML/CSS/JS on Netlify · Django REST API on Render · Supabase (Postgres, Auth, Storage)<br>
+        <a href="https://github.com/Holmsbergsviti/e-diary" target="_blank" rel="noopener">Source on GitHub</a> · <a href="index.html">Log in with a real account</a>
+    </p>
+</main>
+</body>
+</html>

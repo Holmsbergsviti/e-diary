@@ -18,6 +18,15 @@ Role-based access, timetable management, attendance, grading, homework, reports,
 
 ## Demo
 
+**Try it without an account:** <https://chartwell-e-diary.netlify.app/demo.html>
+
+Pick Student, Teacher or Admin and explore a sample school (4 classes, 9 teachers, 24 students) with grades, attendance, homework, timetables, events and reports. You can also jump straight in with
+`/?demo=student`, `/?demo=teacher` or `/?demo=admin`, or use the demo buttons on the login page.
+
+The demo runs the real frontend against an in-browser mock of the API (`frontend/scripts/demo.js`), so it never touches Render or Supabase and loads instantly even when the backend is asleep. Changes are kept in the visitor's browser; the floating demo bar lets them switch role, reset the sample data or exit.
+
+Production:
+
 - Frontend: <https://chartwell-e-diary.netlify.app/>
 - Backend API: <https://e-diary-backend-qsly.onrender.com/api>
 
